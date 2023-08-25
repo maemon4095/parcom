@@ -1,10 +1,6 @@
-use std::{
-    cell::{Ref, RefCell},
-    io::Read,
-    rc::Rc,
-};
+use std::{cell::RefCell, io::Read, rc::Rc};
 
-use crate::{ParseStream, Stream};
+use crate::Stream;
 
 pub struct FromRead<T: Read> {
     source: RefCell<T>,
@@ -115,7 +111,8 @@ struct Node {
     next: RefCell<Option<Rc<Node>>>,
 }
 
-impl<T: Read> Stream<u8> for FromRead<T> {
+impl<T: Read> Stream for FromRead<T> {
+    type Item = u8;
     type Anchor = Anchor;
     type Iter<'a> = Segments<'a, T> where Self: 'a;
 
@@ -148,7 +145,7 @@ impl<T: Read> Stream<u8> for FromRead<T> {
         }
     }
 
-    fn rewind(self, anchor: Self::Anchor) -> Self {
+    fn rewind(mut self, anchor: Self::Anchor) -> Self {
         let segments = match anchor.node {
             Some(h) => {
                 // stream must not be empty.
@@ -164,19 +161,46 @@ impl<T: Read> Stream<u8> for FromRead<T> {
             }
         };
 
-        Self {
-            source: self.source,
-            offset: anchor.offset,
-            is_completed: self.is_completed,
-            segments: RefCell::new(segments),
-        }
+        self.offset = anchor.offset;
+        self.segments = RefCell::new(segments);
+
+        self
     }
 
-    fn advance(self, count: usize) -> Self {
+    fn advance(mut self, count: usize) -> Self {
+        let Some((mut head, mut tail)) = self.segments.replace(None) else {
+            return self;
+        };
         let mut rest = count;
+        let mut offset = self.offset;
 
-        while rest > 0 {}
+        loop {
+            let len = head.vec.len() - offset;
 
-        todo!()
+            if rest <= len {
+                offset = rest;
+                break;
+            }
+
+            let next = match head.next.replace(None) {
+                Some(n) => n,
+                None => {
+                    let n = match self.read() {
+                        Some(n) => n,
+                        None => break,
+                    };
+                    tail = n.clone();
+                    n
+                }
+            };
+            head = next;
+            rest -= len;
+            offset = 0;
+        }
+
+        self.offset = offset;
+        self.segments = RefCell::new(Some((head, tail)));
+
+        self
     }
 }
