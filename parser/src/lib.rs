@@ -1,5 +1,7 @@
-mod from_read;
+#[cfg(feature = "standard")]
 mod standard_extension;
+#[cfg(feature = "streams")]
+mod streams;
 pub trait Parser<T> {
     type Output;
     type Error;
@@ -27,4 +29,10 @@ pub trait Stream {
     // AnchorとSelfの組で返しても良いが，バックトラックが不要な場合にパフォーマンスが低下する．
     fn advance(self, count: usize) -> Self;
     fn rewind(self, anchor: Self::Anchor) -> Self;
+}
+
+mod internal {
+    pub trait Sealed {}
+
+    impl<T> Sealed for T {}
 }

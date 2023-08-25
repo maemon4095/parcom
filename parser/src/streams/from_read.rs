@@ -10,6 +10,15 @@ pub struct FromRead<T: Read> {
 }
 
 impl<T: Read> FromRead<T> {
+    pub fn new(source: T) -> Self {
+        Self {
+            source: RefCell::new(source),
+            offset: 0,
+            is_completed: RefCell::new(false),
+            segments: RefCell::new(None),
+        }
+    }
+
     fn append(&self, node: Rc<Node>) -> (&Rc<Node>, &Rc<Node>) {
         match &mut *self.segments.borrow_mut() {
             Some((_, tail)) => {

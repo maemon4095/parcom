@@ -1,25 +1,27 @@
+mod join;
+mod maps;
+mod optional;
+mod repeat;
+mod repeat_n;
+
 use std::{
     marker::PhantomData,
     ops::{Bound, RangeBounds},
 };
 
-mod join;
-mod maps;
-mod optional;
-mod repeat;
+use crate::internal::Sealed;
+
 use self::{
-    internal::Sealed,
     join::Join,
     maps::{Map, MapErr},
     optional::Optional,
     repeat::Repeat,
     repeat_n::RepeatN,
 };
-mod repeat_n;
 
 use super::Parser;
 
-pub trait StandardExtension<T>: Parser<T> + Sealed<T> {
+pub trait StandardExtension<T>: Parser<T> + Sealed {
     fn repeat<R: RangeBounds<usize>>(self, range: R) -> Repeat<T, Self, R>
     where
         Self: Sized,
@@ -85,8 +87,7 @@ pub trait StandardExtension<T>: Parser<T> + Sealed<T> {
     }
 }
 
-impl<T, P: Parser<T>> Sealed<T> for P {}
-impl<T, P: Parser<T> + Sealed<T>> StandardExtension<T> for P {}
+impl<T, P: Parser<T> + Sealed> StandardExtension<T> for P {}
 
 fn just_on_boundary(item: usize, bound: Bound<&usize>) -> bool {
     match bound {
@@ -99,8 +100,4 @@ fn just_on_boundary(item: usize, bound: Bound<&usize>) -> bool {
 pub enum Either<T0, T1> {
     First(T0),
     Last(T1),
-}
-
-mod internal {
-    pub trait Sealed<T> {}
 }
