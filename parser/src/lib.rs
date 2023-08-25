@@ -3,32 +3,22 @@ pub trait Parser<T> {
     type Output;
     type Error;
 
-    fn parse<S: Sequence<T>>(&self, input: S) -> Result<(Self::Output, S), Self::Error>;
+    fn parse<S: ParseStream<T>>(&self, input: S) -> Result<(Self::Output, S), Self::Error>;
 }
 
-pub trait Sequence<T> {
-    type Segment: AsRef<[T]>;
-    type Iter: Iterator<Item = Self::Segment>;
-
-    fn segments(&self) -> Self::Iter;
-}
-
-// エラー表示のために，文字数，行数などを知りたい．
-// しかし，チェックポイントには不要である．
-// また，位置情報をadvance, rewind以外の方法で取得したい．
-
-// バックトラックに対応するために，必要なセグメントのみ保持したい．
-// Anchorがdropされていなければaliveで良いか．
-pub trait ParseStream<T> {
+pub trait ParseStream<T>: Stream<T> {
     type Location;
+    fn location(&self, index: usize) -> Self::Location;
+}
+
+pub trait Stream<T> {
     type Anchor;
-    type Segments<'a>: Iterator<Item = &'a [T]>
+    type Iter<'a>: 'a + Iterator<Item = &'a [T]>
     where
         Self: 'a,
         T: 'a;
 
-    fn segments(&self) -> Self::Segments<'_>;
-    fn location(&self, indes: usize) -> Self::Location;
+    fn segments(&self) -> Self::Iter<'_>;
     fn anchor(&self) -> Self::Anchor;
     // AnchorとSelfの組で返しても良いが，バックトラックが不要な場合にパフォーマンスが低下する．
     fn advance(self, count: usize) -> Self;
