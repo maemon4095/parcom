@@ -1,16 +1,18 @@
 use std::io::Read;
 
+use self::buffer_writer::BufferStaging;
+
 mod buffer_writer;
-mod from_source;
+mod from_read;
 
 pub trait SegmentFactory<T> {
     type Segment;
-    fn stage(&mut self) -> buffer_writer::BufferStaging<'_, T>;
-    fn complete(self) -> Self::Segment;
+
+    fn next(&self) -> Option<Self::Segment>;
 }
 
 pub trait StreamSource<T> {
-    fn request<B: BufferWriter<T> + ?Sized>(&mut self, writer: &mut B) -> SourceResponse;
+    fn request<B: ?Sized>(&mut self, writer: &mut B) -> SourceResponse;
 }
 
 struct ReadSouce<T: Read> {
@@ -18,9 +20,7 @@ struct ReadSouce<T: Read> {
 }
 
 impl<T: Read> StreamSource<u8> for ReadSouce<T> {
-    fn request<B: BufferWriter<u8> + ?Sized>(&mut self, writer: &mut B) -> SourceResponse {
-        let mut staging = writer.stage(1024);
-        let caps = staging.spare_capacity_mut();
+    fn request<B: ?Sized>(&mut self, writer: &mut B) -> SourceResponse {
         todo!()
     }
 }

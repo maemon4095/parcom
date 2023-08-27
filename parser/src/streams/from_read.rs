@@ -1,33 +1,25 @@
-use core::panic;
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, io::Read, rc::Rc};
 
 use crate::{RewindStream, Stream};
-
-use super::{buffer_writer::BufferStaging, BufferWriter, StreamSource};
-// asyncフレンドリーな形にしたい．Arcを使って上手く作れないか．
-// async版と同期版を分けて作るか．
-// async版はwriterを公開する形で作る．channelのようなapi
-
-struct FromSource<T, S: StreamSource<T>> {
-    source: RefCell<S>,
+// TODO: bufferwriterを使ったより一般の実装に差し替える．
+pub struct FromRead<T: Read> {
+    source: RefCell<T>,
     offset: usize,
     is_completed: RefCell<bool>,
-    segments: RefCell<Option<(Rc<Node<T>>, Rc<Node<T>>)>>,
-    marker: PhantomData<T>,
+    segments: RefCell<Option<(Rc<Node>, Rc<Node>)>>,
 }
 
-impl<T, S: StreamSource<T>> FromSource<T, S> {
-    pub fn new(source: S) -> Self {
+impl<T: Read> FromRead<T> {
+    pub fn new(source: T) -> Self {
         Self {
             source: RefCell::new(source),
             offset: 0,
             is_completed: RefCell::new(false),
             segments: RefCell::new(None),
-            marker: PhantomData,
         }
     }
 
-    fn append(&self, node: Rc<Node<T>>) -> (&Rc<Node<T>>, &Rc<Node<T>>) {
+    fn append(&self, node: Rc<Node>) -> (&Rc<Node>, &Rc<Node>) {
         match &mut *self.segments.borrow_mut() {
             Some((_, tail)) => {
                 let old = std::mem::replace(&mut *tail.next.borrow_mut(), Some(node.clone()));
@@ -47,64 +39,35 @@ impl<T, S: StreamSource<T>> FromSource<T, S> {
         (head, tail)
     }
 
-    fn read(&self) -> Option<Rc<Node<T>>> {
+    fn read(&self) -> Option<Rc<Node>> {
         if *self.is_completed.borrow() {
             return None;
         }
-        let mut writer = Writer { vec: None };
-        let res = self.source.borrow_mut().request(&mut writer);
-        if res.is_completed {
+
+        let mut buf = [0; 1024];
+
+        let written = self.source.borrow_mut().read(&mut buf).unwrap();
+
+        if written == 0 {
             *self.is_completed.borrow_mut() = true;
+            return None;
         }
 
-        writer.vec.map(|vec| {
-            Rc::new(Node {
-                vec,
-                next: RefCell::new(None),
-            })
-        })
+        let node = Rc::new(Node {
+            vec: Vec::from(&buf[..written]),
+            next: RefCell::new(None),
+        });
+
+        Some(node)
     }
 }
 
-struct Writer<T> {
-    vec: Option<Vec<T>>,
-}
-
-impl<T> BufferWriter<T> for Writer<T> {
-    fn stage(&mut self, min_capacity: usize) -> super::buffer_writer::BufferStaging<'_, T> {
-        if self.vec.is_some() {
-            panic!();
-        }
-        let mut vec = Vec::with_capacity(min_capacity);
-        let ptr = vec.as_mut_ptr();
-        let len = vec.len();
-        self.vec = Some(vec);
-
-        BufferStaging::new(ptr, len)
-    }
-
-    fn advance(&mut self, completion: super::buffer_writer::BufferCompletion<T>) {
-        if self.vec.is_none() {
-            panic!();
-        }
-
-        let vec = self.vec.as_mut().unwrap();
-        if !vec.as_ptr().eq(&completion.ptr) {
-            panic!();
-        }
-        if vec.len() < completion.len {
-            panic!();
-        }
-        unsafe { vec.set_len(completion.len) }
-    }
-}
-
-pub struct Anchor<T> {
+pub struct Anchor {
     offset: usize,
-    node: Option<Rc<Node<T>>>,
+    node: Option<Rc<Node>>,
 }
 
-impl<T> Anchor<T> {
+impl Anchor {
     fn empty() -> Self {
         Anchor {
             offset: 0,
@@ -113,14 +76,14 @@ impl<T> Anchor<T> {
     }
 }
 
-pub struct Segments<'a, T, S: StreamSource<T>> {
-    host: &'a FromSource<T, S>,
+pub struct Segments<'a, T: Read> {
+    host: &'a FromRead<T>,
     offset: usize,
-    current: Option<&'a Node<T>>,
+    current: Option<&'a Node>,
 }
 
-impl<'a, T, S: StreamSource<T>> Iterator for Segments<'a, T, S> {
-    type Item = &'a [T];
+impl<'a, T: Read> Iterator for Segments<'a, T> {
+    type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.current {
@@ -152,14 +115,14 @@ impl<'a, T, S: StreamSource<T>> Iterator for Segments<'a, T, S> {
     }
 }
 
-struct Node<T> {
-    vec: Vec<T>,
-    next: RefCell<Option<Rc<Node<T>>>>,
+struct Node {
+    vec: Vec<u8>,
+    next: RefCell<Option<Rc<Node>>>,
 }
 
-impl<T, S: StreamSource<T>> Stream for FromSource<T, S> {
-    type Item = T;
-    type Iter<'a> = Segments<'a, T, S> where Self: 'a;
+impl<T: Read> Stream for FromRead<T> {
+    type Segment = [u8];
+    type Iter<'a> = Segments<'a, T> where Self: 'a;
 
     fn segments(&self) -> Self::Iter<'_> {
         Segments {
@@ -210,8 +173,8 @@ impl<T, S: StreamSource<T>> Stream for FromSource<T, S> {
     }
 }
 
-impl<T, S: StreamSource<T>> RewindStream for FromSource<T, S> {
-    type Anchor = Anchor<T>;
+impl<T: Read> RewindStream for FromRead<T> {
+    type Anchor = Anchor;
 
     fn anchor(&self) -> Self::Anchor {
         let reference = self.segments.borrow();

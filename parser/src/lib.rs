@@ -31,13 +31,45 @@ pub trait RewindStream: Stream {
 }
 
 pub trait Stream {
-    type Item;
-    type Iter<'a>: 'a + Iterator<Item = &'a [Self::Item]>
+    type Segment: ?Sized;
+    type Iter<'a>: 'a + Iterator<Item = &'a Self::Segment>
     where
         Self: 'a;
 
     fn segments(&self) -> Self::Iter<'_>;
     fn advance(self, count: usize) -> Self;
+}
+
+impl Stream for &str {
+    type Segment = str;
+    type Iter<'a> = std::iter::Once<&'a str>
+    where
+        Self: 'a;
+
+    fn segments(&self) -> Self::Iter<'_> {
+        std::iter::once(self)
+    }
+
+    fn advance(self, count: usize) -> Self {
+        let mut chars = self.chars();
+        chars.nth(count);
+        chars.as_str()
+    }
+}
+
+impl<T> Stream for &[T] {
+    type Segment = [T];
+    type Iter<'a> = std::iter::Once<&'a [T]>
+    where
+        Self: 'a;
+
+    fn segments(&self) -> Self::Iter<'_> {
+        std::iter::once(self)
+    }
+
+    fn advance(self, count: usize) -> Self {
+        &self[count..]
+    }
 }
 
 mod internal {
