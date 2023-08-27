@@ -1,7 +1,7 @@
 use core::panic;
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-use crate::Stream;
+use crate::{RewindStream, Stream};
 
 use super::{buffer_writer::BufferStaging, BufferWriter, StreamSource};
 // asyncフレンドリーな形にしたい．Arcを使って上手く作れないか．
@@ -159,7 +159,6 @@ struct Node<T> {
 
 impl<T, S: StreamSource<T>> Stream for FromSource<T, S> {
     type Item = T;
-    type Anchor = Anchor<T>;
     type Iter<'a> = Segments<'a, T, S> where Self: 'a;
 
     fn segments(&self) -> Self::Iter<'_> {
@@ -172,6 +171,47 @@ impl<T, S: StreamSource<T>> Stream for FromSource<T, S> {
                 .map(|(_, t)| t.as_ref()),
         }
     }
+
+    fn advance(mut self, count: usize) -> Self {
+        let Some((mut head, mut tail)) = self.segments.replace(None) else {
+            return self;
+        };
+        let mut rest = count;
+        let mut offset = self.offset;
+
+        loop {
+            let len = head.vec.len() - offset;
+
+            if rest <= len {
+                offset = rest;
+                break;
+            }
+
+            let next = match head.next.replace(None) {
+                Some(n) => n,
+                None => {
+                    let n = match self.read() {
+                        Some(n) => n,
+                        None => break,
+                    };
+                    tail = n.clone();
+                    n
+                }
+            };
+            head = next;
+            rest -= len;
+            offset = 0;
+        }
+
+        self.offset = offset;
+        self.segments = RefCell::new(Some((head, tail)));
+
+        self
+    }
+}
+
+impl<T, S: StreamSource<T>> RewindStream for FromSource<T, S> {
+    type Anchor = Anchor<T>;
 
     fn anchor(&self) -> Self::Anchor {
         let reference = self.segments.borrow();
@@ -209,43 +249,6 @@ impl<T, S: StreamSource<T>> Stream for FromSource<T, S> {
 
         self.offset = anchor.offset;
         self.segments = RefCell::new(segments);
-
-        self
-    }
-
-    fn advance(mut self, count: usize) -> Self {
-        let Some((mut head, mut tail)) = self.segments.replace(None) else {
-            return self;
-        };
-        let mut rest = count;
-        let mut offset = self.offset;
-
-        loop {
-            let len = head.vec.len() - offset;
-
-            if rest <= len {
-                offset = rest;
-                break;
-            }
-
-            let next = match head.next.replace(None) {
-                Some(n) => n,
-                None => {
-                    let n = match self.read() {
-                        Some(n) => n,
-                        None => break,
-                    };
-                    tail = n.clone();
-                    n
-                }
-            };
-            head = next;
-            rest -= len;
-            offset = 0;
-        }
-
-        self.offset = offset;
-        self.segments = RefCell::new(Some((head, tail)));
 
         self
     }

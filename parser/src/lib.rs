@@ -18,23 +18,26 @@ impl<S: ParseStream, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
     }
 }
 
-pub trait ParseStream: Stream {
+pub trait ParseStream: RewindStream {
     type Location: Ord;
     fn location(&self, index: usize) -> Self::Location;
 }
 
+pub trait RewindStream: Stream {
+    type Anchor;
+
+    fn anchor(&self) -> Self::Anchor;
+    fn rewind(self, anchor: Self::Anchor) -> Self;
+}
+
 pub trait Stream {
     type Item;
-    type Anchor;
     type Iter<'a>: 'a + Iterator<Item = &'a [Self::Item]>
     where
         Self: 'a;
 
     fn segments(&self) -> Self::Iter<'_>;
-    fn anchor(&self) -> Self::Anchor;
-    // AnchorとSelfの組で返しても良いが，バックトラックが不要な場合にパフォーマンスが低下する．
     fn advance(self, count: usize) -> Self;
-    fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
 mod internal {
