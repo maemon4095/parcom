@@ -1,19 +1,16 @@
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use crate::Parser;
+use crate::{ParseStream, Parser};
 
-pub struct RepeatN<T, P: Parser<T>, const N: usize> {
+pub struct RepeatN<T: ParseStream, P: Parser<T>, const N: usize> {
     pub(super) parser: P,
     pub(super) marker: PhantomData<T>,
 }
-impl<T, P: Parser<T>, const N: usize> Parser<T> for RepeatN<T, P, N> {
+impl<S: ParseStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, N> {
     type Output = [P::Output; N];
     type Error = P::Error;
 
-    fn parse<S: crate::ParseStream<Item = T>>(
-        &self,
-        input: S,
-    ) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
         let mut buf = std::array::from_fn(|_| MaybeUninit::uninit());
 
         let mut rest = input;

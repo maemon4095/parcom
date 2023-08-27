@@ -4,20 +4,17 @@ use crate::{ParseStream, Parser};
 
 use super::just_on_boundary;
 
-pub struct Repeat<T, P: Parser<T>, R: RangeBounds<usize>> {
+pub struct Repeat<T: ParseStream, P: Parser<T>, R: RangeBounds<usize>> {
     pub(super) range: R,
     pub(super) parser: P,
     pub(super) marker: PhantomData<T>,
 }
 
-impl<T, P: Parser<T>, R: RangeBounds<usize>> Parser<T> for Repeat<T, P, R> {
+impl<S: ParseStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<S, P, R> {
     type Output = Vec<P::Output>;
     type Error = P::Error;
 
-    fn parse<S: ParseStream<Item = T>>(
-        &self,
-        input: S,
-    ) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
         let mut vec = Vec::new();
         let upper_bound = self.range.end_bound();
 

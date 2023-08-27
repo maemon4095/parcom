@@ -2,14 +2,20 @@
 mod standard_extension;
 #[cfg(feature = "streams")]
 mod streams;
-pub trait Parser<T> {
+pub trait Parser<S: ParseStream> {
     type Output;
     type Error;
 
-    fn parse<S: ParseStream<Item = T>>(
-        &self,
-        input: S,
-    ) -> Result<(Self::Output, S), (Self::Error, S)>;
+    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)>;
+}
+
+impl<S: ParseStream, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
+    type Output = O;
+    type Error = E;
+
+    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+        self(input)
+    }
 }
 
 pub trait ParseStream: Stream {

@@ -9,7 +9,7 @@ use std::{
     ops::{Bound, RangeBounds},
 };
 
-use crate::internal::Sealed;
+use crate::{internal::Sealed, ParseStream};
 
 use self::{
     join::Join,
@@ -21,7 +21,7 @@ use self::{
 
 use super::Parser;
 
-pub trait StandardExtension<T>: Parser<T> + Sealed {
+pub trait StandardExtension<T: ParseStream>: Parser<T> + Sealed {
     fn repeat<R: RangeBounds<usize>>(self, range: R) -> Repeat<T, Self, R>
     where
         Self: Sized,
@@ -87,7 +87,7 @@ pub trait StandardExtension<T>: Parser<T> + Sealed {
     }
 }
 
-impl<T, P: Parser<T> + Sealed> StandardExtension<T> for P {}
+impl<T: ParseStream, P: Parser<T> + Sealed> StandardExtension<T> for P {}
 
 fn just_on_boundary(item: usize, bound: Bound<&usize>) -> bool {
     match bound {
