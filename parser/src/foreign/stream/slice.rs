@@ -1,13 +1,16 @@
 use crate::{ParseStream, RewindStream, Stream};
 
 pub struct SliceStream<'me, T> {
-    location: usize,
+    location: Location,
     slice: &'me [T],
 }
 
 impl<'me, T> SliceStream<'me, T> {
     pub fn new(slice: &'me [T]) -> Self {
-        Self { location: 0, slice }
+        Self {
+            location: Location { index: 0 },
+            slice,
+        }
     }
 }
 
@@ -49,9 +52,26 @@ impl<'me, T> RewindStream for SliceStream<'me, T> {
     }
 }
 impl<'me, T> ParseStream for SliceStream<'me, T> {
-    type Location = usize;
+    type Location = Location;
 
     fn location(&self, index: usize) -> Self::Location {
-        self.slice.iter().take(index + 1).count()
+        Location {
+            index: self.slice.iter().take(index + 1).count(),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Location {
+    index: usize,
+}
+
+impl crate::Location for Location {
+    fn distance(&self, rhs: &Self) -> usize {
+        if self.index < rhs.index {
+            rhs.index - self.index
+        } else {
+            self.index - rhs.index
+        }
     }
 }

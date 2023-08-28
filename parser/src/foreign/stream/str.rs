@@ -86,6 +86,16 @@ pub struct Location {
     column: usize,
 }
 
+impl crate::Location for Location {
+    fn distance(&self, rhs: &Self) -> usize {
+        if self.total_count < rhs.total_count {
+            rhs.total_count - self.total_count
+        } else {
+            self.total_count - rhs.total_count
+        }
+    }
+}
+
 impl PartialEq for Location {
     fn eq(&self, other: &Self) -> bool {
         self.total_count == other.total_count

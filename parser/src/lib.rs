@@ -1,18 +1,45 @@
 #[cfg(feature = "foreign")]
 pub mod foreign;
+#[cfg(feature = "packrat")]
+pub mod packrat;
 #[cfg(feature = "standard")]
 pub mod standard_extension;
 #[cfg(feature = "stream")]
 pub mod stream;
+
+pub type ParseResult<S, P> = Result<(<P as Parser<S>>::Output, S), (<P as Parser<S>>::Error, S)>;
+
 pub trait Parser<S> {
     type Output;
     type Error;
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)>;
+    fn parse(&self, input: S) -> ParseResult<S, Self>;
+}
+
+impl<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
+    type Output = O;
+    type Error = E;
+
+    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+        self(input)
+    }
+}
+
+impl<S, O, E> Parser<S> for Box<dyn Parser<S, Output = O, Error = E>> {
+    type Output = O;
+    type Error = E;
+
+    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+        self.as_ref().parse(input)
+    }
+}
+
+pub trait Location: Ord {
+    fn distance(&self, rhs: &Self) -> usize;
 }
 
 pub trait ParseStream: RewindStream {
-    type Location: Ord;
+    type Location: Location;
     fn location(&self, index: usize) -> Self::Location;
 }
 
