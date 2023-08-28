@@ -1,25 +1,29 @@
-use std::{cell::RefCell, io::Read, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 use crate::{RewindStream, Stream};
-// TODO: bufferwriterを使ったより一般の実装に差し替える．
-pub struct FromRead<T: Read> {
-    source: RefCell<T>,
+
+use super::{SegmentFactory, StreamSource};
+
+pub struct FromSource<T, S: StreamSource<T>> {
+    source: RefCell<S>,
     offset: usize,
     is_completed: RefCell<bool>,
-    segments: RefCell<Option<(Rc<Node>, Rc<Node>)>>,
+    segments: RefCell<Option<(Rc<Node<T>>, Rc<Node<T>>)>>,
+    marker: PhantomData<T>,
 }
 
-impl<T: Read> FromRead<T> {
-    pub fn new(source: T) -> Self {
+impl<T, S: StreamSource<T>> FromSource<T, S> {
+    pub fn new(source: S) -> Self {
         Self {
             source: RefCell::new(source),
             offset: 0,
             is_completed: RefCell::new(false),
             segments: RefCell::new(None),
+            marker: PhantomData,
         }
     }
 
-    fn append(&self, node: Rc<Node>) -> (&Rc<Node>, &Rc<Node>) {
+    fn append(&self, node: Rc<Node<T>>) -> (&Rc<Node<T>>, &Rc<Node<T>>) {
         match &mut *self.segments.borrow_mut() {
             Some((_, tail)) => {
                 let old = std::mem::replace(&mut *tail.next.borrow_mut(), Some(node.clone()));
@@ -39,22 +43,21 @@ impl<T: Read> FromRead<T> {
         (head, tail)
     }
 
-    fn read(&self) -> Option<Rc<Node>> {
+    fn read(&self) -> Option<Rc<Node<T>>> {
         if *self.is_completed.borrow() {
             return None;
         }
 
-        let mut buf = [0; 1024];
+        let mut factory = Factory { vec: None };
 
-        let written = self.source.borrow_mut().read(&mut buf).unwrap();
+        let construct = self.source.borrow_mut().request(&mut factory);
 
-        if written == 0 {
-            *self.is_completed.borrow_mut() = true;
+        let Some(vec) = construct else {
             return None;
-        }
+        };
 
         let node = Rc::new(Node {
-            vec: Vec::from(&buf[..written]),
+            vec,
             next: RefCell::new(None),
         });
 
@@ -62,12 +65,34 @@ impl<T: Read> FromRead<T> {
     }
 }
 
-pub struct Anchor {
-    offset: usize,
-    node: Option<Rc<Node>>,
+struct Factory<T> {
+    vec: Option<Vec<T>>,
+}
+impl<T> SegmentFactory<T> for Factory<T> {
+    type SegmentConstruct = Vec<T>;
+
+    fn alloc(&mut self, min_capacity: usize) -> (*mut T, usize) {
+        let mut vec = Vec::with_capacity(min_capacity);
+        let cap = vec.capacity();
+        let ptr = vec.as_mut_ptr();
+        self.vec = Some(vec);
+
+        (ptr, cap)
+    }
+
+    fn complete(&mut self, len: usize) -> Self::SegmentConstruct {
+        let mut vec = self.vec.take().unwrap();
+        unsafe { vec.set_len(len) };
+        vec
+    }
 }
 
-impl Anchor {
+pub struct Anchor<T> {
+    offset: usize,
+    node: Option<Rc<Node<T>>>,
+}
+
+impl<T> Anchor<T> {
     fn empty() -> Self {
         Anchor {
             offset: 0,
@@ -76,14 +101,14 @@ impl Anchor {
     }
 }
 
-pub struct Segments<'a, T: Read> {
-    host: &'a FromRead<T>,
+pub struct Segments<'a, T, S: StreamSource<T>> {
+    host: &'a FromSource<T, S>,
     offset: usize,
-    current: Option<&'a Node>,
+    current: Option<&'a Node<T>>,
 }
 
-impl<'a, T: Read> Iterator for Segments<'a, T> {
-    type Item = &'a [u8];
+impl<'a, T, S: StreamSource<T>> Iterator for Segments<'a, T, S> {
+    type Item = &'a [T];
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.current {
@@ -115,14 +140,14 @@ impl<'a, T: Read> Iterator for Segments<'a, T> {
     }
 }
 
-struct Node {
-    vec: Vec<u8>,
-    next: RefCell<Option<Rc<Node>>>,
+struct Node<T> {
+    vec: Vec<T>,
+    next: RefCell<Option<Rc<Node<T>>>>,
 }
 
-impl<T: Read> Stream for FromRead<T> {
-    type Segment = [u8];
-    type Iter<'a> = Segments<'a, T> where Self: 'a;
+impl<T, S: StreamSource<T>> Stream for FromSource<T, S> {
+    type Segment = [T];
+    type Iter<'a> = Segments<'a, T, S> where Self: 'a;
 
     fn segments(&self) -> Self::Iter<'_> {
         Segments {
@@ -139,14 +164,12 @@ impl<T: Read> Stream for FromRead<T> {
         let Some((mut head, mut tail)) = self.segments.replace(None) else {
             return self;
         };
-        let mut rest = count;
-        let mut offset = self.offset;
+        let mut rest = count + self.offset;
 
         loop {
-            let len = head.vec.len() - offset;
+            let len = head.vec.len();
 
             if rest <= len {
-                offset = rest;
                 break;
             }
 
@@ -163,18 +186,17 @@ impl<T: Read> Stream for FromRead<T> {
             };
             head = next;
             rest -= len;
-            offset = 0;
         }
 
-        self.offset = offset;
+        self.offset = rest;
         self.segments = RefCell::new(Some((head, tail)));
 
         self
     }
 }
 
-impl<T: Read> RewindStream for FromRead<T> {
-    type Anchor = Anchor;
+impl<T, S: StreamSource<T>> RewindStream for FromSource<T, S> {
+    type Anchor = Anchor<T>;
 
     fn anchor(&self) -> Self::Anchor {
         let reference = self.segments.borrow();

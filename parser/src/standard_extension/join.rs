@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 
-use crate::{ParseStream, Parser};
+use crate::{Parser, RewindStream};
 
 use super::Either;
 
-pub struct Join<T: ParseStream, P0: Parser<T>, P1: Parser<T>> {
+pub struct Join<T: RewindStream, P0: Parser<T>, P1: Parser<T>> {
     pub(super) parser0: P0,
     pub(super) parser1: P1,
     pub(super) marker: PhantomData<T>,
 }
 
-impl<S: ParseStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Join<S, P0, P1> {
+impl<S: RewindStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Join<S, P0, P1> {
     type Output = (P0::Output, P1::Output);
     type Error = Either<P0::Error, P1::Error>;
 

@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
-use crate::{ParseStream, Parser};
+use crate::{Parser, RewindStream};
 
-pub struct Map<T: ParseStream, P: Parser<T>, U, F: Fn(P::Output) -> U> {
+pub struct Map<T: RewindStream, P: Parser<T>, U, F: Fn(P::Output) -> U> {
     pub(super) parser: P,
     pub(super) mapping: F,
     pub(super) marker: PhantomData<(T, U)>,
 }
 
-impl<S: ParseStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
+impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
     type Output = U;
     type Error = P::Error;
 
@@ -19,13 +19,13 @@ impl<S: ParseStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S
     }
 }
 
-pub struct MapErr<T: ParseStream, P: Parser<T>, U, F: Fn(P::Error) -> U> {
+pub struct MapErr<T: RewindStream, P: Parser<T>, U, F: Fn(P::Error) -> U> {
     pub(super) parser: P,
     pub(super) mapping: F,
     pub(super) marker: PhantomData<(T, U)>,
 }
 
-impl<S: ParseStream, P: Parser<S>, U, F: Fn(P::Error) -> U> Parser<S> for MapErr<S, P, U, F> {
+impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Error) -> U> Parser<S> for MapErr<S, P, U, F> {
     type Output = P::Output;
     type Error = U;
 

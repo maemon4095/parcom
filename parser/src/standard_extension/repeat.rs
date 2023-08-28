@@ -1,16 +1,16 @@
 use std::{marker::PhantomData, ops::RangeBounds};
 
-use crate::{ParseStream, Parser};
+use crate::{Parser, RewindStream};
 
 use super::just_on_boundary;
 
-pub struct Repeat<T: ParseStream, P: Parser<T>, R: RangeBounds<usize>> {
+pub struct Repeat<T: RewindStream, P: Parser<T>, R: RangeBounds<usize>> {
     pub(super) range: R,
     pub(super) parser: P,
     pub(super) marker: PhantomData<T>,
 }
 
-impl<S: ParseStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<S, P, R> {
+impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<S, P, R> {
     type Output = Vec<P::Output>;
     type Error = P::Error;
 

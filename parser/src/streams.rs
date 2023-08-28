@@ -1,30 +1,44 @@
 use std::io::Read;
-
-use self::buffer_writer::BufferStaging;
-
 mod buffer_writer;
-mod from_read;
+mod from_source;
+
+pub use from_source::FromSource;
 
 pub trait SegmentFactory<T> {
-    type Segment;
+    type SegmentConstruct;
 
-    fn next(&self) -> Option<Self::Segment>;
+    fn alloc(&mut self, min_capacity: usize) -> (*mut T, usize);
+    fn complete(&mut self, len: usize) -> Self::SegmentConstruct;
 }
 
 pub trait StreamSource<T> {
-    fn request<B: ?Sized>(&mut self, writer: &mut B) -> SourceResponse;
+    fn request<F: SegmentFactory<T> + ?Sized>(
+        &mut self,
+        factory: &mut F,
+    ) -> Option<F::SegmentConstruct>;
 }
 
-struct ReadSouce<T: Read> {
+pub struct ReadSouce<T: Read> {
     source: T,
 }
 
 impl<T: Read> StreamSource<u8> for ReadSouce<T> {
-    fn request<B: ?Sized>(&mut self, writer: &mut B) -> SourceResponse {
-        todo!()
-    }
-}
+    fn request<F: SegmentFactory<u8> + ?Sized>(
+        &mut self,
+        factory: &mut F,
+    ) -> Option<F::SegmentConstruct> {
+        let mut buf = [0; 1024];
+        let written = self.source.read(&mut buf).unwrap();
+        if written == 0 {
+            return None;
+        }
 
-pub struct SourceResponse {
-    pub is_completed: bool,
+        let (ptr, capacity) = factory.alloc(written);
+
+        assert!(capacity >= written);
+
+        unsafe { std::ptr::copy_nonoverlapping(buf.as_ptr(), ptr, written) };
+
+        Some(factory.complete(written))
+    }
 }

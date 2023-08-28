@@ -97,6 +97,7 @@ fn just_on_boundary(item: usize, bound: Bound<&usize>) -> bool {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Either<T0, T1> {
     First(T0),
     Last(T1),

@@ -1,39 +1,24 @@
 use std::{
-    marker::PhantomData,
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
 };
 
-pub struct BufferCompletion<T> {
-    pub ptr: *const T,
-    pub len: usize,
-}
-
-pub struct BufferStaging<'a, T> {
+pub struct BufferWriter<T> {
     ptr: *mut T,
     capacity: usize,
     len: usize,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, T> BufferStaging<'a, T> {
+impl<T> BufferWriter<T> {
     pub fn new(ptr: *mut T, capacity: usize) -> Self {
         Self {
             ptr,
             len: 0,
             capacity,
-            marker: PhantomData,
         }
     }
 
-    pub fn complete(self) -> BufferCompletion<T> {
-        BufferCompletion {
-            ptr: self.ptr,
-            len: self.len,
-        }
-    }
-
-    pub fn from(buf: &'a mut [MaybeUninit<T>]) -> Self {
+    pub fn from(buf: &mut [MaybeUninit<T>]) -> Self {
         Self::new(buf.as_mut_ptr().cast(), buf.len())
     }
 
@@ -171,7 +156,7 @@ impl<'a, T> BufferStaging<'a, T> {
     }
 }
 
-impl<'a, T> Deref for BufferStaging<'a, T> {
+impl<T> Deref for BufferWriter<T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -179,7 +164,7 @@ impl<'a, T> Deref for BufferStaging<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for BufferStaging<'a, T> {
+impl<T> DerefMut for BufferWriter<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }

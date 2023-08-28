@@ -1,13 +1,13 @@
 use std::marker::PhantomData;
 
-use crate::{ParseStream, Parser};
+use crate::{Parser, RewindStream};
 
-pub struct Optional<T: ParseStream, P: Parser<T>> {
+pub struct Optional<T: RewindStream, P: Parser<T>> {
     pub(super) parser: P,
     pub(super) marker: PhantomData<T>,
 }
 
-impl<S: ParseStream, P: Parser<S>> Parser<S> for Optional<S, P> {
+impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
     type Output = Option<P::Output>;
     type Error = ();
 

@@ -1,12 +1,12 @@
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use crate::{ParseStream, Parser};
+use crate::{Parser, RewindStream};
 
-pub struct RepeatN<T: ParseStream, P: Parser<T>, const N: usize> {
+pub struct RepeatN<T: RewindStream, P: Parser<T>, const N: usize> {
     pub(super) parser: P,
     pub(super) marker: PhantomData<T>,
 }
-impl<S: ParseStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, N> {
+impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, N> {
     type Output = [P::Output; N];
     type Error = P::Error;
 
