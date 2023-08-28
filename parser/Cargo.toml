@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 
 [features]
-default = ["standard"]
-full = ["standard", "streams"]
+default = ["standard", "foreign"]
+full = ["standard", "streams", "foreign"]
 standard = []
 streams = []
+foreign = []

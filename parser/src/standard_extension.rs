@@ -1,9 +1,9 @@
 mod join;
 mod maps;
 mod optional;
+mod or;
 mod repeat;
 mod repeat_n;
-
 use std::{
     marker::PhantomData,
     ops::{Bound, RangeBounds},
@@ -15,6 +15,7 @@ use self::{
     join::Join,
     maps::{Map, MapErr},
     optional::Optional,
+    or::Or,
     repeat::Repeat,
     repeat_n::RepeatN,
 };
@@ -49,6 +50,17 @@ pub trait StandardExtension<T: ParseStream>: Parser<T> + Sealed {
     {
         Optional {
             parser: self,
+            marker: PhantomData,
+        }
+    }
+
+    fn or<P: Parser<T>>(self, other: P) -> Or<T, Self, P>
+    where
+        Self: Sized,
+    {
+        Or {
+            parser0: self,
+            parser1: other,
             marker: PhantomData,
         }
     }

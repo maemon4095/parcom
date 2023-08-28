@@ -1,4 +1,5 @@
-pub mod foreigns;
+#[cfg(feature = "foreign")]
+pub mod foreign;
 #[cfg(feature = "standard")]
 pub mod standard_extension;
 #[cfg(feature = "streams")]

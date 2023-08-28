@@ -70,7 +70,7 @@ impl<T> BufferWriter<T> {
         let overflowed;
         let len = unsafe {
             let ptr = self.ptr.add(index) as *mut T;
-            let len = if len == self.len {
+            let len = if len == self.capacity {
                 overflowed = Err(ptr.add(len - 1).read());
                 len - 1
             } else {

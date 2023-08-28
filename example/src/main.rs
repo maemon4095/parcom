@@ -6,14 +6,14 @@ fn main() {
 
     let rep = atom
         .repeat(..=4)
-        .join(|input: foreigns::StrStream<'static>| {
+        .join(|input: foreign::stream::StrStream<'static>| {
             if input.segments().flat_map(|s| s.chars()).eq(['b', 'b', 'b']) {
                 Ok(("bbb", input.advance(3)))
             } else {
                 Err(((), input))
             }
         });
-    let source = foreigns::StrStream::new("aaaabbbccc");
+    let source = foreign::stream::StrStream::new("aaaabbbccc");
 
     match rep.parse(source) {
         Ok((v, r)) => {

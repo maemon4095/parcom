@@ -1,6 +1,7 @@
-use crate::{ParseStream, Parser, RewindStream, Stream};
 mod slice;
 mod str;
+
+use crate::{RewindStream, Stream};
 
 pub use slice::SliceStream;
 pub use str::StrStream;
@@ -58,40 +59,5 @@ impl RewindStream for &str {
 
     fn rewind(self, anchor: Self::Anchor) -> Self {
         anchor
-    }
-}
-
-impl<S: ParseStream, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
-    type Output = O;
-    type Error = E;
-
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
-        self(input)
-    }
-}
-
-impl<S: ParseStream, O, E> Parser<S> for Box<dyn Parser<S, Output = O, Error = E>> {
-    type Output = O;
-    type Error = E;
-
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
-        self.as_ref().parse(input)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{ParseStream, Stream};
-
-    use super::StrStream;
-
-    #[test]
-    fn strstream_location() {
-        let stream = StrStream::new("abc\n\ndef");
-
-        let idx = 9;
-        let loc = stream.location(idx);
-        let c = stream.segments().flat_map(|s| s.chars()).nth(idx);
-        println!("{:?} @ {:?}", c, loc);
     }
 }
