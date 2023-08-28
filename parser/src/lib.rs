@@ -2,8 +2,8 @@
 pub mod foreign;
 #[cfg(feature = "standard")]
 pub mod standard_extension;
-#[cfg(feature = "streams")]
-pub mod streams;
+#[cfg(feature = "stream")]
+pub mod stream;
 pub trait Parser<S> {
     type Output;
     type Error;

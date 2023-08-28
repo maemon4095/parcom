@@ -1,4 +1,4 @@
-mod str;
+pub mod str;
 use crate::Parser;
 
 impl<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {

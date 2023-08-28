@@ -9,7 +9,7 @@ edition = "2021"
 
 [features]
 default = ["standard", "foreign"]
-full = ["standard", "streams", "foreign"]
+full = ["standard", "stream", "foreign"]
 standard = []
-streams = []
+stream = []
 foreign = []

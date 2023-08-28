@@ -1,5 +1,5 @@
 use std::io::Read;
-mod buffer_writer;
+pub mod buffer_writer;
 mod from_source;
 
 pub use from_source::FromSource;
