@@ -16,12 +16,12 @@ pub trait Parser<S> {
     fn parse(&self, input: S) -> ParseResult<S, Self>;
 }
 
-impl<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
-    type Output = O;
-    type Error = E;
+impl<S, P: Parser<S>> Parser<S> for &P {
+    type Output = P::Output;
+    type Error = P::Error;
 
     fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
-        self(input)
+        P::parse(self, input)
     }
 }
 

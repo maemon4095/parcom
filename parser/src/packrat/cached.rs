@@ -8,9 +8,23 @@ where
     P::Error: Clone,
     P::Output: Clone,
 {
-    pub(super) parser: P,
-    pub(super) server: RefCell<BTreeMap<S::Location, Result<(P::Output, usize), P::Error>>>,
-    pub(super) marker: PhantomData<S>,
+    parser: P,
+    server: RefCell<BTreeMap<S::Location, Result<(P::Output, usize), P::Error>>>,
+    marker: PhantomData<S>,
+}
+
+impl<S: ParseStream, P: Parser<S>> Cached<S, P>
+where
+    P::Error: Clone,
+    P::Output: Clone,
+{
+    pub fn new(parser: P) -> Self {
+        Self {
+            parser,
+            server: RefCell::new(BTreeMap::new()),
+            marker: PhantomData,
+        }
+    }
 }
 
 impl<S: ParseStream, P: Parser<S>> Parser<S> for Cached<S, P>

@@ -2,7 +2,6 @@ mod join;
 mod maps;
 mod optional;
 mod or;
-mod reference;
 mod repeat;
 mod repeat_n;
 use std::{
@@ -95,16 +94,6 @@ pub trait StandardExtension<T: ParseStream>: Parser<T> + Sealed {
         MapErr {
             parser: self,
             mapping,
-            marker: PhantomData,
-        }
-    }
-
-    fn as_ref(&self) -> self::reference::Ref<'_, T, Self>
-    where
-        Self: Sized,
-    {
-        self::reference::Ref {
-            parser: self,
             marker: PhantomData,
         }
     }

@@ -4,15 +4,7 @@ use parser::*;
 fn main() {
     let atom = Atom { str: "a" };
 
-    let rep = atom
-        .repeat(..=4)
-        .join(|input: foreign::stream::StrStream<'static>| {
-            if input.segments().flat_map(|s| s.chars()).eq(['b', 'b', 'b']) {
-                Ok(("bbb", input.advance(3)))
-            } else {
-                Err(((), input))
-            }
-        });
+    let rep = atom.repeat(..=4);
     let source = foreign::stream::StrStream::new("aaaabbbccc");
 
     match rep.parse(source) {
