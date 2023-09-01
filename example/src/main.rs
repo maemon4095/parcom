@@ -1,6 +1,6 @@
-use orthoparcom::foreign::parser;
-use orthoparcom::standard::StandardExtension;
-use orthoparcom::*;
+use parcom::foreign::parser;
+use parcom::standard::StandardExtension;
+use parcom::*;
 
 fn main() {
     let atom = parser::str::atom("a");
