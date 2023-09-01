@@ -3,7 +3,7 @@ pub mod foreign;
 #[cfg(feature = "packrat")]
 pub mod packrat;
 #[cfg(feature = "standard")]
-pub mod standard_extension;
+pub mod standard;
 #[cfg(feature = "stream")]
 pub mod stream;
 

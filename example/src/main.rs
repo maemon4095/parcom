@@ -1,4 +1,4 @@
-use parser::standard_extension::StandardExtension;
+use parser::standard::StandardExtension;
 use parser::*;
 
 fn main() {

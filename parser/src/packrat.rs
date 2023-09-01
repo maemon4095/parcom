@@ -1,11 +1,28 @@
+mod boundcache;
+mod cached;
+mod smart_pointer;
 use std::{cell::RefCell, collections::BTreeMap, marker::PhantomData};
 
-use crate::{internal::Sealed, Location, ParseResult, ParseStream, Parser};
+use crate::{internal::Sealed, ParseStream, Parser, Stream};
+
+use self::cached::Cached;
 // この形式だと，キャッシュの削除が出来ない．
 // バックトラックが発生しない部分のキャッシュを削除したい．
 // しかしグローバルにキャッシュサーバを用意する場合は，適切なキャッシュの保存が難しい．
 // advanceを監視して，キャッシュの放棄を適切に行う方法を考える．
+
+// Stream側にサーバを持たせたり，advanceへのhookを付けたりすると，advanceの度にチェックが挟まり性能が悪化する．
+// Segment内にキャッシュを保持させ， 利用する側は弱参照の二分木を作るとよいか？
+// weak参照の一般化をする必要がある．Rcに依存した型は避けたい．
+
+pub trait BindStream: ParseStream {
+    type Weak<T>: smart_pointer::WeakRef<T>;
+    fn bind<T>(self, index: usize, value: T) -> (Self::Weak<T>, Self);
+}
+
 pub trait PackratExtension<S: ParseStream>: Parser<S> + Sealed {
+    /// The input must always be in the same stream.
+    /// If a different stream is provided as input, it will produce incorrect results.
     fn cached(self) -> Cached<S, Self>
     where
         Self: Sized,
@@ -22,56 +39,9 @@ pub trait PackratExtension<S: ParseStream>: Parser<S> + Sealed {
 
 impl<S: ParseStream, P: Parser<S> + Sealed> PackratExtension<S> for P {}
 
-pub struct Cached<S: ParseStream, P: Parser<S>>
-where
-    P::Error: Clone,
-    P::Output: Clone,
-{
-    parser: P,
-    server: RefCell<BTreeMap<S::Location, Result<(P::Output, usize), P::Error>>>,
-    marker: PhantomData<S>,
-}
-
-impl<S: ParseStream, P: Parser<S>> Parser<S> for Cached<S, P>
-where
-    P::Error: Clone,
-    P::Output: Clone,
-{
-    type Output = P::Output;
-    type Error = P::Error;
-
-    fn parse(&self, input: S) -> ParseResult<S, Self> {
-        let location = input.location(0);
-        match self.server.borrow().get(&location) {
-            Some(result) => {
-                return match result {
-                    Ok((v, c)) => Ok((v.clone(), input.advance(*c))),
-                    Err(e) => Err((e.clone(), input)),
-                }
-            }
-            None => (),
-        }
-
-        match self.parser.parse(input) {
-            Ok((v, r)) => {
-                let tail = r.location(0);
-                let distance = tail.distance(&location);
-                self.server
-                    .borrow_mut()
-                    .insert(location, Ok((v.clone(), distance)));
-                Ok((v, r))
-            }
-            Err((e, r)) => {
-                self.server.borrow_mut().insert(location, Err(e.clone()));
-                Err((e, r))
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use crate::{standard_extension::StandardExtension, Parser};
+    use crate::{standard::StandardExtension, Parser};
 
     use super::PackratExtension;
 
