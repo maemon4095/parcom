@@ -56,19 +56,25 @@ impl<'me> Stream for StrStream<'me> {
 
     fn advance(mut self, count: usize) -> Self {
         self.location = self.loc(count);
-        self.str = &self.str[count..];
+        let mut chars = self.str.chars();
+        for _ in 0..count {
+            chars.next();
+        }
+        self.str = chars.as_str();
         self
     }
 }
 impl<'me> RewindStream for StrStream<'me> {
-    type Anchor = Self;
+    type Anchor = Anchor<'me>;
 
     fn anchor(&self) -> Self::Anchor {
-        self.clone()
+        Anchor {
+            stream: self.clone(),
+        }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self {
-        anchor
+        anchor.stream
     }
 }
 impl<'me> ParseStream for StrStream<'me> {
@@ -77,6 +83,10 @@ impl<'me> ParseStream for StrStream<'me> {
     fn location(&self, index: usize) -> Self::Location {
         self.loc(index + 1)
     }
+}
+
+pub struct Anchor<'me> {
+    stream: StrStream<'me>,
 }
 
 #[derive(Clone, Eq, Debug)]

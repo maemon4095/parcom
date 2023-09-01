@@ -12,6 +12,12 @@ impl<'me, T> SliceStream<'me, T> {
             slice,
         }
     }
+
+    fn loc(&self, count: usize) -> Location {
+        Location {
+            index: self.location.index + self.slice.iter().take(count).count(),
+        }
+    }
 }
 
 impl<'me, T> Clone for SliceStream<'me, T> {
@@ -35,30 +41,34 @@ impl<'me, T> Stream for SliceStream<'me, T> {
     }
 
     fn advance(mut self, count: usize) -> Self {
-        self.location = self.location(count);
+        self.location = self.loc(count);
         self.slice = &self.slice[count..];
         self
     }
 }
 impl<'me, T> RewindStream for SliceStream<'me, T> {
-    type Anchor = Self;
+    type Anchor = Anchor<'me, T>;
 
     fn anchor(&self) -> Self::Anchor {
-        self.clone()
+        Anchor {
+            stream: self.clone(),
+        }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self {
-        anchor
+        anchor.stream
     }
 }
 impl<'me, T> ParseStream for SliceStream<'me, T> {
     type Location = Location;
 
     fn location(&self, index: usize) -> Self::Location {
-        Location {
-            index: self.slice.iter().take(index + 1).count(),
-        }
+        self.loc(index + 1)
     }
+}
+
+pub struct Anchor<'me, T> {
+    stream: SliceStream<'me, T>,
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]

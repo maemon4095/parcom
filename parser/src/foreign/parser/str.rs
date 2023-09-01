@@ -17,12 +17,25 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
     type Error = ();
 
     fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
-        let chars = self.str.chars();
-        let target = input.segments().flat_map(|s| s.chars());
-        if target.zip(chars).all(|(l, r)| l == r) {
-            Ok((self.str, input.advance(self.str.len())))
-        } else {
-            Err(((), input))
+        let mut chars = self.str.chars();
+        let mut target = input.segments().flat_map(|s| s.chars());
+
+        let mut consumed = 0;
+        loop {
+            let Some(c) = chars.next() else {
+                drop(target);
+                return Ok((self.str, input.advance(consumed)));
+            };
+
+            match target.next() {
+                Some(t) if t == c => {
+                    consumed += 1;
+                }
+                _ => {
+                    drop(target);
+                    return Err(((), input));
+                }
+            }
         }
     }
 }
