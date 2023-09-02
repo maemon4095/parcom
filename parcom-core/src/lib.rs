@@ -1,11 +1,3 @@
-#[cfg(feature = "foreign")]
-pub mod foreign;
-#[cfg(feature = "packrat")]
-pub mod packrat;
-#[cfg(feature = "standard")]
-pub mod standard;
-#[cfg(feature = "stream")]
-pub mod stream;
 
 pub type ParseResult<S, P> = Result<(<P as Parser<S>>::Output, S), (<P as Parser<S>>::Error, S)>;
 
@@ -58,10 +50,4 @@ pub trait Stream {
 
     fn segments(&self) -> Self::Iter<'_>;
     fn advance(self, count: usize) -> Self;
-}
-
-mod internal {
-    pub trait Sealed {}
-
-    impl<T> Sealed for T {}
 }

@@ -1,9 +1,12 @@
 [package]
-name = "sample"
-version = "0.1.0"
+name = "parcom-macros"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+proc-macro = true
+
 [dependencies]
-parcom = { path = "../parcom", features = [] }
+macros-impl = { path = "../macros-impl" }
