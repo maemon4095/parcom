@@ -13,12 +13,12 @@ pub fn func<S: RewindStream, O, E, F: Fn(S) -> Result<(O, S), (E, S)>>(
     }
 }
 
-pub struct Func<S: RewindStream, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> {
+pub struct Func<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> {
     func: F,
     marker: PhantomData<(S, O, E)>,
 }
 
-impl<S: RewindStream, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for Func<S, O, E, F> {
+impl<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for Func<S, O, E, F> {
     type Output = O;
     type Error = E;
 
