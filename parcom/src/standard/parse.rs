@@ -8,3 +8,5 @@ pub trait ParseExtension<T>: Parse<T> + Sealed {
         into_parser::IntoParser(PhantomData)
     }
 }
+
+impl<T, P: Parse<T> + Sealed> ParseExtension<T> for P {}

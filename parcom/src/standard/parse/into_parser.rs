@@ -7,7 +7,7 @@ impl<T, P: Parse<T>> Parser<T> for IntoParser<T, P> {
     type Output = P;
     type Error = P::Error;
 
-    fn parse(&self, input: T) -> parcom_core::ParseResult<T, Self> {
+    fn parse(&self, input: T) -> crate::ParseResult<T, P, Self::Error> {
         P::parse(input)
     }
 }

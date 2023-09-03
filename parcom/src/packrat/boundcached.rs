@@ -40,7 +40,7 @@ where
     type Output = P::Output;
     type Error = P::Error;
 
-    fn parse(&self, input: S) -> crate::ParseResult<S, Self> {
+    fn parse(&self, input: S) -> crate::ParseResult<S, Self::Output, Self::Error> {
         let location = input.location(0);
         match self.cache.get(&location) {
             Some(Ok((o, c))) => return Ok((o, input.advance(c))),

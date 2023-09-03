@@ -1,23 +1,25 @@
-pub type ParseResult<S, P> = Result<(<P as Parser<S>>::Output, S), (<P as Parser<S>>::Error, S)>;
+#[cfg(feature = "foreign")]
+pub mod foreign;
+pub type ParseResult<S, O, E> = Result<(O, S), (E, S)>;
 
 pub trait Parser<S> {
     type Output;
     type Error;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self>;
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error>;
 }
 
 pub trait Parse<S>: Sized {
     type Error;
-    fn parse(input: S) -> Result<(Self, S), (Self::Error, S)>;
+    fn parse(input: S) -> ParseResult<S, Self, Self::Error>;
 }
 
-impl<S, P: Parser<S>> Parser<S> for &P {
-    type Output = P::Output;
-    type Error = P::Error;
+impl<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
+    type Output = O;
+    type Error = E;
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
-        P::parse(self, input)
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+        self(input)
     }
 }
 

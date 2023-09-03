@@ -1,3 +1,4 @@
+mod as_ref;
 mod join;
 mod maps;
 mod optional;
@@ -5,6 +6,7 @@ mod or;
 mod repeat;
 mod repeat_n;
 use self::{
+    as_ref::AsRef,
     join::Join,
     maps::{Map, MapErr},
     optional::Optional,
@@ -95,6 +97,16 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         MapErr {
             parser: self,
             mapping,
+            marker: PhantomData,
+        }
+    }
+
+    fn as_ref(&self) -> AsRef<'_, T, Self>
+    where
+        Self: Sized,
+    {
+        AsRef {
+            parser: self,
             marker: PhantomData,
         }
     }

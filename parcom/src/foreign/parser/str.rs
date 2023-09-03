@@ -48,7 +48,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
     type Output = char;
     type Error = ();
 
-    fn parse(&self, input: S) -> crate::ParseResult<S, Self> {
+    fn parse(&self, input: S) -> crate::ParseResult<S, Self::Output, Self::Error> {
         let head = input.segments().flat_map(|s| s.chars()).next();
         match head {
             Some(c) if c == self.char => Ok((c, input.advance(1))),

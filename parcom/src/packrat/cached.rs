@@ -35,7 +35,7 @@ where
     type Output = P::Output;
     type Error = P::Error;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let location = input.location(0);
         match self.server.borrow().get(&location) {
             Some(result) => {
