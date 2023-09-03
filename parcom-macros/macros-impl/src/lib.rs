@@ -100,18 +100,12 @@ pub fn parser_transform(attr: TokenStream, body: TokenStream) -> TokenStream {
     }
 }
 
-struct X<'a, T>(PhantomData<(&'a (), T)>)
-where
-    T: Debug;
-
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
 
-    use proc_macro2::TokenStream;
-    use syn::parse;
-
     use crate::parser_transform;
+    use proc_macro2::TokenStream;
 
     #[test]
     fn expand() {

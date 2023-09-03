@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{Parser, RewindStream};
 
-use super::Either;
+use super::super::Either;
 
 pub struct Or<T: RewindStream, P0: Parser<T>, P1: Parser<T>> {
     pub(super) parser0: P0,

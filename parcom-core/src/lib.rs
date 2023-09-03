@@ -1,4 +1,3 @@
-
 pub type ParseResult<S, P> = Result<(<P as Parser<S>>::Output, S), (<P as Parser<S>>::Error, S)>;
 
 pub trait Parser<S> {
@@ -6,6 +5,11 @@ pub trait Parser<S> {
     type Error;
 
     fn parse(&self, input: S) -> ParseResult<S, Self>;
+}
+
+pub trait Parse<S>: Sized {
+    type Error;
+    fn parse(input: S) -> Result<(Self, S), (Self::Error, S)>;
 }
 
 impl<S, P: Parser<S>> Parser<S> for &P {
