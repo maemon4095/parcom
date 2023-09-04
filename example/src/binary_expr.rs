@@ -114,9 +114,9 @@ impl Operator for Op {
 
 fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
     foreign::parser::str::atom_char(' ')
-        .map(|_| ())
+        .discard()
         .repeat(1..)
-        .map(|_| ())
+        .discard()
         .parse(input)
 }
 
