@@ -2,7 +2,7 @@ use std::{marker::PhantomData, ops::RangeBounds};
 
 use crate::{ParseResult, Parser, RewindStream};
 
-use super::super::just_on_boundary;
+use crate::standard::just_on_boundary;
 
 pub struct Repeat<T: RewindStream, P: Parser<T>, R: RangeBounds<usize>> {
     pub(super) range: R,

@@ -2,9 +2,8 @@ use std::marker::PhantomData;
 
 use parcom_core::ParseResult;
 
+use crate::standard::Either;
 use crate::{Parser, RewindStream};
-
-use super::super::Either;
 
 pub struct Join<S: RewindStream, P0: Parser<S>, P1: Parser<S>> {
     pub(super) parser0: P0,
