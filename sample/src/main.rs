@@ -1,7 +1,7 @@
 use std::fmt::Debug;
-use std::marker::PhantomData;
 
 use parcom::foreign::parser::str::atom;
+use parcom::standard::binary_expr::*;
 use parcom::standard::ParseExtension;
 use parcom::standard::ParserExtension;
 use parcom::Parser;
@@ -39,7 +39,7 @@ fn eval(expr: &Expr<Term<Op>, Op>) -> usize {
 }
 
 fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr<Term<Op>, Op>, ()> {
-    ExprParser::new(term, Op::into_parser()).parse(input)
+    BinaryExprParser::new(term.map(|t| Expr::Atom(t)), Op::into_parser()).parse(input)
 }
 
 fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()> {
@@ -67,91 +67,6 @@ enum Term<O> {
     Integer(usize),
 }
 
-enum Associativity {
-    Left,
-    Right,
-}
-
-trait Operator {
-    fn precedence(&self) -> usize;
-    fn associativity(&self) -> Associativity;
-}
-
-struct ExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>>
-where
-    POp::Output: Operator,
-{
-    parser_term: PTerm,
-    parser_op: POp,
-    marker: PhantomData<S>,
-}
-
-impl<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>> Parser<S> for ExprParser<S, PTerm, POp>
-where
-    POp::Output: Operator,
-{
-    type Output = Expr<PTerm::Output, POp::Output>;
-    type Error = PTerm::Error;
-
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
-        self.parse_impl(input, 0)
-    }
-}
-
-impl<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>> ExprParser<S, PTerm, POp>
-where
-    POp::Output: Operator,
-{
-    fn new(parser_term: PTerm, parser_op: POp) -> Self {
-        Self {
-            parser_term,
-            parser_op,
-            marker: PhantomData,
-        }
-    }
-
-    fn parse_impl(
-        &self,
-        input: S,
-        precedence: usize,
-    ) -> ::parcom::ParseResult<S, Expr<PTerm::Output, POp::Output>, PTerm::Error> {
-        let (term, mut rest) = match self.parser_term.parse(input) {
-            Ok(t) => t,
-            Err((e, r)) => return Err((e, r)),
-        };
-
-        let mut operand = Expr::Atom(term);
-        let mut last_anchor = rest.anchor();
-
-        loop {
-            let (op, r) = match self.parser_op.parse(rest) {
-                Ok((op, r)) if op.precedence() >= precedence => (op, r),
-                Ok((_, r)) => {
-                    rest = r.rewind(last_anchor);
-                    break;
-                }
-                Err((_, r)) => {
-                    rest = r.rewind(last_anchor);
-                    break;
-                }
-            };
-
-            let next_prec = match op.associativity() {
-                Associativity::Left => precedence + 1,
-                Associativity::Right => precedence,
-            };
-
-            let (rhs, r) = self.parse_impl(r, next_prec)?;
-
-            operand = Expr::BinOp(Box::new(operand), op, Box::new(rhs));
-            last_anchor = r.anchor();
-            rest = r;
-        }
-
-        Ok((operand, rest))
-    }
-}
-
 #[derive(Debug)]
 enum Op {
     Add,
@@ -161,6 +76,7 @@ enum Op {
 }
 
 impl Operator for Op {
+    type Expr = Expr<Term<Self>, Self>;
     fn precedence(&self) -> usize {
         match self {
             Op::Add => 0,
@@ -172,6 +88,10 @@ impl Operator for Op {
 
     fn associativity(&self) -> Associativity {
         Associativity::Left
+    }
+
+    fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
+        Expr::BinOp(Box::new(lhs), self, Box::new(rhs))
     }
 }
 
