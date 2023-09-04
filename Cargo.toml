@@ -4,6 +4,7 @@ members = [
     "parcom-core",
     "parcom-stream",
     "parcom-macros/*",
-    "sample",
+    "example",
 ]
 exclude = [".git", "target", ".vscode"]
+resolver = "2"

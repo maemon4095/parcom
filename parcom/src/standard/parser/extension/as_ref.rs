@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::Parser;
 
-pub struct AsRef<'a, S, P: Parser<S>> {
+pub struct AsRef<'a, S, P: ?Sized + Parser<S>> {
     pub(super) parser: &'a P,
     pub(super) marker: PhantomData<S>,
 }

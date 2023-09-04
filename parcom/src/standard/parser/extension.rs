@@ -1,4 +1,5 @@
 mod as_ref;
+mod discard;
 mod fold;
 mod iterate;
 mod join;
@@ -8,10 +9,11 @@ mod or;
 mod repeat;
 mod repeat_n;
 mod unify;
-use self::iterate::Iterate;
+use self::discard::Discard;
 pub use self::{
     as_ref::AsRef,
     fold::Fold,
+    iterate::Iterate,
     join::Join,
     maps::{Map, MapErr},
     optional::Optional,
@@ -109,10 +111,7 @@ pub trait ParserExtension<S>: Parser<S> + Sealed {
         }
     }
 
-    fn as_ref(&self) -> AsRef<'_, S, Self>
-    where
-        Self: Sized,
-    {
+    fn as_ref(&self) -> AsRef<'_, S, Self> {
         AsRef {
             parser: self,
             marker: PhantomData,
@@ -161,6 +160,16 @@ pub trait ParserExtension<S>: Parser<S> + Sealed {
         Fold {
             parser: self,
             init,
+            marker: PhantomData,
+        }
+    }
+
+    fn discard(self) -> Discard<S, Self>
+    where
+        Self: Sized,
+    {
+        Discard {
+            parser: self,
             marker: PhantomData,
         }
     }

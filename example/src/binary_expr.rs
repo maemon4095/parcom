@@ -1,26 +1,60 @@
-use std::fmt::Debug;
+#![cfg_attr(test, cfg(test))]
 
 use parcom::foreign::parser::str::atom;
 use parcom::standard::binary_expr::*;
-use parcom::standard::ParseExtension;
 use parcom::standard::ParserExtension;
 use parcom::Parser;
 use parcom::*;
 
-fn main() {
-    let input = "((((10*(10+3)/4+12))))u8";
+/// parsing binary expression example. parse and eval expression with syntax below
+/// expr = expr op expr / term
+/// term = integer / (expr)
+#[cfg_attr(test, test)]
+pub fn main() {
+    println!("----- binary expression example -----\n");
+
+    let input = "((((10 * (10 + 6) / 4 + 12))))u8";
+
+    println!("input: {}", input);
 
     let result = expr(input);
 
     let expr = match result {
         Ok((expr, rest)) => {
-            println!("{}", rest);
+            println!("rest of input: {}", rest);
             expr
         }
-        Err(_) => return,
+        Err(_) => {
+            println!("err");
+            return;
+        }
     };
 
-    println!("{}", eval(&expr));
+    let evaluated = eval(&expr);
+    println!("evaluated: {v}", v = evaluated);
+
+    println!();
+}
+
+/// expr = expr op expr / term
+fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr<Term<Op>, Op>, ()> {
+    BinaryExprParser::new(
+        term.map(|t| Expr::Atom(t)),
+        space.join(op).join(space).map(|((_, op), _)| op),
+    )
+    .parse(input)
+}
+
+/// term = integer / (expr)
+fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()> {
+    integer
+        .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
+        .map(|e| match e {
+            standard::Either::First(n) => Term::Integer(n),
+            standard::Either::Last(e) => Term::Parenthesized(Box::new(e)),
+        })
+        .map_err(|_| ())
+        .parse(input)
 }
 
 fn eval(expr: &Expr<Term<Op>, Op>) -> usize {
@@ -38,23 +72,6 @@ fn eval(expr: &Expr<Term<Op>, Op>) -> usize {
     }
 }
 
-fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr<Term<Op>, Op>, ()> {
-    BinaryExprParser::new(term.map(|t| Expr::Atom(t)), Op::into_parser()).parse(input)
-}
-
-fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()> {
-    integer
-        .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
-        .map(|e| match e {
-            standard::Either::First(n) => Term::Integer(n),
-            standard::Either::Last(e) => Term::Parenthesized(Box::new(e)),
-        })
-        .map_err(|_| ())
-        .parse(input)
-}
-
-// expr = expr op expr / term
-// term = atom / (expr)
 #[derive(Debug)]
 enum Expr<T, O> {
     BinOp(Box<Expr<T, O>>, O, Box<Expr<T, O>>),
@@ -95,28 +112,30 @@ impl Operator for Op {
     }
 }
 
-impl<S: Stream<Segment = str>> Parse<S> for Op {
-    type Error = ();
+fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
+    foreign::parser::str::atom_char(' ')
+        .map(|_| ())
+        .repeat(1..)
+        .map(|_| ())
+        .parse(input)
+}
 
-    fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        let mut chars = input.segments().flat_map(|e| e.chars());
-
-        let Some(head) = chars.next() else {
-            drop(chars);
-            return Err(((), input));
-        };
-
+fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+    let mut chars = input.segments().flat_map(|s| s.chars());
+    let Some(head) = chars.next() else {
         drop(chars);
-        let op = match head {
-            '+' => Op::Add,
-            '-' => Op::Sub,
-            '*' => Op::Mul,
-            '/' => Op::Div,
-            _ => return Err(((), input)),
-        };
+        return Err(((), input));
+    };
+    drop(chars);
+    let op = match head {
+        '+' => Op::Add,
+        '-' => Op::Sub,
+        '*' => Op::Mul,
+        '/' => Op::Div,
+        _ => return Err(((), input)),
+    };
 
-        Ok((op, input.advance(1)))
-    }
+    Ok((op, input.advance(1)))
 }
 
 fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {

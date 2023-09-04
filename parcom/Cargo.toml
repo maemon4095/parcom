@@ -9,6 +9,9 @@ edition = "2021"
 parcom-core = { path = "../parcom-core" }
 parcom-macros = { path = "../parcom-macros/macros", optional = true }
 
+[dev-dependencies]
+mockalloc = "0.1.2"
+
 [features]
 default = ["standard", "foreign"]
 full = ["standard", "foreign", "packrat", "macros"]
