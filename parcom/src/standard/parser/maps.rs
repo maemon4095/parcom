@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{Parser, RewindStream};
+use crate::{ParseResult, Parser, RewindStream};
 
 pub struct Map<T: RewindStream, P: Parser<T>, U, F: Fn(P::Output) -> U> {
     pub(super) parser: P,
@@ -12,7 +12,7 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<
     type Output = U;
     type Error = P::Error;
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         self.parser
             .parse(input)
             .map(|(e, r)| ((self.mapping)(e), r))
@@ -29,7 +29,7 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Error) -> U> Parser<S> for MapEr
     type Output = P::Output;
     type Error = U;
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         self.parser
             .parse(input)
             .map_err(|(e, r)| ((self.mapping)(e), r))

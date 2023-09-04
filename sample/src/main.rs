@@ -8,12 +8,15 @@ use parcom::Parser;
 use parcom::*;
 
 fn main() {
-    let input = "10*(10+3)/4+12";
+    let input = "((((10*(10+3)/4+12))))u8";
 
     let result = expr(input);
 
     let expr = match result {
-        Ok((expr, _)) => expr,
+        Ok((expr, rest)) => {
+            println!("{}", rest);
+            expr
+        }
         Err(_) => return,
     };
 
@@ -36,8 +39,7 @@ fn eval(expr: &Expr<Term<Op>, Op>) -> usize {
 }
 
 fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr<Term<Op>, Op>, ()> {
-    let result = ExprParser::new(term, Op::into_parser()).parse(input);
-    result
+    ExprParser::new(term, Op::into_parser()).parse(input)
 }
 
 fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()> {

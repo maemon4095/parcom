@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{Parser, RewindStream};
+use crate::{ParseResult, Parser, RewindStream};
 
 pub struct Optional<T: RewindStream, P: Parser<T>> {
     pub(super) parser: P,
@@ -11,7 +11,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
     type Output = Option<P::Output>;
     type Error = ();
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let anchor = input.anchor();
         match self.parser.parse(input) {
             Ok((v, r)) => Ok((Some(v), r)),

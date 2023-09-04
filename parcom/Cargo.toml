@@ -11,9 +11,8 @@ parcom-macros = { path = "../parcom-macros/macros", optional = true }
 
 [features]
 default = ["standard", "foreign"]
-full = ["standard", "stream", "foreign", "packrat", "macros"]
+full = ["standard", "foreign", "packrat", "macros"]
 standard = []
-stream = []
 foreign = ["parcom-core/foreign"]
 packrat = []
 macros = ["dep:parcom-macros"]

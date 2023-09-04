@@ -1,3 +1,9 @@
 [workspace]
-members = ["parcom", "parcom-core", "parcom-macros/*", "sample"]
+members = [
+    "parcom",
+    "parcom-core",
+    "parcom-stream",
+    "parcom-macros/*",
+    "sample",
+]
 exclude = [".git", "target", ".vscode"]

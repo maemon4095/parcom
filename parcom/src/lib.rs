@@ -4,8 +4,6 @@ pub mod foreign;
 pub mod packrat;
 #[cfg(feature = "standard")]
 pub mod standard;
-#[cfg(feature = "stream")]
-pub mod stream;
 
 pub use parcom_core::*;
 

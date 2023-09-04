@@ -1,6 +1,6 @@
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-use crate::{RewindStream, Stream};
+use parcom::{RewindStream, Stream};
 
 use super::{SegmentFactory, StreamSource};
 

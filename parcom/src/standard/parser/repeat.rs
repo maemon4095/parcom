@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, ops::RangeBounds};
 
-use crate::{Parser, RewindStream};
+use crate::{ParseResult, Parser, RewindStream};
 
 use super::super::just_on_boundary;
 
@@ -14,7 +14,7 @@ impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<
     type Output = Vec<P::Output>;
     type Error = P::Error;
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let mut vec = Vec::new();
         let upper_bound = self.range.end_bound();
 

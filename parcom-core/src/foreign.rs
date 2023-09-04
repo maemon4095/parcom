@@ -31,3 +31,31 @@ impl RewindStream for &str {
         anchor
     }
 }
+
+impl<T> Stream for &[T] {
+    type Segment = [T];
+
+    type Iter<'a> = std::iter::Once<&'a [T]>
+    where
+        Self: 'a;
+
+    fn segments(&self) -> Self::Iter<'_> {
+        std::iter::once(self)
+    }
+
+    fn advance(self, count: usize) -> Self {
+        &self[count..]
+    }
+}
+
+impl<T> RewindStream for &[T] {
+    type Anchor = Self;
+
+    fn anchor(&self) -> Self::Anchor {
+        self
+    }
+
+    fn rewind(self, anchor: Self::Anchor) -> Self {
+        anchor
+    }
+}

@@ -5,6 +5,7 @@ mod optional;
 mod or;
 mod repeat;
 mod repeat_n;
+mod unify;
 use self::{
     as_ref::AsRef,
     join::Join,
@@ -13,16 +14,19 @@ use self::{
     or::Or,
     repeat::Repeat,
     repeat_n::RepeatN,
+    unify::{Unify, UnifyErr},
 };
 use std::{marker::PhantomData, ops::RangeBounds};
 
 use crate::{internal::Sealed, Parser, RewindStream};
 
-pub trait ParserExtension<T>: Parser<T> + Sealed {
-    fn repeat<R: RangeBounds<usize>>(self, range: R) -> Repeat<T, Self, R>
+use super::Either;
+
+pub trait ParserExtension<S>: Parser<S> + Sealed {
+    fn repeat<R: RangeBounds<usize>>(self, range: R) -> Repeat<S, Self, R>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         Repeat {
             range,
@@ -31,10 +35,10 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn repeat_n<const N: usize>(self) -> RepeatN<T, Self, N>
+    fn repeat_n<const N: usize>(self) -> RepeatN<S, Self, N>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         RepeatN {
             parser: self,
@@ -42,10 +46,10 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn optional(self) -> Optional<T, Self>
+    fn optional(self) -> Optional<S, Self>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         Optional {
             parser: self,
@@ -53,10 +57,10 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn or<P: Parser<T>>(self, other: P) -> Or<T, Self, P>
+    fn or<P: Parser<S>>(self, other: P) -> Or<S, Self, P>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         Or {
             parser0: self,
@@ -65,10 +69,10 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn join<P: Parser<T>>(self, other: P) -> Join<T, Self, P>
+    fn join<P: Parser<S>>(self, other: P) -> Join<S, Self, P>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         Join {
             parser0: self,
@@ -77,10 +81,10 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn map<U, F: Fn(Self::Output) -> U>(self, mapping: F) -> Map<T, Self, U, F>
+    fn map<U, F: Fn(Self::Output) -> U>(self, mapping: F) -> Map<S, Self, U, F>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         Map {
             parser: self,
@@ -89,10 +93,10 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn map_err<U, F: Fn(Self::Error) -> U>(self, mapping: F) -> MapErr<T, Self, U, F>
+    fn map_err<U, F: Fn(Self::Error) -> U>(self, mapping: F) -> MapErr<S, Self, U, F>
     where
         Self: Sized,
-        T: RewindStream,
+        S: RewindStream,
     {
         MapErr {
             parser: self,
@@ -101,7 +105,7 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
         }
     }
 
-    fn as_ref(&self) -> AsRef<'_, T, Self>
+    fn as_ref(&self) -> AsRef<'_, S, Self>
     where
         Self: Sized,
     {
@@ -110,6 +114,26 @@ pub trait ParserExtension<T>: Parser<T> + Sealed {
             marker: PhantomData,
         }
     }
+
+    fn unify<T>(self) -> Unify<S, T, Self>
+    where
+        Self: Sized + Parser<S, Output = Either<T, T>>,
+    {
+        Unify {
+            parser: self,
+            marker: PhantomData,
+        }
+    }
+
+    fn unify_err<T>(self) -> UnifyErr<S, T, Self>
+    where
+        Self: Sized + Parser<S, Error = Either<T, T>>,
+    {
+        UnifyErr {
+            parser: self,
+            marker: PhantomData,
+        }
+    }
 }
 
-impl<T, P: Parser<T> + Sealed> ParserExtension<T> for P {}
+impl<S, P: Parser<S> + Sealed> ParserExtension<S> for P {}
