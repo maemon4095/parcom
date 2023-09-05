@@ -59,20 +59,13 @@ where
             return self.parse_impl_loop(input, precedence);
         }
 
-        let (mut lhs, mut rest) = match self.parser_term.parse(input) {
-            Ok(t) => t,
-            Err((e, r)) => return Err((e, r)),
-        };
+        let (mut lhs, mut rest) = self.parser_term.parse(input)?;
 
         loop {
             let anchor = rest.anchor();
             let (op, r) = match self.parser_op.parse(rest) {
                 Ok((op, r)) if op.precedence() >= precedence => (op, r),
-                Ok((_, r)) => {
-                    rest = r.rewind(anchor);
-                    break;
-                }
-                Err((_, r)) => {
+                Ok((_, r)) | Err((_, r)) => {
                     rest = r.rewind(anchor);
                     break;
                 }
@@ -92,27 +85,23 @@ where
         Ok((lhs, rest))
     }
 
+    // consider the input has the syntax "term / (term op)+ term"
     fn parse_impl_loop(&self, input: S, precedence: usize) -> ParseResult<S, E, PTerm::Error> {
-        let (lhs, rest) = match self.parser_term.parse(input) {
-            Ok(t) => t,
-            Err((e, r)) => return Err((e, r)),
-        };
+        let (lhs, rest) = self.parser_term.parse(input)?;
 
-        let anchor = rest.anchor();
-        let (op, mut rest) = match self.parser_op.parse(rest) {
-            Ok((op, r)) if op.precedence() >= precedence => (op, r),
-            Ok((_, r)) => return Ok((lhs, r.rewind(anchor))),
-            Err((_, r)) => return Ok((lhs, r.rewind(anchor))),
+        let (op, mut rest) = {
+            let anchor = rest.anchor();
+            match self.parser_op.parse(rest) {
+                Ok((op, r)) if op.precedence() >= precedence => (op, r),
+                Ok((_, r)) | Err((_, r)) => return Ok((lhs, r.rewind(anchor))),
+            }
         };
 
         let mut stack = vec![(lhs, op)];
 
-        let expr = loop {
+        let mut rhs = loop {
             let prec = stack.last().map(|(_, op)| next_precedence(op)).unwrap();
-            let (term, r) = match self.parser_term.parse(rest) {
-                Ok(t) => t,
-                Err(t) => return Err(t),
-            };
+            let (term, r) = self.parser_term.parse(rest)?;
 
             let anchor = r.anchor();
             match self.parser_op.parse(r) {
@@ -128,16 +117,16 @@ where
                 }
                 Err((_, r)) => {
                     rest = r.rewind(anchor);
-                    let mut rhs = term;
-                    while let Some((lhs, op)) = stack.pop() {
-                        rhs = op.construct(lhs, rhs);
-                    }
-                    break rhs;
+                    break term;
                 }
             };
         };
 
-        return Ok((expr, rest));
+        while let Some((lhs, op)) = stack.pop() {
+            rhs = op.construct(lhs, rhs);
+        }
+
+        return Ok((rhs, rest));
 
         fn next_precedence<T: Operator>(op: &T) -> usize {
             match op.associativity() {

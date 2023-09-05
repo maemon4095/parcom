@@ -1,8 +1,6 @@
-pub mod combinated;
-pub mod looping;
-pub mod recursion;
+mod parser;
 
-pub use combinated::BinaryExprParser;
+pub use parser::BinaryExprParser;
 
 pub enum Associativity {
     Left,
