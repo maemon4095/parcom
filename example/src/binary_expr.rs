@@ -5,7 +5,7 @@ use parcom::standard::binary_expr::*;
 use parcom::standard::ParserExtension;
 use parcom::Parser;
 use parcom::*;
-
+use std::fmt::Write;
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
 /// term = integer / (expr)
@@ -13,25 +13,31 @@ use parcom::*;
 pub fn main() {
     println!("----- binary expression example -----\n");
 
-    let input = "((((10 * (10 + 6) / 4 + 12))))u8";
+    let input = {
+        let mut s = format!("0");
+        for _ in 0..1024 {
+            write!(s, " ~ 0").unwrap();
+        }
+        s
+    };
 
-    println!("input: {}", input);
+    println!("input: {}", &input);
 
-    let result = expr(input);
+    let result = expr(input.as_str());
 
     let expr = match result {
         Ok((expr, rest)) => {
-            println!("rest of input: {}", rest);
+            println!("rest: {}", rest);
             expr
         }
-        Err(_) => {
-            println!("err");
+        Err((_, rest)) => {
+            println!("err and rest: {}", rest);
             return;
         }
     };
 
-    let evaluated = eval(&expr);
-    println!("evaluated: {v}", v = evaluated);
+    let e = display(&expr);
+    println!("expr: {}", e);
 
     println!();
 }
@@ -57,17 +63,22 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()
         .parse(input)
 }
 
-fn eval(expr: &Expr<Term<Op>, Op>) -> usize {
+fn display(expr: &Expr<Term<Op>, Op>) -> String {
     match expr {
-        Expr::BinOp(l, op, r) => match op {
-            Op::Add => eval(l) + eval(r),
-            Op::Sub => eval(l) - eval(r),
-            Op::Mul => eval(l) * eval(r),
-            Op::Div => eval(l) / eval(r),
-        },
+        Expr::BinOp(l, op, r) => {
+            let l = display(l);
+            let r = display(r);
+            match op {
+                Op::Add => format!("({l} + {r})"),
+                Op::Sub => format!("({l} - {r})"),
+                Op::Mul => format!("({l} * {r})"),
+                Op::Div => format!("({l} / {r})"),
+                Op::Til => format!("({l} ~ {r})"),
+            }
+        }
         Expr::Atom(atom) => match atom {
-            Term::Parenthesized(e) => eval(e),
-            Term::Integer(n) => *n,
+            Term::Parenthesized(e) => format!("({})", display(e)),
+            Term::Integer(n) => format!("{n}"),
         },
     }
 }
@@ -90,21 +101,26 @@ enum Op {
     Sub,
     Mul,
     Div,
+    Til,
 }
 
 impl Operator for Op {
     type Expr = Expr<Term<Self>, Self>;
     fn precedence(&self) -> usize {
         match self {
-            Op::Add => 0,
-            Op::Sub => 0,
-            Op::Mul => 1,
-            Op::Div => 1,
+            Op::Add => 1,
+            Op::Sub => 1,
+            Op::Mul => 2,
+            Op::Div => 2,
+            Op::Til => 0,
         }
     }
 
     fn associativity(&self) -> Associativity {
-        Associativity::Left
+        match self {
+            Op::Til => Associativity::Right,
+            _ => Associativity::Left,
+        }
     }
 
     fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
@@ -132,6 +148,7 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
+        '~' => Op::Til,
         _ => return Err(((), input)),
     };
 

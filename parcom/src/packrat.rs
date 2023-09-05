@@ -1,5 +1,5 @@
-mod boundcached;
-mod cached;
+pub mod boundcached;
+pub mod cached;
 
 use crate::{internal::Sealed, ParseStream, Parser};
 
