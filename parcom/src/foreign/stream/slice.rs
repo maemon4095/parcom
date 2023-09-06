@@ -1,3 +1,5 @@
+use parcom_core::Delta;
+
 use crate::{ParseStream, RewindStream, Stream};
 
 pub struct SliceStream<'me, T> {
@@ -77,11 +79,11 @@ pub struct Location {
 }
 
 impl crate::Location for Location {
-    fn distance(&self, rhs: &Self) -> usize {
+    fn delta(&self, rhs: &Self) -> Delta {
         if self.index < rhs.index {
-            rhs.index - self.index
+            Delta::Negative(rhs.index - self.index)
         } else {
-            self.index - rhs.index
+            Delta::Positive(self.index - rhs.index)
         }
     }
 }

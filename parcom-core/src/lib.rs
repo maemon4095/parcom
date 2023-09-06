@@ -32,8 +32,23 @@ impl<S, O, E> Parser<S> for Box<dyn Parser<S, Output = O, Error = E>> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Delta {
+    Positive(usize),
+    Negative(usize),
+}
+
+impl Delta {
+    pub fn abs(self) -> usize {
+        match self {
+            Self::Positive(n) | Self::Negative(n) => n,
+        }
+    }
+}
+
 pub trait Location: Ord {
-    fn distance(&self, rhs: &Self) -> usize;
+    /// return self - rhs
+    fn delta(&self, rhs: &Self) -> Delta;
 }
 
 pub trait ParseStream: RewindStream {

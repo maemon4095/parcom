@@ -50,8 +50,8 @@ where
 
         match self.parser.parse(input) {
             Ok((o, r)) => {
-                let delta = r.location(0).distance(&location);
-                self.cache.save(location, Ok((o.clone(), delta)));
+                let delta = r.location(0).delta(&location);
+                self.cache.save(location, Ok((o.clone(), delta.abs())));
                 Ok((o, r))
             }
             Err((e, r)) => {

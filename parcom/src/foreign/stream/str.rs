@@ -1,3 +1,5 @@
+use parcom_core::Delta;
+
 use crate::{ParseStream, RewindStream, Stream};
 
 #[derive(Clone)]
@@ -97,11 +99,11 @@ pub struct Location {
 }
 
 impl crate::Location for Location {
-    fn distance(&self, rhs: &Self) -> usize {
+    fn delta(&self, rhs: &Self) -> Delta {
         if self.total_count < rhs.total_count {
-            rhs.total_count - self.total_count
+            Delta::Negative(rhs.total_count - self.total_count)
         } else {
-            self.total_count - rhs.total_count
+            Delta::Negative(self.total_count - rhs.total_count)
         }
     }
 }

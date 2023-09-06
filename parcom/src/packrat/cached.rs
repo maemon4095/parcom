@@ -50,10 +50,10 @@ where
         match self.parser.parse(input) {
             Ok((v, r)) => {
                 let tail = r.location(0);
-                let distance = tail.distance(&location);
+                let delta = tail.delta(&location);
                 self.server
                     .borrow_mut()
-                    .insert(location, Ok((v.clone(), distance)));
+                    .insert(location, Ok((v.clone(), delta.abs())));
                 Ok((v, r))
             }
             Err((e, r)) => {
