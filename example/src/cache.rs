@@ -30,10 +30,11 @@ pub fn main() {
             s.extend(std::iter::repeat(')').take(depth));
             s
         };
+        let input_str = input.as_str();
 
         let durations: Vec<_> = std::iter::repeat_with(|| {
             let start = Instant::now();
-            let _ = expr(input.as_str());
+            let _ = expr(input_str);
             let end = Instant::now();
             end.duration_since(start)
         })
@@ -51,7 +52,7 @@ pub fn main() {
     println!();
 
     let svg = crate::line_chart::draw(
-        (1280, 720),
+        (848, 600),
         "elapsed",
         "depth",
         "ns",
@@ -66,7 +67,7 @@ pub fn main() {
     match opener::open(path) {
         Ok(_) => {
             println!("summary file opened. press enter key to exit.");
-            std::io::stdin().lines().next();
+            std::thread::sleep(std::time::Duration::from_secs(2));
         }
         Err(_) => {
             println!("cannot open summary file.")

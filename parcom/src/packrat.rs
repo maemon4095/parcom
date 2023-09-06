@@ -6,7 +6,7 @@ use crate::{internal::Sealed, ParseStream, Parser};
 use self::{boundcached::BoundCached, cached::Cached};
 
 pub trait BindStream: ParseStream {
-    /// Bind value to specific location. When stream advance, value may be dropped
+    /// Bind a value to a specific location. When the stream advances, the value may be dropped.
     fn bind<T>(self, index: usize, value: T) -> Self;
 }
 

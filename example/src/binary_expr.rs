@@ -5,7 +5,6 @@ use parcom::standard::binary_expr::*;
 use parcom::standard::ParserExtension;
 use parcom::Parser;
 use parcom::*;
-use std::fmt::Write;
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
 /// term = integer / (expr)
@@ -13,46 +12,39 @@ use std::fmt::Write;
 pub fn main() {
     println!("----- binary expression example -----\n");
 
-    let input = {
-        let mut s = format!("0");
-        for _ in 0..1024 {
-            write!(s, " ~ 0").unwrap();
-        }
-        s
-    };
+    let input = "1 + 2 * (6 + 4) / 5";
 
-    println!("input: {}", &input);
+    println!(" input: {}", &input);
 
-    let result = expr(input.as_str());
+    let result = expr(input);
 
     let expr = match result {
         Ok((expr, rest)) => {
-            println!("rest: {}", rest);
+            println!("  rest: {}", rest);
             expr
         }
         Err((_, rest)) => {
-            println!("err and rest: {}", rest);
+            println!("error; rest: {}", rest);
             return;
         }
     };
 
-    let e = display(&expr);
-    println!("expr: {}", e);
+    println!("result: {} = {}", display(&expr), eval(&expr));
 
     println!();
 }
 
 /// expr = expr op expr / term
-fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr<Term<Op>, Op>, ()> {
+fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
     BinaryExprParser::new(
-        term.map(|t| Expr::Atom(t)),
+        term.map(|t| Expr::Term(t)),
         space.join(op).join(space).map(|((_, op), _)| op),
     )
     .parse(input)
 }
 
 /// term = integer / (expr)
-fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()> {
+fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
     integer
         .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
@@ -63,7 +55,7 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term<Op>, ()
         .parse(input)
 }
 
-fn display(expr: &Expr<Term<Op>, Op>) -> String {
+fn display(expr: &Expr) -> String {
     match expr {
         Expr::BinOp(l, op, r) => {
             let l = display(l);
@@ -73,25 +65,43 @@ fn display(expr: &Expr<Term<Op>, Op>) -> String {
                 Op::Sub => format!("({l} - {r})"),
                 Op::Mul => format!("({l} * {r})"),
                 Op::Div => format!("({l} / {r})"),
-                Op::Til => format!("({l} ~ {r})"),
             }
         }
-        Expr::Atom(atom) => match atom {
-            Term::Parenthesized(e) => format!("({})", display(e)),
+        Expr::Term(atom) => match atom {
+            Term::Parenthesized(e) => format!("{}", display(e)),
             Term::Integer(n) => format!("{n}"),
         },
     }
 }
 
-#[derive(Debug)]
-enum Expr<T, O> {
-    BinOp(Box<Expr<T, O>>, O, Box<Expr<T, O>>),
-    Atom(T),
+fn eval(expr: &Expr) -> usize {
+    match expr {
+        Expr::BinOp(l, op, r) => {
+            let l = eval(l);
+            let r = eval(r);
+            match op {
+                Op::Add => l + r,
+                Op::Sub => l - r,
+                Op::Mul => l * r,
+                Op::Div => l / r,
+            }
+        }
+        Expr::Term(term) => match term {
+            Term::Parenthesized(e) => eval(e),
+            Term::Integer(n) => *n,
+        },
+    }
 }
 
 #[derive(Debug)]
-enum Term<O> {
-    Parenthesized(Box<Expr<Term<O>, O>>),
+enum Expr {
+    BinOp(Box<Expr>, Op, Box<Expr>),
+    Term(Term),
+}
+
+#[derive(Debug)]
+enum Term {
+    Parenthesized(Box<Expr>),
     Integer(usize),
 }
 
@@ -101,26 +111,21 @@ enum Op {
     Sub,
     Mul,
     Div,
-    Til,
 }
 
 impl Operator for Op {
-    type Expr = Expr<Term<Self>, Self>;
+    type Expr = Expr;
     fn precedence(&self) -> usize {
         match self {
             Op::Add => 1,
             Op::Sub => 1,
             Op::Mul => 2,
             Op::Div => 2,
-            Op::Til => 0,
         }
     }
 
     fn associativity(&self) -> Associativity {
-        match self {
-            Op::Til => Associativity::Right,
-            _ => Associativity::Left,
-        }
+        Associativity::Left
     }
 
     fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
@@ -148,7 +153,6 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        '~' => Op::Til,
         _ => return Err(((), input)),
     };
 
@@ -170,7 +174,7 @@ fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
         let mut consume = 1;
 
         for _ in chars {
-            digit *= 10;
+            digit *= radix;
             consume += 1;
         }
 
@@ -185,8 +189,8 @@ fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
             break;
         };
 
-        sum += d as usize * digit;
-        digit /= 10;
+        sum += (d * digit) as usize;
+        digit /= radix;
     }
 
     Ok((sum, input.advance(to_consume)))
