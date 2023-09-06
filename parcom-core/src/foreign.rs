@@ -1,4 +1,10 @@
+use core::panic;
+
 use crate::{RewindStream, Stream};
+
+pub struct Anchor<T> {
+    me: T,
+}
 
 impl Stream for &str {
     type Segment = str;
@@ -21,14 +27,21 @@ impl Stream for &str {
 }
 
 impl RewindStream for &str {
-    type Anchor = Self;
+    type Anchor = Anchor<Self>;
 
     fn anchor(&self) -> Self::Anchor {
-        self
+        Anchor { me: self }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self {
-        anchor
+        let ptr = anchor.me.as_ptr();
+        let len = anchor.me.len();
+        let offset = unsafe { self.as_ptr().offset_from(ptr) };
+        if !offset.is_negative() && (offset as usize) < len {
+            anchor.me
+        } else {
+            panic!("the anchor is not an anchor of this stream.")
+        }
     }
 }
 
@@ -49,13 +62,20 @@ impl<T> Stream for &[T] {
 }
 
 impl<T> RewindStream for &[T] {
-    type Anchor = Self;
+    type Anchor = Anchor<Self>;
 
     fn anchor(&self) -> Self::Anchor {
-        self
+        Anchor { me: self }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self {
-        anchor
+        let ptr = anchor.me.as_ptr();
+        let len = anchor.me.len();
+        let offset = unsafe { self.as_ptr().offset_from(ptr) };
+        if !offset.is_negative() && (offset as usize) < len {
+            anchor.me
+        } else {
+            panic!("the anchor is not an anchor of this stream.")
+        }
     }
 }
