@@ -1,12 +1,18 @@
-pub mod into_parser;
 use std::marker::PhantomData;
 
-use crate::{internal::Sealed, Parse};
+use crate::{Parse, Parser};
 
-pub trait ParseExtension<T>: Parse<T> + Sealed {
-    fn into_parser() -> into_parser::IntoParser<T, Self> {
-        into_parser::IntoParser(PhantomData)
-    }
+pub fn parser_for<P>() -> ParserFor<P> {
+    ParserFor(PhantomData)
 }
 
-impl<T, P: Parse<T> + Sealed> ParseExtension<T> for P {}
+pub struct ParserFor<P>(pub(super) PhantomData<P>);
+
+impl<T, P: Parse<T>> Parser<T> for ParserFor<P> {
+    type Output = P;
+    type Error = P::Error;
+
+    fn parse(&self, input: T) -> crate::ParseResult<T, P, Self::Error> {
+        P::parse(input)
+    }
+}

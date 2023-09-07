@@ -1,12 +1,13 @@
 #![cfg_attr(test, cfg(test))]
 
 use parcom::standard::binary_expr::Operator;
+use parcom::standard::parse::parser_for;
 use parcom::{ParseResult, Parser, Stream};
 
 use parcom::foreign::parser::str::atom_char;
 use parcom::standard::parser::binary_expr::BinaryExprParser;
 use parcom::{
-    standard::{self, parse::ParseExtension, ParserExtension},
+    standard::{self, ParserExtension},
     Parse, RewindStream,
 };
 
@@ -142,8 +143,8 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         BinaryExprParser::new(
-            Term::into_parser().map(|a| Expr::Term(a)),
-            Op::into_parser(),
+            parser_for::<Term>().map(|a| Expr::Term(a)),
+            parser_for::<Op>(),
         )
         .parse(input)
     }
@@ -158,10 +159,10 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Term {
     type Error = ();
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        Integer::into_parser()
+        parser_for::<Integer>()
             .map(|z| Term::Integer(z))
             .or(atom_char('(')
-                .join(Expr::into_parser())
+                .join(parser_for::<Expr>())
                 .join(atom_char(')'))
                 .map(|((_, e), _)| Term::Parenthesized(Box::new(e))))
             .unify()
