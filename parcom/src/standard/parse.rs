@@ -1,4 +1,5 @@
-mod into_parser;
+pub mod binary_expr;
+pub mod into_parser;
 use std::marker::PhantomData;
 
 use crate::{internal::Sealed, Parse};

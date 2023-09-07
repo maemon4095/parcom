@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{standard::iterate::iterate, ParseResult, Parser, RewindStream};
+use crate::{standard::parser::iterate::iterate, ParseResult, Parser, RewindStream};
 
 use super::ParserExtension;
 pub(super) use internal::Iter;
@@ -29,7 +29,7 @@ impl<S: RewindStream, P: Parser<S>, O, E, F: Fn(&mut Iter<S, P>) -> Result<O, E>
 }
 
 mod internal {
-    use crate::standard::{iterate, AsRef};
+    use crate::standard::parser::{iterate, AsRef};
     use crate::{Parser, RewindStream};
 
     pub struct Iter<'a, S: RewindStream, P: Parser<S>>(

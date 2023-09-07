@@ -26,7 +26,7 @@ mod test {
     #[global_allocator]
     static ALLOCATOR: Mockalloc<System> = Mockalloc(System);
 
-    use crate::standard::ParserExtension;
+    use crate::standard::parser::ParserExtension;
     use crate::Parser;
 
     #[test]

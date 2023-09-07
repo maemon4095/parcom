@@ -2,6 +2,7 @@
 
 use parcom::foreign::parser::str::atom;
 use parcom::standard::binary_expr::*;
+use parcom::standard::parser::binary_expr::BinaryExprParser;
 use parcom::standard::ParserExtension;
 use parcom::Parser;
 use parcom::*;

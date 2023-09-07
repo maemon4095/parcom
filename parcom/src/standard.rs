@@ -1,10 +1,10 @@
-mod parse;
-mod parser;
+pub mod binary_expr;
+pub mod parse;
+pub mod parser;
 
 use std::ops::Bound;
 
-pub use parse::*;
-pub use parser::*;
+pub use parser::ParserExtension;
 
 fn just_on_boundary(item: usize, bound: Bound<&usize>) -> bool {
     match bound {

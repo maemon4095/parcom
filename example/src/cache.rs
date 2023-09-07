@@ -3,10 +3,7 @@
 use chrono::Local;
 use parcom::{
     foreign::{self, parser::str::atom},
-    standard::{
-        self,
-        binary_expr::{BinaryExprParser, Operator},
-    },
+    standard::{self, binary_expr::Operator, parser::binary_expr::BinaryExprParser},
     standard::{binary_expr::Associativity, ParserExtension},
     ParseResult, Parser, RewindStream, Stream,
 };
