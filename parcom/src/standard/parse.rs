@@ -6,7 +6,8 @@ pub fn parser_for<P>() -> ParserFor<P> {
     ParserFor(PhantomData)
 }
 
-pub struct ParserFor<P>(pub(super) PhantomData<P>);
+#[derive(Debug, Clone, Copy)]
+pub struct ParserFor<P>(PhantomData<P>);
 
 impl<T, P: Parse<T>> Parser<T> for ParserFor<P> {
     type Output = P;
