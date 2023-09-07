@@ -160,7 +160,7 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Term {
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         parser_for::<Integer>()
-            .map(|z| Term::Integer(z))
+            .map(Term::Integer)
             .or(atom_char('(')
                 .join(parser_for::<Expr>())
                 .join(atom_char(')'))

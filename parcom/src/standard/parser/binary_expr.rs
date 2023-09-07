@@ -6,7 +6,7 @@ use crate::standard::binary_expr::{Associativity, Operator};
 
 pub struct BinaryExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>>
 where
-    POp::Output: Operator,
+    POp::Output: Operator<Expr = PTerm::Output>,
 {
     parser_term: PTerm,
     parser_op: POp,
