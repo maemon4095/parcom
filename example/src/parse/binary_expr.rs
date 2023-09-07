@@ -12,18 +12,28 @@ use parcom::{
 
 #[cfg_attr(test, test)]
 pub fn main() {
-    let result = Expr::parse("0+0*0/0+0");
+    println!("----- binary expression example -----\n");
 
-    let (expr, rest) = match result {
-        Ok(t) => t,
-        Err((_, r)) => {
-            println!("error; rest: {r}");
+    let input = "1+2*(6+4)/5";
+
+    println!(" input: {}", &input);
+
+    let result = Expr::parse(input);
+
+    let expr = match result {
+        Ok((expr, rest)) => {
+            println!("  rest: {}", rest);
+            expr
+        }
+        Err((_, rest)) => {
+            println!("error; rest: {}", rest);
             return;
         }
     };
 
-    println!("expr: {}", display(&expr));
-    println!("rest: {}", rest);
+    println!("result: {} = {}", display(&expr), eval(&expr));
+
+    println!()
 }
 
 fn display(expr: &Expr) -> String {
@@ -38,9 +48,28 @@ fn display(expr: &Expr) -> String {
                 Op::Div => format!("({} / {})", l, r),
             }
         }
-        Expr::Atom(atom) => match atom {
-            Atom::Parenthesized(e) => display(e),
-            Atom::Zero(_) => format!("0"),
+        Expr::Term(atom) => match atom {
+            Term::Parenthesized(e) => display(e),
+            Term::Integer(int) => format!("{}", int.0),
+        },
+    }
+}
+
+fn eval(expr: &Expr) -> usize {
+    match expr {
+        Expr::Bin(l, op, r) => {
+            let l = eval(l);
+            let r = eval(r);
+            match op {
+                Op::Add => l + r,
+                Op::Sub => l - r,
+                Op::Mul => l * r,
+                Op::Div => l / r,
+            }
+        }
+        Expr::Term(term) => match term {
+            Term::Parenthesized(e) => eval(e),
+            Term::Integer(n) => n.0,
         },
     }
 }
@@ -105,7 +134,7 @@ impl Operator for Op {
 #[derive(Debug)]
 enum Expr {
     Bin(Box<Expr>, Op, Box<Expr>),
-    Atom(Atom),
+    Term(Term),
 }
 
 impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
@@ -113,50 +142,73 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         BinaryExprParser::new(
-            Atom::into_parser().map(|a| Expr::Atom(a)),
+            Term::into_parser().map(|a| Expr::Term(a)),
             Op::into_parser(),
         )
         .parse(input)
     }
 }
 #[derive(Debug)]
-enum Atom {
+enum Term {
     Parenthesized(Box<Expr>),
-    Zero(Zero),
+    Integer(Integer),
 }
 
-impl<S: RewindStream<Segment = str>> Parse<S> for Atom {
+impl<S: RewindStream<Segment = str>> Parse<S> for Term {
     type Error = ();
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        Zero::into_parser()
-            .map(|z| Atom::Zero(z))
+        Integer::into_parser()
+            .map(|z| Term::Integer(z))
             .or(atom_char('(')
                 .join(Expr::into_parser())
                 .join(atom_char(')'))
-                .map(|((_, e), _)| Atom::Parenthesized(Box::new(e))))
+                .map(|((_, e), _)| Term::Parenthesized(Box::new(e))))
             .unify()
             .map_err(|_| ())
             .parse(input)
     }
 }
 #[derive(Debug)]
-struct Zero {}
+struct Integer(usize);
 
-impl<S: RewindStream<Segment = str>> Parse<S> for Zero {
+impl<S: RewindStream<Segment = str>> Parse<S> for Integer {
     type Error = ();
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        let mut chars = input.segments().flat_map(|s| s.chars());
-        match chars.next() {
-            Some('0') => {
+        let chars = input.segments().flat_map(|e| e.chars());
+        let radix = 10;
+
+        let (max_digit, to_consume) = {
+            let mut chars = chars.take_while(|c| c.is_digit(radix));
+            if chars.next().is_none() {
                 drop(chars);
-                Ok((Self {}, input.advance(1)))
+                return Err(((), input));
             }
-            _ => {
-                drop(chars);
-                Err(((), input))
+
+            let mut digit = 1;
+            let mut consume = 1;
+
+            for _ in chars {
+                digit *= radix;
+                consume += 1;
             }
+
+            (digit, consume)
+        };
+
+        let chars = input.segments().flat_map(|e| e.chars());
+        let mut sum = 0;
+        let mut digit = max_digit;
+        for c in chars {
+            let Some(d) = c.to_digit(10) else {
+                break;
+            };
+
+            sum += (d * digit) as usize;
+            digit /= radix;
         }
+
+        Ok((Integer(sum), input.advance(to_consume)))
     }
 }
