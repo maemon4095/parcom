@@ -1,4 +1,3 @@
-pub mod binary_expr;
 pub mod into_parser;
 use std::marker::PhantomData;
 
