@@ -37,7 +37,7 @@ impl RewindStream for &str {
         let ptr = anchor.me.as_ptr();
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
-        if !offset.is_negative() && (offset as usize) < len {
+        if !offset.is_negative() && (offset as usize) <= len {
             anchor.me
         } else {
             panic!("the anchor is not an anchor of this stream.")
@@ -72,7 +72,7 @@ impl<T> RewindStream for &[T] {
         let ptr = anchor.me.as_ptr();
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
-        if !offset.is_negative() && (offset as usize) < len {
+        if !offset.is_negative() && (offset as usize) <= len {
             anchor.me
         } else {
             panic!("the anchor is not an anchor of this stream.")
