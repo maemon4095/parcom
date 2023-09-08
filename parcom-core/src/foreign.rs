@@ -1,9 +1,19 @@
 use core::panic;
 
-use crate::{RewindStream, Stream};
+use crate::{RewindStream, Stream, StreamSegment};
 
 pub struct Anchor<T> {
     me: T,
+}
+
+impl StreamSegment for str {
+    type Item<'a> = char;
+
+    type Iter<'a> = std::str::Chars<'a>;
+
+    fn iter(&self) -> Self::Iter<'_> {
+        self.chars()
+    }
 }
 
 impl Stream for &str {
@@ -42,6 +52,15 @@ impl RewindStream for &str {
         } else {
             panic!("the anchor is not an anchor of this stream.")
         }
+    }
+}
+
+impl<T> StreamSegment for [T] {
+    type Item<'a> = &'a T where T:'a;
+    type Iter<'a> = std::slice::Iter<'a, T> where T:'a;
+
+    fn iter(&self) -> Self::Iter<'_> {
+        self.iter()
     }
 }
 
