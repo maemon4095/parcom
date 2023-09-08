@@ -1,7 +1,11 @@
 use std::collections::BTreeMap;
 use std::{cell::RefCell, marker::PhantomData};
 
-use crate::{Location, ParseResult, ParseStream, Parser};
+use crate::{
+    Location,
+    ParseResult::{self, *},
+    ParseStream, Parser,
+};
 
 pub struct Cached<S: ParseStream, P: Parser<S>>
 where
@@ -40,25 +44,25 @@ where
         match self.server.borrow().get(&location) {
             Some(result) => {
                 return match result {
-                    Ok((v, c)) => Ok((v.clone(), input.advance(*c))),
-                    Err(e) => Err((e.clone(), input)),
+                    Ok((v, c)) => Done(v.clone(), input.advance(*c)),
+                    Err(e) => Fail(e.clone(), input),
                 }
             }
             None => (),
         }
 
         match self.parser.parse(input) {
-            Ok((v, r)) => {
+            Done(v, r) => {
                 let tail = r.location(0);
                 let delta = tail.delta(&location);
                 self.server
                     .borrow_mut()
                     .insert(location, Ok((v.clone(), delta.abs())));
-                Ok((v, r))
+                Done(v, r)
             }
-            Err((e, r)) => {
+            Fail(e, r) => {
                 self.server.borrow_mut().insert(location, Err(e.clone()));
-                Err((e, r))
+                Fail(e, r)
             }
         }
     }

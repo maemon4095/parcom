@@ -1,6 +1,9 @@
 use std::{marker::PhantomData, ops::RangeBounds};
 
-use crate::{ParseResult, Parser, RewindStream};
+use crate::{
+    ParseResult::{self, *},
+    Parser, RewindStream,
+};
 
 use crate::standard::just_on_boundary;
 
@@ -27,8 +30,8 @@ impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<
             let (e, r) = {
                 let anchor = rest.anchor();
                 match self.parser.parse(rest) {
-                    Ok(t) => t,
-                    Err((e, r)) => break (Some(e), r.rewind(anchor)),
+                    Done(v, r) => (v, r),
+                    Fail(e, r) => break (Some(e), r.rewind(anchor)),
                 }
             };
 
@@ -37,9 +40,9 @@ impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<
         };
 
         if self.range.contains(&vec.len()) {
-            Ok((vec, rest))
+            Done(vec, rest)
         } else {
-            Err((last_error.unwrap(), rest))
+            Fail(last_error.unwrap(), rest)
         }
     }
 }

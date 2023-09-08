@@ -1,6 +1,10 @@
 use std::marker::PhantomData;
 
-use crate::{standard::Either, Parser};
+use crate::{
+    standard::Either,
+    ParseResult::{self, *},
+    Parser,
+};
 
 pub struct Unify<S, T, P: Parser<S, Output = Either<T, T>>> {
     pub(super) parser: P,
@@ -11,11 +15,11 @@ impl<S, T, P: Parser<S, Output = Either<T, T>>> Parser<S> for Unify<S, T, P> {
     type Output = T;
     type Error = P::Error;
 
-    fn parse(&self, input: S) -> parcom_core::ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         match self.parser.parse(input) {
-            Ok((Either::First(v), r)) => Ok((v, r)),
-            Ok((Either::Last(v), r)) => Ok((v, r)),
-            Err(t) => Err(t),
+            Done(Either::First(v), r) => Done(v, r),
+            Done(Either::Last(v), r) => Done(v, r),
+            Fail(e, r) => Fail(e, r),
         }
     }
 }
@@ -31,9 +35,9 @@ impl<S, T, P: Parser<S, Error = Either<T, T>>> Parser<S> for UnifyErr<S, T, P> {
 
     fn parse(&self, input: S) -> parcom_core::ParseResult<S, Self::Output, Self::Error> {
         match self.parser.parse(input) {
-            Ok(t) => Ok(t),
-            Err((Either::First(v), r)) => Err((v, r)),
-            Err((Either::Last(v), r)) => Err((v, r)),
+            Done(v, r) => Done(v, r),
+            Fail(Either::First(v), r) => Fail(v, r),
+            Fail(Either::Last(v), r) => Fail(v, r),
         }
     }
 }

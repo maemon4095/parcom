@@ -1,15 +1,10 @@
 #![cfg_attr(test, cfg(test))]
 
-use parcom::standard::binary_expr::Operator;
-use parcom::standard::parse::parser_for;
-use parcom::{ParseResult, Parser, Stream};
+use parcom::prelude::*;
 
 use parcom::foreign::parser::str::atom_char;
 use parcom::standard::parser::binary_expr::BinaryExprParser;
-use parcom::{
-    standard::{self, ParserExtension},
-    Parse, RewindStream,
-};
+use parcom::standard::{self, binary_expr::Operator, parse::parser_for, ParserExtension};
 
 #[cfg_attr(test, test)]
 pub fn main() {
@@ -22,11 +17,11 @@ pub fn main() {
     let result = Expr::parse(input);
 
     let expr = match result {
-        Ok((expr, rest)) => {
+        Done(expr, rest) => {
             println!("  rest: {}", rest);
             expr
         }
-        Err((_, rest)) => {
+        Fail(_, rest) => {
             println!("error; rest: {}", rest);
             return;
         }
@@ -100,14 +95,14 @@ impl<S: Stream<Segment = str>> Parse<S> for Op {
                     };
 
                     drop(chars);
-                    return Ok((op, input.advance(1)));
+                    return Done(op, input.advance(1));
                 }
                 _ => break 'scope,
             }
         }
 
         drop(chars);
-        Err(((), input))
+        Fail((), input)
     }
 }
 
@@ -184,7 +179,7 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Integer {
             let mut chars = chars.take_while(|c| c.is_digit(radix));
             if chars.next().is_none() {
                 drop(chars);
-                return Err(((), input));
+                return Fail((), input);
             }
 
             let mut digit = 1;
@@ -210,6 +205,6 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Integer {
             digit /= radix;
         }
 
-        Ok((Integer(sum), input.advance(to_consume)))
+        Done(Integer(sum), input.advance(to_consume))
     }
 }

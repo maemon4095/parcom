@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::{Parser, RewindStream};
+use crate::{
+    ParseResult::{self, *},
+    Parser, RewindStream,
+};
 
 pub struct Fold<S, P: Parser<S>, A, FInit: Fn() -> (A, FBody), FBody: FnMut(A, P::Output) -> A> {
     pub(super) parser: P,
@@ -17,20 +20,20 @@ where
     type Output = A;
     type Error = ();
 
-    fn parse(&self, input: S) -> crate::ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let (mut acc, mut fold) = (self.init)();
 
         let mut anchor = input.anchor();
         let mut rest = input;
         loop {
             match self.parser.parse(rest) {
-                Ok((v, r)) => {
+                Done(v, r) => {
                     anchor = r.anchor();
                     rest = r;
                     acc = fold(acc, v);
                 }
-                Err((_, r)) => {
-                    break Ok((acc, r.rewind(anchor)));
+                Fail(_, r) => {
+                    break Done(acc, r.rewind(anchor));
                 }
             }
         }

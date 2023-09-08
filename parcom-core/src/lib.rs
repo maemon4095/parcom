@@ -1,6 +1,9 @@
 #[cfg(feature = "foreign")]
 pub mod foreign;
-pub type ParseResult<S, O, E> = Result<(O, S), (E, S)>;
+mod parse_result;
+
+pub use parse_result::ParseResult;
+use std::fmt::Debug;
 
 pub trait Parser<S> {
     type Output;
@@ -14,7 +17,7 @@ pub trait Parse<S>: Sized {
     fn parse(input: S) -> ParseResult<S, Self, Self::Error>;
 }
 
-impl<S, O, E, F: Fn(S) -> Result<(O, S), (E, S)>> Parser<S> for F {
+impl<S, O, E, F: Fn(S) -> ParseResult<S, O, E>> Parser<S> for F {
     type Output = O;
     type Error = E;
 
@@ -27,7 +30,7 @@ impl<S, O, E> Parser<S> for Box<dyn Parser<S, Output = O, Error = E>> {
     type Output = O;
     type Error = E;
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> ParseResult<S, O, E> {
         self.as_ref().parse(input)
     }
 }

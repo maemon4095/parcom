@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
-use parcom_core::ParseResult;
-
 use crate::standard::Either;
-use crate::{Parser, RewindStream};
+use crate::{
+    ParseResult::{self, *},
+    Parser, RewindStream,
+};
 
 pub struct Join<S: RewindStream, P0: Parser<S>, P1: Parser<S>> {
     pub(super) parser0: P0,
@@ -17,15 +18,15 @@ impl<S: RewindStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Join<S, P0, P1
 
     fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let (item0, rest) = match self.parser0.parse(input) {
-            Ok(t) => t,
-            Err((e, r)) => return Err((Either::First(e), r)),
+            Done(v, r) => (v, r),
+            Fail(e, r) => return Fail(Either::First(e), r),
         };
 
         let (item1, rest) = match self.parser1.parse(rest) {
-            Ok(t) => t,
-            Err((e, r)) => return Err((Either::Last(e), r)),
+            Done(v, r) => (v, r),
+            Fail(e, r) => return Fail(Either::Last(e), r),
         };
 
-        Ok(((item0, item1), rest))
+        Done((item0, item1), rest)
     }
 }

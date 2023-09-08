@@ -6,6 +6,10 @@ pub mod packrat;
 pub mod standard;
 
 pub use parcom_core::*;
+pub mod prelude {
+    pub use parcom_core::*;
+    pub use ParseResult::*;
+}
 
 mod internal {
     pub trait Sealed {}

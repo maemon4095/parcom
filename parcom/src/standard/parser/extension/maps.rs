@@ -13,9 +13,7 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<
     type Error = P::Error;
 
     fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
-        self.parser
-            .parse(input)
-            .map(|(e, r)| ((self.mapping)(e), r))
+        self.parser.parse(input).map(&self.mapping)
     }
 }
 
@@ -30,8 +28,6 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Error) -> U> Parser<S> for MapEr
     type Error = U;
 
     fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
-        self.parser
-            .parse(input)
-            .map_err(|(e, r)| ((self.mapping)(e), r))
+        self.parser.parse(input).map_err(&self.mapping)
     }
 }

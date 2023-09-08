@@ -4,6 +4,7 @@ use parcom::foreign::parser::str::atom;
 use parcom::standard::binary_expr::*;
 use parcom::standard::parser::binary_expr::BinaryExprParser;
 use parcom::standard::ParserExtension;
+use parcom::ParseResult::{self, *};
 use parcom::Parser;
 use parcom::*;
 /// parsing binary expression example. parse and eval expression with syntax below
@@ -20,11 +21,11 @@ pub fn main() {
     let result = expr(input);
 
     let expr = match result {
-        Ok((expr, rest)) => {
+        Done(expr, rest) => {
             println!("  rest: {}", rest);
             expr
         }
-        Err((_, rest)) => {
+        Fail(_, rest) => {
             println!("error; rest: {}", rest);
             return;
         }
@@ -146,7 +147,7 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let mut chars = input.segments().flat_map(|s| s.chars());
     let Some(head) = chars.next() else {
         drop(chars);
-        return Err(((), input));
+        return Fail((), input);
     };
     drop(chars);
     let op = match head {
@@ -154,10 +155,10 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return Err(((), input)),
+        _ => return Fail((), input),
     };
 
-    Ok((op, input.advance(1)))
+    Done(op, input.advance(1))
 }
 
 fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
@@ -168,7 +169,7 @@ fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
         let mut chars = chars.take_while(|c| c.is_digit(radix));
         if chars.next().is_none() {
             drop(chars);
-            return Err(((), input));
+            return Fail((), input);
         }
 
         let mut digit = 1;
@@ -194,5 +195,5 @@ fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
         digit /= radix;
     }
 
-    Ok((sum, input.advance(to_consume)))
+    Done(sum, input.advance(to_consume))
 }

@@ -1,3 +1,5 @@
+use crate::ParseResult::{self, *};
+
 use crate::{Parser, Stream};
 
 pub fn atom(str: &str) -> Atom<'_> {
@@ -16,7 +18,7 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
     type Output = &'a str;
     type Error = ();
 
-    fn parse(&self, input: S) -> Result<(Self::Output, S), (Self::Error, S)> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let mut chars = self.str.chars();
         let mut target = input.segments().flat_map(|s| s.chars());
 
@@ -24,7 +26,7 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
         loop {
             let Some(c) = chars.next() else {
                 drop(target);
-                return Ok((self.str, input.advance(consumed)));
+                return Done(self.str, input.advance(consumed));
             };
 
             match target.next() {
@@ -33,7 +35,7 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
                 }
                 _ => {
                     drop(target);
-                    return Err(((), input));
+                    return Fail((), input);
                 }
             }
         }
@@ -51,8 +53,8 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
     fn parse(&self, input: S) -> crate::ParseResult<S, Self::Output, Self::Error> {
         let head = input.segments().flat_map(|s| s.chars()).next();
         match head {
-            Some(c) if c == self.char => Ok((c, input.advance(1))),
-            _ => Err(((), input)),
+            Some(c) if c == self.char => Done(c, input.advance(1)),
+            _ => Fail((), input),
         }
     }
 }

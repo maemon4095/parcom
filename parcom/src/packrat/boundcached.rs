@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::{cell::RefCell, marker::PhantomData};
 
 use super::BindStream;
-
+use crate::ParseResult::{self, *};
 pub struct BoundCached<S: BindStream, P: Parser<S>>
 where
     S::Location: Clone,
@@ -40,23 +40,23 @@ where
     type Output = P::Output;
     type Error = P::Error;
 
-    fn parse(&self, input: S) -> crate::ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let location = input.location(0);
         match self.cache.get(&location) {
-            Some(Ok((o, c))) => return Ok((o, input.advance(c))),
-            Some(Err(e)) => return Err((e, input)),
+            Some(Ok((o, c))) => return Done(o, input.advance(c)),
+            Some(Err(e)) => return Fail(e, input),
             None => (),
         }
 
         match self.parser.parse(input) {
-            Ok((o, r)) => {
+            Done(o, r) => {
                 let delta = r.location(0).delta(&location);
                 self.cache.save(location, Ok((o.clone(), delta.abs())));
-                Ok((o, r))
+                Done(o, r)
             }
-            Err((e, r)) => {
+            Fail(e, r) => {
                 self.cache.save(location, Err(e.clone()));
-                Err((e, r))
+                Fail(e, r)
             }
         }
     }

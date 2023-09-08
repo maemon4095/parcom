@@ -5,7 +5,8 @@ use parcom::{
     foreign::{self, parser::str::atom},
     standard::{self, binary_expr::Operator, parser::binary_expr::BinaryExprParser},
     standard::{binary_expr::Associativity, ParserExtension},
-    ParseResult, Parser, RewindStream, Stream,
+    ParseResult::{self, *},
+    Parser, RewindStream, Stream,
 };
 use std::time::Instant;
 use std::{fs::File, io::Write};
@@ -134,7 +135,7 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let mut chars = input.segments().flat_map(|s| s.chars());
     let Some(head) = chars.next() else {
         drop(chars);
-        return Err(((), input));
+        return Fail((), input);
     };
     drop(chars);
     let op = match head {
@@ -142,10 +143,10 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return Err(((), input)),
+        _ => return Fail((), input),
     };
 
-    Ok((op, input.advance(1)))
+    Done(op, input.advance(1))
 }
 
 fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {

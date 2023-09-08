@@ -1,6 +1,10 @@
 use std::marker::PhantomData;
 
-use crate::{standard::parser::iterate::iterate, ParseResult, Parser, RewindStream};
+use crate::{
+    standard::parser::iterate::iterate,
+    ParseResult::{self, *},
+    Parser, RewindStream,
+};
 
 use super::ParserExtension;
 pub(super) use internal::Iter;
@@ -22,8 +26,8 @@ impl<S: RewindStream, P: Parser<S>, O, E, F: Fn(&mut Iter<S, P>) -> Result<O, E>
         let (rest, _, _) = iter.0.deconstruct();
 
         match result {
-            Ok(v) => Ok((v, rest)),
-            Err(e) => Err((e, rest)),
+            Ok(v) => Done(v, rest),
+            Err(e) => Fail(e, rest),
         }
     }
 }

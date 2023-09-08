@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{Parser, RewindStream};
+use crate::{ParseResult::*, Parser, RewindStream};
 
 pub fn iterate<S: RewindStream, P: Parser<S>>(input: S, parser: P) -> Iter<S, P> {
     Iter {
@@ -37,11 +37,11 @@ impl<S: RewindStream, P: Parser<S>> Iter<S, P> {
             let rest = ptr.read();
             let anchor = rest.anchor();
             match self.parser.parse(rest) {
-                Ok((item, rest)) => {
+                Done(item, rest) => {
                     ptr.write(rest);
                     Ok(item)
                 }
-                Err((e, rest)) => {
+                Fail(e, rest) => {
                     ptr.write(rest.rewind(anchor));
                     Err(e)
                 }

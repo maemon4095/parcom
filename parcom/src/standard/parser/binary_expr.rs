@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::{ParseResult, Parser, RewindStream};
+use crate::{
+    ParseResult::{self, *},
+    Parser, RewindStream,
+};
 
 use crate::standard::binary_expr::{Associativity, Operator};
 
@@ -59,13 +62,16 @@ where
             return self.parse_impl_loop(input, precedence);
         }
 
-        let (mut lhs, mut rest) = self.parser_term.parse(input)?;
+        let (mut lhs, mut rest) = match self.parser_term.parse(input) {
+            Done(v, r) => (v, r),
+            Fail(v, r) => return Fail(v, r),
+        };
 
         loop {
             let anchor = rest.anchor();
             let (op, r) = match self.parser_op.parse(rest) {
-                Ok((op, r)) if op.precedence() >= precedence => (op, r),
-                Ok((_, r)) | Err((_, r)) => {
+                Done(op, r) if op.precedence() >= precedence => (op, r),
+                Done(_, r) | Fail(_, r) => {
                     rest = r.rewind(anchor);
                     break;
                 }
@@ -76,24 +82,30 @@ where
                 Associativity::Right => op.precedence(),
             };
 
-            let (rhs, r) = self.parse_impl(r, next_prec, recursion_limit - 1)?;
+            let (rhs, r) = match self.parse_impl(r, next_prec, recursion_limit - 1) {
+                Done(v, r) => (v, r),
+                Fail(v, r) => return Fail(v, r),
+            };
 
             lhs = op.construct(lhs, rhs);
             rest = r;
         }
 
-        Ok((lhs, rest))
+        Done(lhs, rest)
     }
 
     // consider the input has the syntax "term / (term op)+ term"
     fn parse_impl_loop(&self, input: S, precedence: usize) -> ParseResult<S, E, PTerm::Error> {
-        let (lhs, rest) = self.parser_term.parse(input)?;
+        let (lhs, rest) = match self.parser_term.parse(input) {
+            Done(v, r) => (v, r),
+            Fail(v, r) => return Fail(v, r),
+        };
 
         let (op, mut rest) = {
             let anchor = rest.anchor();
             match self.parser_op.parse(rest) {
-                Ok((op, r)) if op.precedence() >= precedence => (op, r),
-                Ok((_, r)) | Err((_, r)) => return Ok((lhs, r.rewind(anchor))),
+                Done(op, r) if op.precedence() >= precedence => (op, r),
+                Done(_, r) | Fail(_, r) => return Done(lhs, r.rewind(anchor)),
             }
         };
 
@@ -101,21 +113,24 @@ where
 
         let mut rhs = loop {
             let prec = stack.last().map(|(_, op)| next_precedence(op)).unwrap();
-            let (term, r) = self.parser_term.parse(rest)?;
+            let (term, r) = match self.parser_term.parse(rest) {
+                Done(v, r) => (v, r),
+                Fail(v, r) => return Fail(v, r),
+            };
 
             let anchor = r.anchor();
             match self.parser_op.parse(r) {
-                Ok((op, r)) if op.precedence() >= prec => {
+                Done(op, r) if op.precedence() >= prec => {
                     rest = r;
                     stack.push((term, op));
                 }
-                Ok((op, r)) => {
+                Done(op, r) => {
                     rest = r;
                     let (lhs, operator) = stack.pop().unwrap();
                     stack.push((operator.construct(lhs, term), op));
                     continue;
                 }
-                Err((_, r)) => {
+                Fail(_, r) => {
                     rest = r.rewind(anchor);
                     break term;
                 }
@@ -126,7 +141,7 @@ where
             rhs = op.construct(lhs, rhs);
         }
 
-        return Ok((rhs, rest));
+        return Done(rhs, rest);
 
         fn next_precedence<T: Operator>(op: &T) -> usize {
             match op.associativity() {
@@ -142,7 +157,10 @@ mod test {
     use super::{Associativity, BinaryExprParser, Operator};
     use crate::foreign::parser::str::{self, atom};
     use crate::standard::{parser::ParserExtension, Either};
-    use crate::{ParseResult, Parser, RewindStream, Stream};
+    use crate::{
+        ParseResult::{self, *},
+        Parser, RewindStream, Stream,
+    };
 
     #[test]
     fn test() {
@@ -221,7 +239,7 @@ mod test {
         let mut chars = input.segments().flat_map(|s| s.chars());
         let Some(head) = chars.next() else {
             drop(chars);
-            return Err(((), input));
+            return Fail((), input);
         };
         drop(chars);
         let op = match head {
@@ -230,10 +248,10 @@ mod test {
             '*' => Op::Mul,
             '/' => Op::Div,
             '~' => Op::Til,
-            _ => return Err(((), input)),
+            _ => return Fail((), input),
         };
 
-        Ok((op, input.advance(1)))
+        Done(op, input.advance(1))
     }
 
     fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
