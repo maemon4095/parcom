@@ -64,8 +64,8 @@ pub fn main() {
     write!(file, "{}", svg).unwrap();
     match opener::open(path) {
         Ok(_) => {
-            println!("summary file opened. press enter key to exit.");
             std::thread::sleep(std::time::Duration::from_secs(2));
+            println!("summary file opened.");
         }
         Err(_) => {
             println!("cannot open summary file.")
