@@ -66,18 +66,8 @@ pub trait RewindStream: Stream {
     fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
-pub trait StreamSegment {
-    type Item<'a>
-    where
-        Self: 'a;
-    type Iter<'a>: IntoIterator<Item = Self::Item<'a>>
-    where
-        Self: 'a;
-    fn iter(&self) -> Self::Iter<'_>;
-}
-
 pub trait Stream {
-    type Segment: ?Sized + StreamSegment;
+    type Segment: ?Sized;
     type Iter<'a>: 'a + Iterator<Item = &'a Self::Segment>
     where
         Self: 'a;
