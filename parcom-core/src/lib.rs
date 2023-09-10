@@ -49,12 +49,16 @@ impl Delta {
     }
 }
 
+pub trait ParseRewindStream: ParseStream + RewindStream {}
+
+impl<S: ParseStream + RewindStream> ParseRewindStream for S {}
+
 pub trait Location: Ord {
     /// return self - rhs
     fn delta(&self, rhs: &Self) -> Delta;
 }
 
-pub trait ParseStream: RewindStream {
+pub trait ParseStream: Stream {
     type Location: Location;
     fn location(&self, index: usize) -> Self::Location;
 }
