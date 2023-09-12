@@ -1,8 +1,8 @@
 pub enum Never {}
 
 pub trait ShouldNever {
-    fn never(&self) -> Never {
-        panic!("this function should be never called.")
+    fn never<T>(&self) -> T {
+        unreachable!("ShouldNever::never should be never called.")
     }
 }
 

@@ -20,7 +20,7 @@ where
         match self.parser.parse(input) {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(e.never()),
+            Fatal(e) => e.never(),
         }
     }
 }

@@ -1,7 +1,5 @@
 #![cfg_attr(test, cfg(test))]
 
-use core::panic;
-
 use parcom::foreign::parser::str::atom;
 use parcom::standard::binary_expr::*;
 use parcom::standard::parser::binary_expr::BinaryExprParser;
@@ -31,7 +29,7 @@ pub fn main() {
             println!("error; rest: {}", rest);
             return;
         }
-        Fatal(_) => panic!(),
+        Fatal(e) => e.never(),
     };
 
     println!("result: {} = {}", display(&expr), eval(&expr));

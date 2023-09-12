@@ -25,9 +25,7 @@ pub fn main() {
             println!("error; rest: {}", rest);
             return;
         }
-        Fatal(_) => {
-            panic!("fatal error")
-        }
+        Fatal(e) => e.never(),
     };
 
     println!("result: {} = {}", display(&expr), eval(&expr));
