@@ -1,11 +1,7 @@
 use std::collections::BTreeMap;
 use std::{cell::RefCell, marker::PhantomData};
 
-use crate::{
-    Location,
-    ParseResult::{self, *},
-    ParseStream, Parser, ParserResult,
-};
+use crate::{Location, ParseResult::*, ParseStream, Parser, ParserResult};
 
 pub struct Cached<S: ParseStream, P: Parser<S>>
 where

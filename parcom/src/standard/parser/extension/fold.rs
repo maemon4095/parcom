@@ -1,10 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    Never,
-    ParseResult::{self, *},
-    Parser, ParserResult, RewindStream,
-};
+use crate::{Never, ParseResult::*, Parser, ParserResult, RewindStream};
 
 pub struct Fold<S, P: Parser<S>, A, FInit: Fn() -> (A, FBody), FBody: FnMut(A, P::Output) -> A> {
     pub(super) parser: P,

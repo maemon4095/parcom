@@ -23,7 +23,6 @@ pub use self::{
     repeat_n::RepeatN,
     unify::{Unify, UnifyErr, UnifyFault},
 };
-use crate::Result;
 
 use std::{marker::PhantomData, ops::RangeBounds};
 

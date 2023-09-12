@@ -159,7 +159,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use parcom_core::Never;
 
     use super::{Associativity, BinaryExprParser, Operator};
     use crate::foreign::parser::str::{self, atom};
