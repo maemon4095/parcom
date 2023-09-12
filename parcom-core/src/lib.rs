@@ -9,12 +9,15 @@ pub use parse_result::ParseResult;
 pub use result::Result;
 use std::fmt::Debug;
 
+pub type ParserResult<S, P> =
+    ParseResult<S, <P as Parser<S>>::Output, <P as Parser<S>>::Error, <P as Parser<S>>::Fault>;
+
 pub trait Parser<S> {
     type Output;
     type Error;
     type Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error, Self::Fault>;
+    fn parse(&self, input: S) -> ParserResult<S, Self>;
 }
 
 pub trait Parse<S>: Sized {
@@ -28,7 +31,7 @@ impl<S, O, E, F, T: Fn(S) -> ParseResult<S, O, E, F>> Parser<S> for T {
     type Error = E;
     type Fault = F;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error, Self::Fault> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         self(input)
     }
 }
