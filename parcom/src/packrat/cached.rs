@@ -4,7 +4,7 @@ use std::{cell::RefCell, marker::PhantomData};
 use crate::{
     Location,
     ParseResult::{self, *},
-    ParseStream, Parser,
+    ParseStream, Parser, ParserResult,
 };
 
 pub struct Cached<S: ParseStream, P: Parser<S>>
@@ -38,8 +38,9 @@ where
 {
     type Output = P::Output;
     type Error = P::Error;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let location = input.location(0);
         match self.server.borrow().get(&location) {
             Some(result) => {
@@ -64,6 +65,7 @@ where
                 self.server.borrow_mut().insert(location, Err(e.clone()));
                 Fail(e, r)
             }
+            Fatal(e) => Fatal(e),
         }
     }
 }

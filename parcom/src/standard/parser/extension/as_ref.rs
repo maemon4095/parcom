@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::Parser;
+use crate::{Parser, ParserResult};
 
 pub struct AsRef<'a, S, P: ?Sized + Parser<S>> {
     pub(super) parser: &'a P,
@@ -21,8 +21,9 @@ impl<'a, S, P: Parser<S>> Copy for AsRef<'a, S, P> {}
 impl<'a, S, P: Parser<S>> Parser<S> for AsRef<'a, S, P> {
     type Output = P::Output;
     type Error = P::Error;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> parcom_core::ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         self.parser.parse(input)
     }
 }

@@ -2,6 +2,7 @@ pub mod binary_expr;
 pub mod parse;
 pub mod parser;
 
+use crate::ShouldNever;
 use std::ops::Bound;
 
 pub use parser::ParserExtension;
@@ -19,3 +20,5 @@ pub enum Either<T0, T1> {
     First(T0),
     Last(T1),
 }
+
+impl<T0: ShouldNever, T1: ShouldNever> ShouldNever for Either<T0, T1> {}

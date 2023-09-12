@@ -1,9 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    ParseResult::{self, *},
-    Parser, RewindStream,
-};
+use crate::{ParseResult::*, Parser, ParserResult, RewindStream};
 
 use crate::standard::Either;
 
@@ -16,19 +13,22 @@ pub struct Or<T: RewindStream, P0: Parser<T>, P1: Parser<T>> {
 impl<S: RewindStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Or<S, P0, P1> {
     type Output = Either<P0::Output, P1::Output>;
     type Error = (P0::Error, P1::Error);
+    type Fault = Either<P0::Fault, P1::Fault>;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let anchor = input.anchor();
 
         let (err0, rest) = match self.parser0.parse(input) {
             Done(v, r) => return Done(Either::First(v), r),
             Fail(e, r) => (e, r),
+            Fatal(e) => return Fatal(Either::First(e)),
         };
         let input = rest.rewind(anchor);
 
         let (err1, rest) = match self.parser1.parse(input) {
             Done(v, r) => return Done(Either::Last(v), r),
             Fail(e, r) => (e, r),
+            Fatal(e) => return Fatal(Either::Last(e)),
         };
 
         Fail((err0, err1), rest)

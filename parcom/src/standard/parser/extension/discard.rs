@@ -1,9 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    ParseResult::{self, *},
-    Parser,
-};
+use crate::{ParseResult::*, Parser, ParserResult};
 pub struct Discard<S, P: Parser<S>> {
     pub(super) parser: P,
     pub(super) marker: PhantomData<S>,
@@ -12,11 +9,13 @@ pub struct Discard<S, P: Parser<S>> {
 impl<S, P: Parser<S>> Parser<S> for Discard<S, P> {
     type Output = ();
     type Error = P::Error;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         match self.parser.parse(input) {
             Done(_, r) => Done((), r),
             Fail(e, r) => Fail(e, r),
+            Fatal(e) => Fatal(e),
         }
     }
 }

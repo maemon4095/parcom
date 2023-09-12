@@ -1,9 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    ParseResult::{self, *},
-    Parser, RewindStream,
-};
+use crate::{Never, ParseResult::*, Parser, ParserResult, RewindStream};
 
 pub struct Optional<T: RewindStream, P: Parser<T>> {
     pub(super) parser: P,
@@ -12,13 +9,15 @@ pub struct Optional<T: RewindStream, P: Parser<T>> {
 
 impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
     type Output = Option<P::Output>;
-    type Error = ();
+    type Error = Never;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let anchor = input.anchor();
         match self.parser.parse(input) {
             Done(v, r) => Done(Some(v), r),
             Fail(_, r) => Done(None, r.rewind(anchor)),
+            Fatal(e) => Fatal(e),
         }
     }
 }

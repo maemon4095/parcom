@@ -75,7 +75,9 @@ pub fn main() {
 
 /// expr = expr op expr / term
 fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
-    BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op)).parse(input)
+    BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+        .never_fault()
+        .parse(input)
 }
 
 /// term = 0 / (expr)
@@ -86,6 +88,7 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
             standard::Either::Last(e) => Expr::Parenthesized(Box::new(e)),
         })
         .map_err(|_| ())
+        .never_fault()
         .parse(input)
 }
 

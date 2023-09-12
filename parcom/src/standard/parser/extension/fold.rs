@@ -1,8 +1,9 @@
 use std::marker::PhantomData;
 
 use crate::{
+    Never,
     ParseResult::{self, *},
-    Parser, RewindStream,
+    Parser, ParserResult, RewindStream,
 };
 
 pub struct Fold<S, P: Parser<S>, A, FInit: Fn() -> (A, FBody), FBody: FnMut(A, P::Output) -> A> {
@@ -18,9 +19,10 @@ where
     FBody: FnMut(A, P::Output) -> A,
 {
     type Output = A;
-    type Error = ();
+    type Error = Never;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let (mut acc, mut fold) = (self.init)();
 
         let mut anchor = input.anchor();
@@ -35,6 +37,7 @@ where
                 Fail(_, r) => {
                     break Done(acc, r.rewind(anchor));
                 }
+                Fatal(e) => break Fatal(e),
             }
         }
     }

@@ -1,27 +1,30 @@
 mod as_ref;
 mod discard;
 mod fold;
-mod iterate;
+
 mod join;
 mod maps;
+mod never_fault;
 mod optional;
 mod or;
 mod repeat;
 mod repeat_n;
 mod unify;
-use self::discard::Discard;
 pub use self::{
     as_ref::AsRef,
+    discard::Discard,
     fold::Fold,
-    iterate::Iterate,
     join::Join,
     maps::{Map, MapErr},
+    never_fault::NeverFault,
     optional::Optional,
     or::Or,
     repeat::Repeat,
     repeat_n::RepeatN,
-    unify::{Unify, UnifyErr},
+    unify::{Unify, UnifyErr, UnifyFault},
 };
+use crate::Result;
+
 use std::{marker::PhantomData, ops::RangeBounds};
 
 use crate::{internal::Sealed, Parser, RewindStream};
@@ -138,15 +141,12 @@ pub trait ParserExtension<S>: Parser<S> + Sealed {
         }
     }
 
-    fn iterate<O, E, F>(self, op: F) -> Iterate<S, Self, O, E, F>
+    fn unify_fault<T>(self) -> UnifyFault<S, T, Self>
     where
-        Self: Sized,
-        S: RewindStream,
-        F: Fn(&mut iterate::Iter<S, Self>) -> Result<O, E>,
+        Self: Sized + Parser<S, Fault = Either<T, T>>,
     {
-        Iterate {
+        UnifyFault {
             parser: self,
-            op,
             marker: PhantomData,
         }
     }
@@ -169,6 +169,16 @@ pub trait ParserExtension<S>: Parser<S> + Sealed {
         Self: Sized,
     {
         Discard {
+            parser: self,
+            marker: PhantomData,
+        }
+    }
+
+    fn never_fault(self) -> NeverFault<S, Self>
+    where
+        Self: Sized,
+    {
+        NeverFault {
             parser: self,
             marker: PhantomData,
         }

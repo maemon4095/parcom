@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::{cell::RefCell, marker::PhantomData};
 
 use super::BindStream;
-use crate::ParseResult::{self, *};
+use crate::{ParseResult::*, ParserResult};
 pub struct BoundCached<S: BindStream, P: Parser<S>>
 where
     S::Location: Clone,
@@ -39,8 +39,9 @@ where
 {
     type Output = P::Output;
     type Error = P::Error;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let location = input.location(0);
         match self.cache.get(&location) {
             Some(Ok((o, c))) => return Done(o, input.advance(c)),
@@ -58,6 +59,7 @@ where
                 self.cache.save(location, Err(e.clone()));
                 Fail(e, r)
             }
+            Fatal(e) => Fatal(e),
         }
     }
 }

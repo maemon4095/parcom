@@ -1,6 +1,6 @@
-use crate::ParseResult::{self, *};
+use crate::ParseResult::*;
 
-use crate::{Parser, Stream};
+use crate::{Never, Parser, ParserResult, Stream};
 
 pub fn atom(str: &str) -> Atom<'_> {
     Atom { str }
@@ -17,8 +17,9 @@ pub struct Atom<'a> {
 impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
     type Output = &'a str;
     type Error = ();
+    type Fault = Never;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut chars = self.str.chars();
         let mut target = input.segments().flat_map(|s| s.chars());
 
@@ -49,8 +50,9 @@ pub struct AtomChar {
 impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
     type Output = char;
     type Error = ();
+    type Fault = Never;
 
-    fn parse(&self, input: S) -> crate::ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let head = input.segments().flat_map(|s| s.chars()).next();
         match head {
             Some(c) if c == self.char => Done(c, input.advance(1)),

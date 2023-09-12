@@ -1,9 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    ParseResult::{self, *},
-    Parser, RewindStream,
-};
+use crate::{standard::Either, ParseResult::*, Parser, ParserResult, RewindStream};
 
 use crate::standard::binary_expr::{Associativity, Operator};
 
@@ -26,8 +23,9 @@ where
 {
     type Output = E;
     type Error = PTerm::Error;
+    type Fault = Either<PTerm::Fault, POp::Fault>;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         self.parse_impl(input, 0, self.recursion_limit)
     }
 }
@@ -57,7 +55,7 @@ where
         input: S,
         precedence: usize,
         recursion_limit: usize,
-    ) -> ParseResult<S, E, PTerm::Error> {
+    ) -> ParserResult<S, Self> {
         if recursion_limit == 0 {
             return self.parse_impl_loop(input, precedence);
         }
@@ -65,6 +63,7 @@ where
         let (mut lhs, mut rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
+            Fatal(e) => return Fatal(Either::First(e)),
         };
 
         loop {
@@ -75,6 +74,7 @@ where
                     rest = r.rewind(anchor);
                     break;
                 }
+                Fatal(e) => return Fatal(Either::Last(e)),
             };
 
             let next_prec = match op.associativity() {
@@ -85,6 +85,7 @@ where
             let (rhs, r) = match self.parse_impl(r, next_prec, recursion_limit - 1) {
                 Done(v, r) => (v, r),
                 Fail(v, r) => return Fail(v, r),
+                Fatal(e) => return Fatal(e),
             };
 
             lhs = op.construct(lhs, rhs);
@@ -95,10 +96,11 @@ where
     }
 
     // consider the input has the syntax "term / (term op)+ term"
-    fn parse_impl_loop(&self, input: S, precedence: usize) -> ParseResult<S, E, PTerm::Error> {
+    fn parse_impl_loop(&self, input: S, precedence: usize) -> ParserResult<S, Self> {
         let (lhs, rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
+            Fatal(e) => return Fatal(Either::First(e)),
         };
 
         let (op, mut rest) = {
@@ -106,6 +108,7 @@ where
             match self.parser_op.parse(rest) {
                 Done(op, r) if op.precedence() >= precedence => (op, r),
                 Done(_, r) | Fail(_, r) => return Done(lhs, r.rewind(anchor)),
+                Fatal(e) => return Fatal(Either::Last(e)),
             }
         };
 
@@ -116,6 +119,7 @@ where
             let (term, r) = match self.parser_term.parse(rest) {
                 Done(v, r) => (v, r),
                 Fail(v, r) => return Fail(v, r),
+                Fatal(e) => return Fatal(Either::First(e)),
             };
 
             let anchor = r.anchor();
@@ -134,6 +138,7 @@ where
                     rest = r.rewind(anchor);
                     break term;
                 }
+                Fatal(e) => return Fatal(Either::Last(e)),
             };
         };
 
@@ -154,6 +159,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use parcom_core::Never;
+
     use super::{Associativity, BinaryExprParser, Operator};
     use crate::foreign::parser::str::{self, atom};
     use crate::standard::{parser::ParserExtension, Either};
@@ -174,7 +181,9 @@ mod test {
 
     /// expr = expr op expr / term
     fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
-        BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op)).parse(input)
+        BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+            .never_fault()
+            .parse(input)
     }
 
     /// term = 0 / (expr)
@@ -185,6 +194,7 @@ mod test {
                 Either::Last(e) => Expr::Parenthesized(Box::new(e)),
             })
             .map_err(|_| ())
+            .never_fault()
             .parse(input)
     }
 

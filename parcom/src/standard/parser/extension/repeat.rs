@@ -1,9 +1,6 @@
 use std::{marker::PhantomData, ops::RangeBounds};
 
-use crate::{
-    ParseResult::{self, *},
-    Parser, RewindStream,
-};
+use crate::{ParseResult::*, Parser, ParserResult, RewindStream};
 
 use crate::standard::just_on_boundary;
 
@@ -16,8 +13,9 @@ pub struct Repeat<T: RewindStream, P: Parser<T>, R: RangeBounds<usize>> {
 impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<S, P, R> {
     type Output = Vec<P::Output>;
     type Error = P::Error;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut vec = Vec::new();
         let upper_bound = self.range.end_bound();
 
@@ -32,6 +30,7 @@ impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<
                 match self.parser.parse(rest) {
                     Done(v, r) => (v, r),
                     Fail(e, r) => break (Some(e), r.rewind(anchor)),
+                    Fatal(e) => return Fatal(e),
                 }
             };
 

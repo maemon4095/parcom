@@ -12,8 +12,9 @@ pub struct ParserFor<P>(PhantomData<P>);
 impl<T, P: Parse<T>> Parser<T> for ParserFor<P> {
     type Output = P;
     type Error = P::Error;
+    type Fault = P::Fault;
 
-    fn parse(&self, input: T) -> crate::ParseResult<T, P, Self::Error> {
+    fn parse(&self, input: T) -> crate::ParseResult<T, P, Self::Error, Self::Fault> {
         P::parse(input)
     }
 }

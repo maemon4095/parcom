@@ -6,9 +6,14 @@ pub mod packrat;
 pub mod standard;
 
 pub use parcom_core::*;
+pub type ParserResult<S, P> =
+    ParseResult<S, <P as Parser<S>>::Output, <P as Parser<S>>::Error, <P as Parser<S>>::Fault>;
+
 pub mod prelude {
+    pub use crate::ParserResult;
+    pub use parcom_core::ParseResult::*;
+    pub use parcom_core::Result::*;
     pub use parcom_core::*;
-    pub use ParseResult::*;
 }
 
 mod internal {

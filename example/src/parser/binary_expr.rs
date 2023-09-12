@@ -1,5 +1,7 @@
 #![cfg_attr(test, cfg(test))]
 
+use core::panic;
+
 use parcom::foreign::parser::str::atom;
 use parcom::standard::binary_expr::*;
 use parcom::standard::parser::binary_expr::BinaryExprParser;
@@ -29,6 +31,7 @@ pub fn main() {
             println!("error; rest: {}", rest);
             return;
         }
+        Fatal(_) => panic!(),
     };
 
     println!("result: {} = {}", display(&expr), eval(&expr));
@@ -42,6 +45,7 @@ fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
         term.map(|t| Expr::Term(t)),
         space.join(op).join(space).map(|((_, op), _)| op),
     )
+    .never_fault()
     .parse(input)
 }
 
@@ -54,6 +58,7 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
             standard::Either::Last(e) => Term::Parenthesized(Box::new(e)),
         })
         .map_err(|_| ())
+        .never_fault()
         .parse(input)
 }
 

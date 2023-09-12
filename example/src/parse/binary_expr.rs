@@ -25,6 +25,9 @@ pub fn main() {
             println!("error; rest: {}", rest);
             return;
         }
+        Fatal(_) => {
+            panic!("fatal error")
+        }
     };
 
     println!("result: {} = {}", display(&expr), eval(&expr));
@@ -80,6 +83,7 @@ enum Op {
 
 impl<S: Stream<Segment = str>> Parse<S> for Op {
     type Error = ();
+    type Fault = Never;
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         let mut chars = input.segments().flat_map(|s| s.chars());
@@ -135,12 +139,14 @@ enum Expr {
 
 impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
     type Error = ();
+    type Fault = Never;
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         BinaryExprParser::new(
             parser_for::<Term>().map(|a| Expr::Term(a)),
             parser_for::<Op>(),
         )
+        .never_fault()
         .parse(input)
     }
 }
@@ -152,6 +158,7 @@ enum Term {
 
 impl<S: RewindStream<Segment = str>> Parse<S> for Term {
     type Error = ();
+    type Fault = Never;
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         parser_for::<Integer>()
@@ -162,6 +169,7 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Term {
                 .map(|((_, e), _)| Term::Parenthesized(Box::new(e))))
             .unify()
             .map_err(|_| ())
+            .never_fault()
             .parse(input)
     }
 }
@@ -170,6 +178,7 @@ struct Integer(usize);
 
 impl<S: RewindStream<Segment = str>> Parse<S> for Integer {
     type Error = ();
+    type Fault = Never;
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         let chars = input.segments().flat_map(|e| e.chars());
