@@ -95,7 +95,7 @@ where
         Done(lhs, rest)
     }
 
-    // consider the input has the syntax "term / (term op)+ term"
+    // consider the input has syntax "term / (term op)+ term"
     fn parse_impl_loop(&self, input: S, precedence: usize) -> ParserResult<S, Self> {
         let (lhs, rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
