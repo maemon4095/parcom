@@ -1,33 +1,21 @@
-use parcom_core::Delta;
+use parcom_core::LocatableStream;
 
-use crate::{ParseStream, RewindStream, Stream};
+use crate::{IntoLocatable, Location, RewindStream, Stream};
 
+#[derive(Debug)]
 pub struct SliceStream<'me, T> {
-    location: Location,
     slice: &'me [T],
 }
 
 impl<'me, T> SliceStream<'me, T> {
     pub fn new(slice: &'me [T]) -> Self {
-        Self {
-            location: Location { index: 0 },
-            slice,
-        }
-    }
-
-    fn loc(&self, count: usize) -> Location {
-        Location {
-            index: self.location.index + self.slice.iter().take(count).count(),
-        }
+        Self { slice }
     }
 }
 
 impl<'me, T> Clone for SliceStream<'me, T> {
     fn clone(&self) -> Self {
-        Self {
-            location: self.location.clone(),
-            slice: self.slice.clone(),
-        }
+        Self { slice: self.slice }
     }
 }
 
@@ -43,11 +31,11 @@ impl<'me, T> Stream for SliceStream<'me, T> {
     }
 
     fn advance(mut self, count: usize) -> Self {
-        self.location = self.loc(count);
         self.slice = &self.slice[count..];
         self
     }
 }
+
 impl<'me, T> RewindStream for SliceStream<'me, T> {
     type Anchor = Anchor<'me, T>;
 
@@ -61,29 +49,98 @@ impl<'me, T> RewindStream for SliceStream<'me, T> {
         anchor.stream
     }
 }
-impl<'me, T> ParseStream for SliceStream<'me, T> {
-    type Location = Location;
-
-    fn location(&self, index: usize) -> Self::Location {
-        self.loc(index + 1)
-    }
-}
 
 pub struct Anchor<'me, T> {
     stream: SliceStream<'me, T>,
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Location {
-    index: usize,
+impl<'me, T> IntoLocatable for SliceStream<'me, T> {
+    type Locatable<L> = Locatable<'me, T, L>
+    where
+        L: Location<Self::Segment>;
+
+    fn into_locatable<L>(self) -> Self::Locatable<L>
+    where
+        L: Location<Self::Segment>,
+    {
+        Locatable {
+            location: L::create_start(),
+            base: self,
+        }
+    }
 }
 
-impl crate::Location for Location {
-    fn delta(&self, rhs: &Self) -> Delta {
-        if self.index < rhs.index {
-            Delta::Negative(rhs.index - self.index)
-        } else {
-            Delta::Positive(self.index - rhs.index)
+#[derive(Debug)]
+pub struct Locatable<'me, T, L>
+where
+    L: Location<[T]>,
+{
+    location: L,
+    base: SliceStream<'me, T>,
+}
+
+impl<'me, T, L> Clone for Locatable<'me, T, L>
+where
+    L: Location<[T]>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            location: self.location.clone(),
+            base: self.base.clone(),
         }
+    }
+}
+
+impl<'me, T, L> Stream for Locatable<'me, T, L>
+where
+    L: Location<[T]>,
+{
+    type Segment = <SliceStream<'me, T> as Stream>::Segment;
+
+    type Iter<'a> = <SliceStream<'me, T> as Stream>::Iter<'a>
+    where
+        Self: 'a;
+
+    fn segments(&self) -> Self::Iter<'_> {
+        self.base.segments()
+    }
+
+    fn advance(mut self, count: usize) -> Self {
+        self.location = self.location(count);
+        self.base = self.base.advance(count);
+        self
+    }
+}
+
+impl<'me, T, L> RewindStream for Locatable<'me, T, L>
+where
+    L: Location<[T]>,
+{
+    type Anchor = LocatableAnchor<'me, T, L>;
+
+    fn anchor(&self) -> Self::Anchor {
+        LocatableAnchor {
+            stream: self.clone(),
+        }
+    }
+
+    fn rewind(self, anchor: Self::Anchor) -> Self {
+        anchor.stream
+    }
+}
+
+pub struct LocatableAnchor<'me, T, L>
+where
+    L: Location<[T]>,
+{
+    stream: Locatable<'me, T, L>,
+}
+
+impl<'me, T, L> LocatableStream<L> for Locatable<'me, T, L>
+where
+    L: Location<[T]>,
+{
+    fn location(&self, nth: usize) -> L {
+        self.location.clone().advance(&self.base.slice[..nth])
     }
 }

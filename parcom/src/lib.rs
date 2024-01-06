@@ -1,9 +1,11 @@
 #[cfg(feature = "foreign")]
 pub mod foreign;
-#[cfg(feature = "packrat")]
-pub mod packrat;
+
 #[cfg(feature = "standard")]
 pub mod standard;
+
+#[cfg(feature = "locatable")]
+pub mod locatable;
 
 pub use parcom_core::*;
 

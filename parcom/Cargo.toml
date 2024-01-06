@@ -6,15 +6,13 @@ edition = "2021"
 
 [dependencies]
 parcom-core = { path = "../parcom-core", version = "0.0.0" }
-parcom-macros = { path = "../parcom-macros/macros", optional = true }
 
 [dev-dependencies]
 mockalloc = "0.1.2"
 
 [features]
 default = ["standard", "foreign"]
-full = ["standard", "foreign", "packrat", "macros"]
+full = ["standard", "foreign", "locatable"]
 standard = []
 foreign = ["parcom-core/foreign"]
-packrat = []
-macros = ["dep:parcom-macros"]
+locatable = []

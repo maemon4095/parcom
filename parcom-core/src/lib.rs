@@ -7,7 +7,6 @@ mod result;
 pub use never::{Never, ShouldNever};
 pub use parse_result::ParseResult;
 pub use result::Result;
-use std::fmt::Debug;
 
 pub type ParserResult<S, P> =
     ParseResult<S, <P as Parser<S>>::Output, <P as Parser<S>>::Error, <P as Parser<S>>::Fault>;
@@ -46,32 +45,30 @@ impl<S, O, E, F> Parser<S> for Box<dyn Parser<S, Output = O, Error = E, Fault = 
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Delta {
-    Positive(usize),
-    Negative(usize),
+pub trait ParseStream<L: Location<Self::Segment>>: LocatableStream<L> + RewindStream {}
+
+impl<L: Location<Self::Segment>, S: LocatableStream<L> + RewindStream> ParseStream<L> for S {}
+
+pub trait Location<S: ?Sized>: Clone {
+    fn create_start() -> Self;
+    fn advance(self, segment: &S) -> Self;
 }
 
-impl Delta {
-    pub fn abs(self) -> usize {
-        match self {
-            Self::Positive(n) | Self::Negative(n) => n,
-        }
-    }
+pub trait LocatableStream<L>: Stream
+where
+    L: Location<<Self as Stream>::Segment>,
+{
+    fn location(&self, nth: usize) -> L;
 }
 
-pub trait ParseRewindStream: ParseStream + RewindStream {}
+pub trait IntoLocatable: Stream {
+    type Locatable<L>: LocatableStream<L, Segment = Self::Segment>
+    where
+        L: Location<Self::Segment>;
 
-impl<S: ParseStream + RewindStream> ParseRewindStream for S {}
-
-pub trait Location: Ord {
-    /// return self - rhs
-    fn delta(&self, rhs: &Self) -> Delta;
-}
-
-pub trait ParseStream: Stream {
-    type Location: Location;
-    fn location(&self, index: usize) -> Self::Location;
+    fn into_locatable<L>(self) -> Self::Locatable<L>
+    where
+        L: Location<Self::Segment>;
 }
 
 pub trait RewindStream: Stream {

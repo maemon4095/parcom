@@ -1,47 +1,15 @@
-use parcom_core::Delta;
+use parcom_core::LocatableStream;
 
-use crate::{ParseStream, RewindStream, Stream};
+use crate::{Location, RewindStream,IntoLocatable, Stream};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct StrStream<'me> {
-    location: Location,
     str: &'me str,
 }
 
 impl<'me> StrStream<'me> {
     pub fn new(str: &'me str) -> Self {
-        Self {
-            location: Location {
-                total_count: 0,
-                line: 1,
-                column: 0,
-            },
-            str,
-        }
-    }
-
-    fn loc(&self, count: usize) -> Location {
-        self.str
-            .chars()
-            .take(count)
-            .fold((false, self.location.clone()), |(mut newline, mut l), c| {
-                l.total_count += 1;
-
-                if newline {
-                    l.column = 1;
-                    l.line += 1;
-                    newline = false;
-                } else {
-                    l.column += 1;
-                }
-
-                if c == '\n' {
-                    newline = true;
-                }
-
-                (newline, l)
-            })
-            .1
+        Self { str }
     }
 }
 
@@ -57,7 +25,6 @@ impl<'me> Stream for StrStream<'me> {
     }
 
     fn advance(mut self, count: usize) -> Self {
-        self.location = self.loc(count);
         let mut chars = self.str.chars();
         for _ in 0..count {
             chars.next();
@@ -79,78 +46,70 @@ impl<'me> RewindStream for StrStream<'me> {
         anchor.stream
     }
 }
-impl<'me> ParseStream for StrStream<'me> {
-    type Location = Location;
-
-    fn location(&self, index: usize) -> Self::Location {
-        self.loc(index + 1)
-    }
-}
 
 pub struct Anchor<'me> {
     stream: StrStream<'me>,
 }
 
-#[derive(Clone, Eq, Debug)]
-pub struct Location {
-    total_count: usize,
-    line: usize,
-    column: usize,
-}
+impl<'me> IntoLocatable for StrStream<'me> {
+    type Locatable<L>  = Locatable<'me, L>
+    where
+        L: Location<Self::Segment>;
 
-impl crate::Location for Location {
-    fn delta(&self, rhs: &Self) -> Delta {
-        if self.total_count < rhs.total_count {
-            Delta::Negative(rhs.total_count - self.total_count)
-        } else {
-            Delta::Negative(self.total_count - rhs.total_count)
+    fn into_locatable<L>(self) -> Self::Locatable<L>
+    where
+        L: Location<Self::Segment> {
+        Locatable {
+            location: L::create_start(),
+            base: self
         }
     }
 }
 
-impl PartialEq for Location {
-    fn eq(&self, other: &Self) -> bool {
-        self.total_count == other.total_count
+#[derive(Debug, Clone)]
+pub struct Locatable<'me, L: Location<str>> {
+    location: L,
+    base: StrStream<'me>,
+}
+
+impl<'me, L: Location<str>> Stream for Locatable<'me, L> {
+    type Segment = str;
+
+    type Iter<'a> = <StrStream<'me> as Stream>::Iter<'a> 
+    where
+        Self: 'a;
+
+    fn segments(&self) -> Self::Iter<'_> {
+        self.base.segments()
+    }
+
+    fn advance(mut self, count: usize) -> Self {
+        self.location = self.location(count);
+        self.base = self.base.advance(count);
+        self
     }
 }
 
-impl PartialOrd for Location {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+impl<'me, L: Location<str>> RewindStream for Locatable<'me, L> {
+    type Anchor = LocatableAnchor<'me, L>;
+
+    fn anchor(&self) -> Self::Anchor {
+        LocatableAnchor {
+            stream: self.clone()
+        }
+    }
+
+    fn rewind(self, anchor: Self::Anchor) -> Self {
+        anchor.stream
     }
 }
 
-impl Ord for Location {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.total_count.cmp(&other.total_count)
-    }
+pub struct LocatableAnchor<'me, L: Location<str>> {
+    stream: Locatable<'me, L>
 }
 
-impl Location {
-    pub fn total_count(&self) -> usize {
-        self.total_count
-    }
-
-    pub fn line(&self) -> usize {
-        self.line
-    }
-
-    pub fn column(&self) -> usize {
-        self.column
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{ParseStream, Stream};
-
-    use super::StrStream;
-
-    #[test]
-    fn advance() {
-        let stream = StrStream::new("aaaa");
-        println!("{:?}", stream.location(0));
-        let stream = stream.advance(0);
-        println!("{:?}", stream.location(0));
+impl<'me, L: Location<str>> LocatableStream<L> for Locatable<'me, L> {
+    fn location(&self, nth: usize) -> L {
+        self.location.clone().advance(&self.base.str[..nth])
     }
 }
