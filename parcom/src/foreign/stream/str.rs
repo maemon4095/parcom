@@ -110,6 +110,8 @@ pub struct LocatableAnchor<'me, L: Location<str>> {
 
 impl<'me, L: Location<str>> LocatableStream<L> for Locatable<'me, L> {
     fn location(&self, nth: usize) -> L {
-        self.location.clone().advance(&self.base.str[..nth])
+        let str = self.base.str;
+        let end = str.char_indices().nth(nth).map_or(str.len(), |e| e.0);
+        self.location.clone().advance(&self.base.str[..end])
     }
 }
