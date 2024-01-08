@@ -26,7 +26,7 @@ pub fn main() {
             expr
         }
         Fail(_, rest) => {
-            println!("error; rest: {}", rest);
+            println!("error; rest: {}", rest.unwrap());
             return;
         }
         Fatal(e) => e.never(),
@@ -150,7 +150,7 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let mut chars = input.segments().flat_map(|s| s.chars());
     let Some(head) = chars.next() else {
         drop(chars);
-        return Fail((), input);
+        return Fail((), input.into());
     };
     drop(chars);
     let op = match head {
@@ -158,7 +158,7 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return Fail((), input),
+        _ => return Fail((), input.into()),
     };
 
     Done(op, input.advance(1))
@@ -172,7 +172,7 @@ fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
         let mut chars = chars.take_while(|c| c.is_digit(radix));
         if chars.next().is_none() {
             drop(chars);
-            return Fail((), input);
+            return Fail((), input.into());
         }
 
         let mut digit = 1;

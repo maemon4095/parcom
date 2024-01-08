@@ -70,7 +70,11 @@ where
             let anchor = rest.anchor();
             let (op, r) = match self.parser_op.parse(rest) {
                 Done(op, r) if op.precedence() >= precedence => (op, r),
-                Done(_, r) | Fail(_, r) => {
+                Done(_, r) => {
+                    rest = r.rewind(anchor);
+                    break;
+                }
+                Fail(_, r) => {
                     rest = r.rewind(anchor);
                     break;
                 }
@@ -107,7 +111,8 @@ where
             let anchor = rest.anchor();
             match self.parser_op.parse(rest) {
                 Done(op, r) if op.precedence() >= precedence => (op, r),
-                Done(_, r) | Fail(_, r) => return Done(lhs, r.rewind(anchor)),
+                Done(_, r) => return Done(lhs, r.rewind(anchor)),
+                Fail(_, r) => return Done(lhs, r.rewind(anchor)),
                 Fatal(e) => return Fatal(Either::Last(e)),
             }
         };
@@ -248,7 +253,7 @@ mod test {
         let mut chars = input.segments().flat_map(|s| s.chars());
         let Some(head) = chars.next() else {
             drop(chars);
-            return Fail((), input);
+            return Fail((), input.into());
         };
         drop(chars);
         let op = match head {
@@ -257,7 +262,7 @@ mod test {
             '*' => Op::Mul,
             '/' => Op::Div,
             '~' => Op::Til,
-            _ => return Fail((), input),
+            _ => return Fail((), input.into()),
         };
 
         Done(op, input.advance(1))

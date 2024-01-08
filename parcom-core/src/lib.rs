@@ -2,11 +2,11 @@
 pub mod foreign;
 mod never;
 mod parse_result;
-mod result;
+mod unknown;
 
 pub use never::{Never, ShouldNever};
 pub use parse_result::ParseResult;
-pub use result::Result;
+pub use unknown::UnknownLocation;
 
 pub type ParserResult<S, P> =
     ParseResult<S, <P as Parser<S>>::Output, <P as Parser<S>>::Error, <P as Parser<S>>::Fault>;
@@ -50,7 +50,6 @@ pub trait ParseStream<L: Location<Self::Segment>>: LocatableStream<L> + RewindSt
 impl<L: Location<Self::Segment>, S: LocatableStream<L> + RewindStream> ParseStream<L> for S {}
 
 pub trait Location<S: ?Sized>: Clone {
-    fn create_start() -> Self;
     fn advance(self, segment: &S) -> Self;
 }
 
@@ -61,14 +60,21 @@ where
     fn location(&self, nth: usize) -> L;
 }
 
-pub trait IntoLocatable: Stream {
+pub trait IntoLocatable: Sized + Stream {
     type Locatable<L>: LocatableStream<L, Segment = Self::Segment>
+    where
+        L: Location<Self::Segment>;
+
+    fn into_locatable_at<L>(self, location: L) -> Self::Locatable<L>
     where
         L: Location<Self::Segment>;
 
     fn into_locatable<L>(self) -> Self::Locatable<L>
     where
-        L: Location<Self::Segment>;
+        L: Location<Self::Segment> + std::default::Default,
+    {
+        self.into_locatable_at(L::default())
+    }
 }
 
 pub trait RewindStream: Stream {

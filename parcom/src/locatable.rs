@@ -16,11 +16,11 @@ impl<S, L> Locatable<S, L>
 where
     S::Segment: SliceLike,
     S: Stream,
-    L: Location<S::Segment>,
+    L: Location<S::Segment> + std::default::Default,
 {
     pub fn new(base: S) -> Self {
         Self {
-            location: L::create_start(),
+            location: L::default(),
             base,
         }
     }

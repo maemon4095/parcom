@@ -36,7 +36,7 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
                 }
                 _ => {
                     drop(target);
-                    return Fail((), input);
+                    return Fail((), input.into());
                 }
             }
         }
@@ -56,7 +56,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
         let head = input.segments().flat_map(|s| s.chars()).next();
         match head {
             Some(c) if c == self.char => Done(c, input.advance(1)),
-            _ => Fail((), input),
+            _ => Fail((), input.into()),
         }
     }
 }

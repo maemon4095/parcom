@@ -54,13 +54,13 @@ pub struct Anchor<'me> {
 impl<'me> IntoLocatable for StrStream<'me> {
     type Locatable<L>  = Locatable<'me, L>
     where
-        L: Location<Self::Segment>;
+        L: Location<Self::Segment> ;
 
-    fn into_locatable<L>(self) -> Self::Locatable<L>
+    fn into_locatable_at<L>(self, location: L) -> Self::Locatable<L>
     where
         L: Location<Self::Segment> {
         Locatable {
-            location: L::create_start(),
+            location,
             base: self
         }
     }

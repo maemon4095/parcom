@@ -22,7 +22,7 @@ pub fn main() {
             expr
         }
         Fail(_, rest) => {
-            println!("error; rest: {}", rest);
+            println!("error; rest: {}", rest.unwrap());
             return;
         }
         Fatal(e) => e.never(),
@@ -104,7 +104,7 @@ impl<S: Stream<Segment = str>> Parse<S> for Op {
         }
 
         drop(chars);
-        Fail((), input)
+        Fail((), input.into())
     }
 }
 
@@ -186,7 +186,7 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Integer {
             let mut chars = chars.take_while(|c| c.is_digit(radix));
             if chars.next().is_none() {
                 drop(chars);
-                return Fail((), input);
+                return Fail((), input.into());
             }
 
             let mut digit = 1;

@@ -41,7 +41,7 @@ impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<
         if self.range.contains(&vec.len()) {
             Done(vec, rest)
         } else {
-            Fail(last_error.unwrap(), rest)
+            Fail(last_error.unwrap(), rest.into())
         }
     }
 }

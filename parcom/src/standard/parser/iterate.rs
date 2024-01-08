@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 
-use crate::{
-    ParseResult::*,
-    Parser,
-    Result::{self, *},
-    RewindStream,
-};
+use crate::{ParseResult::*, Parser, RewindStream};
+
+pub enum Result<O, E, F> {
+    Ok(O),
+    Err(E),
+    Fault(F),
+}
 
 pub fn iterate<S: RewindStream, P: Parser<S>>(input: S, parser: P) -> Iter<S, P> {
     Iter {
@@ -31,6 +32,7 @@ impl<S: RewindStream, P: Parser<S>> Iter<S, P> {
     }
 
     pub fn next(&mut self) -> Option<Result<P::Output, P::Error, P::Fault>> {
+        use Result::*;
         let Some(rest) = self.rest.take() else {
             return None;
         };

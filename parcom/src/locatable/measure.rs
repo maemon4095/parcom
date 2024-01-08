@@ -33,15 +33,17 @@ impl PartialOrd for LineColumn {
     }
 }
 
-impl Location<str> for LineColumn {
-    fn create_start() -> Self {
+impl std::default::Default for LineColumn {
+    fn default() -> Self {
         Self {
             total_count: 0,
             line: 0,
             column: 0,
         }
     }
+}
 
+impl Location<str> for LineColumn {
     fn advance(mut self, segment: &str) -> Self {
         for c in segment.chars() {
             self.total_count += 1;
@@ -68,7 +70,7 @@ mod test {
         let cases = ["", "oneline", "line0\nline1\n"];
 
         for str in cases {
-            let zero = LineColumn::create_start();
+            let zero = LineColumn::default();
 
             assert_eq!(
                 zero.advance(str),

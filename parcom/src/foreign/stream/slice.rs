@@ -55,16 +55,16 @@ pub struct Anchor<'me, T> {
 }
 
 impl<'me, T> IntoLocatable for SliceStream<'me, T> {
-    type Locatable<L> = Locatable<'me, T, L>
+    type Locatable<L> = Locatable<'me, T, L> 
     where
-        L: Location<Self::Segment>;
+        L: Location<Self::Segment>; 
 
-    fn into_locatable<L>(self) -> Self::Locatable<L>
+    fn into_locatable_at<L>(self, location: L) -> Self::Locatable<L>
     where
-        L: Location<Self::Segment>,
+        L: Location<Self::Segment> ,
     {
         Locatable {
-            location: L::create_start(),
+            location,
             base: self,
         }
     }
