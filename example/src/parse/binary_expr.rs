@@ -109,12 +109,6 @@ impl<S: Stream<Segment = str>> Parse<S> for Op {
 }
 
 impl Operator for Op {
-    type Expr = Expr;
-
-    fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
-        Expr::Bin(Box::new(lhs), self, Box::new(rhs))
-    }
-
     fn precedence(&self) -> usize {
         match self {
             Op::Add => 0,
@@ -135,17 +129,26 @@ enum Expr {
     Term(Term),
 }
 
+impl From<Term> for Expr {
+    fn from(args: Term) -> Self {
+        Expr::Term(args)
+    }
+}
+
+impl From<(Expr, Op, Expr)> for Expr {
+    fn from((lhs, op, rhs): (Expr, Op, Expr)) -> Self {
+        Expr::Bin(Box::new(lhs), op, Box::new(rhs))
+    }
+}
+
 impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
     type Error = ();
     type Fault = Never;
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        BinaryExprParser::new(
-            parser_for::<Term>().map(|a| Expr::Term(a)),
-            parser_for::<Op>(),
-        )
-        .never_fault()
-        .parse(input)
+        BinaryExprParser::new(parser_for::<Term>(), parser_for::<Op>())
+            .never_fault()
+            .parse(input)
     }
 }
 #[derive(Debug)]

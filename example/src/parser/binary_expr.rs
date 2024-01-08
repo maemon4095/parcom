@@ -39,12 +39,9 @@ pub fn main() {
 
 /// expr = expr op expr / term
 fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
-    BinaryExprParser::new(
-        term.map(|t| Expr::Term(t)),
-        space.join(op).join(space).map(|((_, op), _)| op),
-    )
-    .never_fault()
-    .parse(input)
+    BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+        .never_fault()
+        .parse(input)
 }
 
 /// term = integer / (expr)
@@ -104,6 +101,18 @@ enum Expr {
     Term(Term),
 }
 
+impl From<Term> for Expr {
+    fn from(args: Term) -> Self {
+        Expr::Term(args)
+    }
+}
+
+impl From<(Expr, Op, Expr)> for Expr {
+    fn from((lhs, op, rhs): (Expr, Op, Expr)) -> Self {
+        Expr::BinOp(Box::new(lhs), op, Box::new(rhs))
+    }
+}
+
 #[derive(Debug)]
 enum Term {
     Parenthesized(Box<Expr>),
@@ -119,7 +128,6 @@ enum Op {
 }
 
 impl Operator for Op {
-    type Expr = Expr;
     fn precedence(&self) -> usize {
         match self {
             Op::Add => 1,
@@ -131,10 +139,6 @@ impl Operator for Op {
 
     fn associativity(&self) -> Associativity {
         Associativity::Left
-    }
-
-    fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
-        Expr::BinOp(Box::new(lhs), self, Box::new(rhs))
     }
 }
 

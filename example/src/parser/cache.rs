@@ -81,11 +81,11 @@ fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
 }
 
 /// term = 0 / (expr)
-fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
     zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
-            standard::Either::First(c) => Expr::Atom(c),
-            standard::Either::Last(e) => Expr::Parenthesized(Box::new(e)),
+            standard::Either::First(c) => Term::Atom(c),
+            standard::Either::Last(e) => Term::Parenthesized(e),
         })
         .map_err(|_| ())
         .never_fault()
@@ -95,8 +95,25 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
 #[derive(Debug, Clone)]
 enum Expr {
     BinOp(Box<Expr>, Op, Box<Expr>),
+    Term(Box<Term>),
+}
+
+impl From<Term> for Expr {
+    fn from(args: Term) -> Self {
+        Expr::Term(Box::new(args))
+    }
+}
+
+impl From<(Expr, Op, Expr)> for Expr {
+    fn from((lhs, op, rhs): (Expr, Op, Expr)) -> Self {
+        Expr::BinOp(Box::new(lhs), op, Box::new(rhs))
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Term {
     Atom(char),
-    Parenthesized(Box<Expr>),
+    Parenthesized(Expr),
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +125,6 @@ enum Op {
 }
 
 impl Operator for Op {
-    type Expr = Expr;
     fn precedence(&self) -> usize {
         match self {
             Op::Add => 0,
@@ -120,10 +136,6 @@ impl Operator for Op {
 
     fn associativity(&self) -> Associativity {
         Associativity::Left
-    }
-
-    fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
-        Expr::BinOp(Box::new(lhs), self, Box::new(rhs))
     }
 }
 fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {

@@ -4,24 +4,26 @@ use crate::{standard::Either, ParseResult::*, Parser, ParserResult, RewindStream
 
 use crate::standard::binary_expr::{Associativity, Operator};
 
-pub struct BinaryExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>>
+pub struct BinaryExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>, Expr>
 where
-    POp::Output: Operator<Expr = PTerm::Output>,
+    POp::Output: Operator,
+    Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
 {
     parser_term: PTerm,
     parser_op: POp,
     recursion_limit: usize,
-    marker: PhantomData<S>,
+    marker: PhantomData<(S, Expr)>,
 }
 
-impl<S, E, PTerm, POp> Parser<S> for BinaryExprParser<S, PTerm, POp>
+impl<S, PTerm, POp, Expr> Parser<S> for BinaryExprParser<S, PTerm, POp, Expr>
 where
     S: RewindStream,
-    POp::Output: Operator<Expr = E>,
-    PTerm: Parser<S, Output = E>,
+    POp::Output: Operator,
+    PTerm: Parser<S>,
     POp: Parser<S>,
+    Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
 {
-    type Output = E;
+    type Output = Expr;
     type Error = PTerm::Error;
     type Fault = Either<PTerm::Fault, POp::Fault>;
 
@@ -30,12 +32,13 @@ where
     }
 }
 
-impl<S, E, PTerm, POp> BinaryExprParser<S, PTerm, POp>
+impl<S, PTerm, POp, Expr> BinaryExprParser<S, PTerm, POp, Expr>
 where
     S: RewindStream,
-    POp::Output: Operator<Expr = E>,
-    PTerm: Parser<S, Output = E>,
+    POp::Output: Operator,
+    PTerm: Parser<S>,
     POp: Parser<S>,
+    Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
 {
     pub fn new(parser_term: PTerm, parser_op: POp) -> Self {
         Self::new_with_limit(256, parser_term, parser_op)
@@ -60,11 +63,13 @@ where
             return self.parse_impl_loop(input, precedence);
         }
 
-        let (mut lhs, mut rest) = match self.parser_term.parse(input) {
+        let (lhs, mut rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
             Fatal(e) => return Fatal(Either::First(e)),
         };
+
+        let mut lhs = Expr::from(lhs);
 
         loop {
             let anchor = rest.anchor();
@@ -92,7 +97,7 @@ where
                 Fatal(e) => return Fatal(e),
             };
 
-            lhs = op.construct(lhs, rhs);
+            lhs = Expr::from((lhs, op, rhs));
             rest = r;
         }
 
@@ -106,6 +111,7 @@ where
             Fail(v, r) => return Fail(v, r),
             Fatal(e) => return Fatal(Either::First(e)),
         };
+        let lhs = Expr::from(lhs);
 
         let (op, mut rest) = {
             let anchor = rest.anchor();
@@ -131,24 +137,24 @@ where
             match self.parser_op.parse(r) {
                 Done(op, r) if op.precedence() >= prec => {
                     rest = r;
-                    stack.push((term, op));
+                    stack.push((Expr::from(term), op));
                 }
                 Done(op, r) => {
                     rest = r;
                     let (lhs, operator) = stack.pop().unwrap();
-                    stack.push((operator.construct(lhs, term), op));
+                    stack.push((Expr::from((lhs, operator, Expr::from(term))), op));
                     continue;
                 }
                 Fail(_, r) => {
                     rest = r.rewind(anchor);
-                    break term;
+                    break Expr::from(term);
                 }
                 Fatal(e) => return Fatal(Either::Last(e)),
             };
         };
 
         while let Some((lhs, op)) = stack.pop() {
-            rhs = op.construct(lhs, rhs);
+            rhs = Expr::from((lhs, op, rhs));
         }
 
         return Done(rhs, rest);
@@ -191,11 +197,11 @@ mod test {
     }
 
     /// term = 0 / (expr)
-    fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+    fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
         zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
             .map(|e| match e {
-                Either::First(c) => Expr::Atom(c),
-                Either::Last(e) => Expr::Parenthesized(Box::new(e)),
+                Either::First(c) => Term::Atom(c),
+                Either::Last(e) => Term::Parenthesized(e),
             })
             .map_err(|_| ())
             .never_fault()
@@ -204,9 +210,26 @@ mod test {
 
     #[derive(Debug, Clone)]
     enum Expr {
-        BinOp(Box<Expr>, Op, Box<Expr>),
+        Term(Box<Term>),
+        Bin(Box<Expr>, Op, Box<Expr>),
+    }
+
+    impl From<Term> for Expr {
+        fn from(args: Term) -> Self {
+            Expr::Term(Box::new(args))
+        }
+    }
+
+    impl From<(Expr, Op, Expr)> for Expr {
+        fn from((lhs, op, rhs): (Expr, Op, Expr)) -> Self {
+            Expr::Bin(Box::new(lhs), op, Box::new(rhs))
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    enum Term {
         Atom(char),
-        Parenthesized(Box<Expr>),
+        Parenthesized(Expr),
     }
 
     #[derive(Debug, Clone)]
@@ -219,7 +242,6 @@ mod test {
     }
 
     impl Operator for Op {
-        type Expr = Expr;
         fn precedence(&self) -> usize {
             match self {
                 Op::Add => 1,
@@ -235,10 +257,6 @@ mod test {
                 Op::Til => Associativity::Right,
                 _ => Associativity::Left,
             }
-        }
-
-        fn construct(self, lhs: Self::Expr, rhs: Self::Expr) -> Self::Expr {
-            Expr::BinOp(Box::new(lhs), self, Box::new(rhs))
         }
     }
     fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
