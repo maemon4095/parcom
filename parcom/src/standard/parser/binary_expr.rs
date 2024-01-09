@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
-
-use crate::{standard::Either, ParseResult::*, Parser, ParserResult, RewindStream};
-
 use crate::standard::binary_expr::{Associativity, Operator};
+use crate::{standard::Either, ParseResult::*, Parser, ParserResult, RewindStream};
+use std::marker::PhantomData;
 
 pub struct BinaryExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>, Expr>
 where
@@ -25,7 +23,7 @@ where
 {
     type Output = Expr;
     type Error = PTerm::Error;
-    type Fault = Either<PTerm::Fault, POp::Fault>;
+    type Fault = Either<POp::Fault, PTerm::Fault>;
 
     fn parse(&self, input: S) -> ParserResult<S, Self> {
         self.parse_impl(input, 0, self.recursion_limit)
@@ -66,7 +64,7 @@ where
         let (lhs, mut rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
-            Fatal(e) => return Fatal(Either::First(e)),
+            Fatal(e) => return Fatal(Either::Last(e)),
         };
 
         let mut lhs = Expr::from(lhs);
@@ -83,17 +81,17 @@ where
                     rest = r.rewind(anchor);
                     break;
                 }
-                Fatal(e) => return Fatal(Either::Last(e)),
+                Fatal(e) => return Fatal(Either::First(e)),
             };
 
-            let next_prec = match op.associativity() {
-                Associativity::Left => op.precedence() + 1,
-                Associativity::Right => op.precedence(),
-            };
+            let next_prec = next_precedence(&op);
 
             let (rhs, r) = match self.parse_impl(r, next_prec, recursion_limit - 1) {
                 Done(v, r) => (v, r),
-                Fail(v, r) => return Fail(v, r),
+                Fail(_, r) => {
+                    rest = r.rewind(anchor);
+                    break;
+                }
                 Fatal(e) => return Fatal(e),
             };
 
@@ -109,68 +107,89 @@ where
         let (lhs, rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
-            Fatal(e) => return Fatal(Either::First(e)),
+            Fatal(e) => return Fatal(Either::Last(e)),
         };
         let lhs = Expr::from(lhs);
 
-        let (op, mut rest) = {
-            let anchor = rest.anchor();
+        let anchor = rest.anchor();
+        let (op, rest) = {
             match self.parser_op.parse(rest) {
                 Done(op, r) if op.precedence() >= precedence => (op, r),
                 Done(_, r) => return Done(lhs, r.rewind(anchor)),
                 Fail(_, r) => return Done(lhs, r.rewind(anchor)),
-                Fatal(e) => return Fatal(Either::Last(e)),
+                Fatal(e) => return Fatal(Either::First(e)),
             }
         };
 
-        let mut stack = vec![(lhs, op)];
+        let (rhs, mut rest) = match self.parser_term.parse(rest) {
+            Done(v, r) => (v, r),
+            Fail(_, r) => return Done(lhs, r.rewind(anchor)),
+            Fatal(e) => return Fatal(Either::Last(e)),
+        };
 
-        let mut rhs = loop {
-            let prec = stack.last().map(|(_, op)| next_precedence(op)).unwrap();
-            let (term, r) = match self.parser_term.parse(rest) {
-                Done(v, r) => (v, r),
-                Fail(v, r) => return Fail(v, r),
+        // (lhs0 op0 (lhs1 op1 ... (lhsN opN rhs
+        // 優先度は op0 <= op1 <= ... <= opN
+        let mut stack = vec![(lhs, op)];
+        let mut rhs = Expr::from(rhs);
+
+        loop {
+            let anchor = rest.anchor();
+            let (op, r) = match self.parser_op.parse(rest) {
+                Done(e, r) => (e, r),
+                Fail(_, r) => {
+                    rest = r.rewind(anchor);
+                    break;
+                }
                 Fatal(e) => return Fatal(Either::First(e)),
             };
 
-            let anchor = r.anchor();
-            match self.parser_op.parse(r) {
-                Done(op, r) if op.precedence() >= prec => {
-                    rest = r;
-                    stack.push((Expr::from(term), op));
-                }
-                Done(op, r) => {
-                    rest = r;
-                    let (lhs, operator) = stack.pop().unwrap();
-                    stack.push((Expr::from((lhs, operator, Expr::from(term))), op));
-                    continue;
-                }
+            let (term, r) = match self.parser_term.parse(r) {
+                Done(e, r) => (Expr::from(e), r),
                 Fail(_, r) => {
                     rest = r.rewind(anchor);
-                    break Expr::from(term);
+                    break;
                 }
                 Fatal(e) => return Fatal(Either::Last(e)),
             };
-        };
+
+            rest = r;
+
+            loop {
+                let Some((lhs, last_op)) = stack.pop() else {
+                    stack.push((rhs, op));
+                    rhs = term;
+                    break;
+                };
+                let prec = next_precedence(&last_op);
+                if op.precedence() >= prec {
+                    // ひとつ前の演算子より優先度が高い．
+                    stack.push((lhs, last_op));
+                    stack.push((rhs, op));
+                    rhs = term;
+                    break;
+                }
+
+                // ひとつ前の演算子より優先度が低い．
+                rhs = Expr::from((lhs, last_op, rhs));
+            }
+        }
 
         while let Some((lhs, op)) = stack.pop() {
             rhs = Expr::from((lhs, op, rhs));
         }
 
-        return Done(rhs, rest);
-
-        fn next_precedence<T: Operator>(op: &T) -> usize {
-            match op.associativity() {
-                Associativity::Left => op.precedence() + 1,
-                Associativity::Right => op.precedence(),
-            }
-        }
+        Done(rhs, rest)
+    }
+}
+fn next_precedence<T: Operator>(op: &T) -> usize {
+    match op.associativity() {
+        Associativity::Left => op.precedence() + 1,
+        Associativity::Right => op.precedence(),
     }
 }
 
 #[cfg(test)]
 mod test {
-
     use super::{Associativity, BinaryExprParser, Operator};
     use crate::foreign::parser::str::{self, atom};
     use crate::standard::{parser::ParserExtension, Either};
