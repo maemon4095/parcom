@@ -2,9 +2,11 @@
 
 use chrono::Local;
 use parcom::{
-    foreign::{self, parser::str::atom},
-    standard::{self, binary_expr::Operator, parser::binary_expr::BinaryExprParser},
-    standard::{binary_expr::Associativity, ParserExtension},
+    std::{
+        binary_expr::{Associativity, BinaryExprParser, Operator},
+        primitive::str::{atom, atom_char},
+        Either, ParserExtension,
+    },
     ParseResult::{self, *},
     Parser, RewindStream, Stream,
 };
@@ -76,6 +78,7 @@ pub fn main() {
 /// expr = expr op expr / term
 fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
     BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+        .map(|(e, _)| e)
         .never_fault()
         .parse(input)
 }
@@ -84,8 +87,8 @@ fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
 fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
     zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
-            standard::Either::First(c) => Term::Atom(c),
-            standard::Either::Last(e) => Term::Parenthesized(e),
+            Either::First(c) => Term::Atom(c),
+            Either::Last(e) => Term::Parenthesized(e),
         })
         .map_err(|_| ())
         .never_fault()
@@ -139,11 +142,7 @@ impl Operator for Op {
     }
 }
 fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
-    foreign::parser::str::atom_char(' ')
-        .discard()
-        .repeat(1..)
-        .discard()
-        .parse(input)
+    atom_char(' ').discard().repeat(1..).discard().parse(input)
 }
 
 fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
@@ -165,5 +164,5 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
 }
 
 fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
-    foreign::parser::str::atom_char('0').parse(input)
+    atom_char('0').parse(input)
 }

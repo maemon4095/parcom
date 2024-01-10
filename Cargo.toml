@@ -1,4 +1,4 @@
 [workspace]
-members = ["parcom", "parcom-core", "example"]
+members = ["parcom", "parcom-core", "parcom-std", "example"]
 exclude = [".git", "target", ".vscode"]
 resolver = "2"

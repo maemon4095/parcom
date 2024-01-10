@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+// doneだけど，最後に発生したエラーを保存しておきたい場合がある．
+// 例えば，rootの場合は入力に残りが存在してはいけない．しかし，入力がなぜ残ったのかは残らない．
 #[derive(Debug, Clone)]
 pub enum ParseResult<S, O, E, F = crate::Never> {
     Done(O, S),

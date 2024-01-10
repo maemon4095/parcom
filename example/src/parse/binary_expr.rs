@@ -1,10 +1,14 @@
 #![cfg_attr(test, cfg(test))]
 
-use parcom::prelude::*;
-
-use parcom::foreign::parser::str::atom_char;
-use parcom::standard::parser::binary_expr::BinaryExprParser;
-use parcom::standard::{self, binary_expr::Operator, parse::parser_for, ParserExtension};
+use parcom::{
+    prelude::*,
+    std::{
+        binary_expr::{Associativity, BinaryExprParser, Operator},
+        parse::parser_for,
+        primitive::str::atom_char,
+        ParserExtension,
+    },
+};
 
 #[cfg_attr(test, test)]
 pub fn main() {
@@ -118,8 +122,8 @@ impl Operator for Op {
         }
     }
 
-    fn associativity(&self) -> standard::binary_expr::Associativity {
-        standard::binary_expr::Associativity::Left
+    fn associativity(&self) -> Associativity {
+        Associativity::Left
     }
 }
 
@@ -147,6 +151,7 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
 
     fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
         BinaryExprParser::new(parser_for::<Term>(), parser_for::<Op>())
+            .map(|(e, _)| e)
             .never_fault()
             .parse(input)
     }

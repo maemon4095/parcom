@@ -1,12 +1,14 @@
 #![cfg_attr(test, cfg(test))]
 
-use parcom::foreign::parser::str::atom;
-use parcom::standard::binary_expr::*;
-use parcom::standard::parser::binary_expr::BinaryExprParser;
-use parcom::standard::ParserExtension;
-use parcom::ParseResult::{self, *};
-use parcom::Parser;
-use parcom::*;
+use parcom::{
+    std::{
+        binary_expr::*,
+        primitive::str::{atom, atom_char},
+        Either, ParserExtension,
+    },
+    ParseResult::{self, *},
+    Parser, *,
+};
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
 /// term = integer / (expr)
@@ -40,6 +42,7 @@ pub fn main() {
 /// expr = expr op expr / term
 fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
     BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+        .map(|(e, _)| e)
         .never_fault()
         .parse(input)
 }
@@ -49,8 +52,8 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
     integer
         .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
-            standard::Either::First(n) => Term::Integer(n),
-            standard::Either::Last(e) => Term::Parenthesized(Box::new(e)),
+            Either::First(n) => Term::Integer(n),
+            Either::Last(e) => Term::Parenthesized(Box::new(e)),
         })
         .map_err(|_| ())
         .never_fault()
@@ -143,11 +146,7 @@ impl Operator for Op {
 }
 
 fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
-    foreign::parser::str::atom_char(' ')
-        .discard()
-        .repeat(1..)
-        .discard()
-        .parse(input)
+    atom_char(' ').discard().repeat(1..).discard().parse(input)
 }
 
 fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
