@@ -4,7 +4,6 @@ mod reason;
 
 pub mod binary_expr;
 pub mod locatable;
-pub mod parse;
 pub mod parser;
 pub mod primitive;
 

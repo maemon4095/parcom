@@ -4,7 +4,6 @@ use parcom::{
     prelude::*,
     std::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
-        parse::parser_for,
         primitive::str::atom_char,
         ParserExtension,
     },
@@ -83,11 +82,8 @@ enum Op {
     Div,
 }
 
-impl<S: Stream<Segment = str>> Parse<S> for Op {
-    type Error = ();
-    type Fault = Never;
-
-    fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
+impl Op {
+    fn parse<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         let mut chars = input.segments().flat_map(|s| s.chars());
         'scope: {
             match chars.next() {
@@ -145,32 +141,27 @@ impl From<(Expr, Op, Expr)> for Expr {
     }
 }
 
-impl<S: RewindStream<Segment = str>> Parse<S> for Expr {
-    type Error = ();
-    type Fault = Never;
-
-    fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        BinaryExprParser::new(parser_for::<Term>(), parser_for::<Op>())
+impl Expr {
+    fn parse<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+        BinaryExprParser::new(Term::parse, Op::parse)
             .map(|(e, _)| e)
             .never_fault()
             .parse(input)
     }
 }
+
 #[derive(Debug)]
 enum Term {
     Parenthesized(Box<Expr>),
     Integer(Integer),
 }
 
-impl<S: RewindStream<Segment = str>> Parse<S> for Term {
-    type Error = ();
-    type Fault = Never;
-
-    fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
-        parser_for::<Integer>()
+impl Term {
+    fn parse<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
+        Integer::parse
             .map(Term::Integer)
             .or(atom_char('(')
-                .join(parser_for::<Expr>())
+                .join(Expr::parse)
                 .join(atom_char(')'))
                 .map(|((_, e), _)| Term::Parenthesized(Box::new(e))))
             .unify()
@@ -179,14 +170,12 @@ impl<S: RewindStream<Segment = str>> Parse<S> for Term {
             .parse(input)
     }
 }
+
 #[derive(Debug)]
 struct Integer(usize);
 
-impl<S: RewindStream<Segment = str>> Parse<S> for Integer {
-    type Error = ();
-    type Fault = Never;
-
-    fn parse(input: S) -> ParseResult<S, Self, Self::Error> {
+impl Integer {
+    fn parse<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Self, ()> {
         let chars = input.segments().flat_map(|e| e.chars());
         let radix = 10;
 

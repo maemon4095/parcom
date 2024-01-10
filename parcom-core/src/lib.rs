@@ -19,12 +19,6 @@ pub trait Parser<S> {
     fn parse(&self, input: S) -> ParserResult<S, Self>;
 }
 
-pub trait Parse<S>: Sized {
-    type Error;
-    type Fault;
-    fn parse(input: S) -> ParseResult<S, Self, Self::Error, Self::Fault>;
-}
-
 impl<S, O, E, F, T: Fn(S) -> ParseResult<S, O, E, F>> Parser<S> for T {
     type Output = O;
     type Error = E;
