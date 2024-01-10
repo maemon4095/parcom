@@ -9,7 +9,7 @@ parcom-std = { path = "../parcom-std", version = "0.0.0" }
 parcom-core = { path = "../parcom-core", version = "0.0.0" }
 
 [features]
-default = ["std", "foreign"]
+default = ["std", "primitive"]
 std = []
-foreign = ["parcom-core/foreign"]
+primitive = ["parcom-core/primitive"]
 locatable = []

@@ -1,7 +1,7 @@
-#[cfg(feature = "foreign")]
-pub mod foreign;
 mod never;
 mod parse_result;
+#[cfg(feature = "primitive")]
+pub mod primitive;
 mod unknown;
 
 pub use never::{Never, ShouldNever};
