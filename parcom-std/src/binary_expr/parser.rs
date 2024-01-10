@@ -40,7 +40,7 @@ where
                 // Ok になる場合は op をパースしたときに op.precedence() < precedence の場合のみ．
                 // 常に precedence >= 0 であるから，ここで Ok にはならない．
                 let Err(reason) = reason else { unreachable!() };
-                Done((e, reason), rest)
+                Done((e, Reason(reason)), rest)
             }
             Fail(e, r) => Fail(e, r),
             Fatal(e) => Fatal(e),
@@ -78,7 +78,7 @@ where
         S,
         (
             Expr,
-            Result<POp::Output, Reason<Either<POp::Error, PTerm::Error>>>,
+            Result<(POp::Output, S::Anchor), Either<POp::Error, PTerm::Error>>,
         ),
         PTerm::Error,
         Either<POp::Fault, PTerm::Fault>,
@@ -95,11 +95,11 @@ where
 
         let mut lhs = Expr::from(lhs);
 
-        let anchor = rest.anchor();
+        let mut anchor = rest.anchor();
         let (mut op, mut rest) = match self.parser_op.parse(rest) {
             Done(e, r) if e.precedence() >= precedence => (e, r),
-            Done(e, r) => return Done((lhs, Ok(e)), r), // &1: ひとつ前の演算子より優先度が低い場合に演算子を返す．
-            Fail(e, r) => return Done((lhs, Err(Reason(Either::First(e)))), r.rewind(anchor)),
+            Done(e, r) => return Done((lhs, Ok((e, anchor))), r), // &1: ひとつ前の演算子より優先度が低い場合に演算子を返す．
+            Fail(e, r) => return Done((lhs, Err(Either::First(e))), r.rewind(anchor)),
             Fatal(e) => return Fatal(Either::First(e)),
         };
 
@@ -107,20 +107,21 @@ where
             let next_prec = next_precedence(&op);
             let ((rhs, reason), r) = match self.parse_impl(rest, next_prec, recursion_limit - 1) {
                 Done((e, r), s) => ((e, r), s),
-                Fail(e, r) => return Fail(e, r),
+                Fail(e, r) => return Done((lhs, Err(Either::Last(e))), r.rewind(anchor)),
                 Fatal(e) => return Fatal(e),
             };
 
             rest = r;
             lhs = Expr::from((lhs, op, rhs));
 
-            let next_op = match reason {
-                Ok(next_op) if next_op.precedence() >= precedence => next_op, // &1 より next_op の優先度は op 未満
+            let (next_op, a) = match reason {
+                Ok((next_op, a)) if next_op.precedence() >= precedence => (next_op, a), // &1 より next_op の優先度は op 未満
                 r @ (Ok(_) | Err(_)) => return Done((lhs, r), rest),
             };
 
             // op よりひとつ前の演算子より優先度が高い．
             op = next_op;
+            anchor = a;
         }
     }
 
@@ -133,7 +134,7 @@ where
         S,
         (
             Expr,
-            Result<POp::Output, Reason<Either<POp::Error, PTerm::Error>>>,
+            Result<(POp::Output, S::Anchor), Either<POp::Error, PTerm::Error>>,
         ),
         PTerm::Error,
         Either<POp::Fault, PTerm::Fault>,
@@ -155,7 +156,7 @@ where
                 Done(e, r) if e.precedence() >= precedence => (e, r),
                 Done(e, r) => {
                     rest = r;
-                    break Ok(e);
+                    break Ok((e, anchor));
                 }
                 Fail(e, r) => {
                     rest = r.rewind(anchor);
@@ -199,7 +200,7 @@ where
             rhs = Expr::from((lhs, op, rhs));
         }
 
-        Done((rhs, reason.map_err(|e| Reason(e))), rest)
+        Done((rhs, reason), rest)
     }
 }
 fn next_precedence<T: Operator>(op: &T) -> usize {
@@ -223,13 +224,42 @@ mod test {
     };
 
     #[test]
-    fn test() {
+    fn successful_input_and_no_chars_left() {
         let input = {
             let mut s = "0".to_string();
             s.extend(std::iter::repeat(" ~ 0").take(4096));
             s
         };
-        let _ = expr(input.as_str());
+        let result = expr(input.as_str());
+
+        match result {
+            Done(_, r) => {
+                let is_empty = r.segments().flat_map(|s| s.chars()).next().is_none();
+                assert!(is_empty);
+            }
+            Fail(_, _) => unreachable!(),
+            Fatal(_) => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn successful_input_and_with_chars_left() {
+        let input = {
+            let mut s = "0".to_string();
+            s.extend(std::iter::repeat(" ~ 0").take(32));
+            s.push_str(" ~ @@@");
+            s
+        };
+        let result = expr(input.as_str());
+
+        match result {
+            Done(_, r) => {
+                let rest = r.segments().flat_map(|s| s.chars()).collect::<Vec<_>>();
+                assert_eq!(rest, &[' ', '~', ' ', '@', '@', '@']);
+            }
+            Fail(_, _) => unreachable!(),
+            Fatal(_) => unreachable!(),
+        }
     }
 
     /// expr = expr op expr / term
