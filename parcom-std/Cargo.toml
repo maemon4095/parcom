@@ -6,7 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-parcom-core = { path = "../parcom-core", version = "0.0.0" }
+parcom-core = { path = "../parcom-core", version = "0.0.0", default-features = false }
 
 [dev-dependencies]
 mockalloc = "0.1.2"
+parcom-core = { path = "../parcom-core", version = "0.0.0", features = [
+    "primitive",
+] }
