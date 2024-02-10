@@ -8,6 +8,10 @@ pub fn atom_char(char: char) -> AtomChar {
     AtomChar { char }
 }
 
+pub fn const_char<const C: char>() -> ConstChar<C> {
+    ConstChar::<C>
+}
+
 pub struct Atom<'a> {
     str: &'a str,
 }
@@ -54,6 +58,22 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
         let head = input.segments().flat_map(|s| s.chars()).next();
         match head {
             Some(c) if c == self.char => Done(c, input.advance(1)),
+            _ => Fail((), input.into()),
+        }
+    }
+}
+
+pub struct ConstChar<const C: char>;
+
+impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
+    type Output = char;
+    type Error = ();
+    type Fault = Never;
+
+    fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let head = input.segments().flat_map(|s| s.chars()).next();
+        match head {
+            Some(c) if c == C => Done(C, input.advance(1)),
             _ => Fail((), input.into()),
         }
     }

@@ -4,7 +4,7 @@ mod parse_result;
 pub mod primitive;
 mod unknown;
 
-pub use never::{Never, ShouldNever};
+pub use never::{Never, ShouldNever, ShouldNeverExtension};
 pub use parse_result::ParseResult;
 pub use unknown::UnknownLocation;
 

@@ -26,11 +26,11 @@ pub use self::{
 
 use std::{marker::PhantomData, ops::RangeBounds};
 
-use parcom_core::{Parser, RewindStream};
+use parcom_core::{Parser, RewindStream, ShouldNever};
 
-use crate::{internal::Sealed, Either};
+use crate::Either;
 
-pub trait ParserExtension<S>: Parser<S> + Sealed {
+pub trait ParserExtension<S>: Parser<S> {
     fn repeat<R: RangeBounds<usize>>(self, range: R) -> Repeat<S, Self, R>
     where
         Self: Sized,
@@ -177,7 +177,7 @@ pub trait ParserExtension<S>: Parser<S> + Sealed {
     fn never_fault(self) -> NeverFault<S, Self>
     where
         Self: Sized,
-        Self::Fault: parcom_core::ShouldNever,
+        Self::Fault: ShouldNever,
     {
         NeverFault {
             parser: self,
@@ -186,4 +186,4 @@ pub trait ParserExtension<S>: Parser<S> + Sealed {
     }
 }
 
-impl<S, P: Parser<S> + Sealed> ParserExtension<S> for P {}
+impl<S, P: Parser<S>> ParserExtension<S> for P {}

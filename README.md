@@ -1,6 +1,12 @@
-parser combinator = parcom
+parcom = parser combinator
 
-## LICENSE
+# TODO
+エラートレラントなパーサを作れるようにしたい．
+
+PEGでパーサを定義できる様にして，それをエラートレラントな実装にしたい．
+
+
+# LICENSE
 This repository contents are licensed under
 
 * Apache License 2.0 [LICENSE-APACHE](LICENSE-APACHE)

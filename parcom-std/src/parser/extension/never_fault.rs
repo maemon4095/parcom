@@ -1,4 +1,4 @@
-use parcom_core::{Never, ParseResult::*, Parser, ParserResult, ShouldNever};
+use parcom_core::{Never, ParseResult::*, Parser, ParserResult, ShouldNever, ShouldNeverExtension};
 use std::marker::PhantomData;
 
 pub struct NeverFault<S, P>

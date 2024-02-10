@@ -1,4 +1,4 @@
-use parcom_core::ShouldNever;
+use parcom_core::{ShouldNever, ShouldNeverExtension};
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
@@ -68,4 +68,4 @@ impl<T0, T1> Either<T0, T1> {
     }
 }
 
-impl<T0: ShouldNever, T1: ShouldNever> ShouldNever for Either<T0, T1> {}
+unsafe impl<T0: ShouldNever, T1: ShouldNever> ShouldNever for Either<T0, T1> {}
