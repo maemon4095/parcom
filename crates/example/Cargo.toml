@@ -1,0 +1,11 @@
+[package]
+name = "example"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+parcom = { path = "../parcom", default-features = false }
+chrono = "0.4.28"
+opener = "0.6.1"
+plotters = "0.3.5"
+tempfile = "3.8.0"
