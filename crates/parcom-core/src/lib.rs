@@ -87,3 +87,11 @@ pub trait Stream {
     fn segments(&self) -> Self::Iter<'_>;
     fn advance(self, count: usize) -> Self;
 }
+
+pub trait BindableStream<L>: LocatableStream<L>
+where
+    L: Location<Self::Segment>,
+{
+    fn bind<T>(self, location: L, item: T) -> Self;
+    fn get<T>(&self, location: L) -> Option<&T>;
+}
