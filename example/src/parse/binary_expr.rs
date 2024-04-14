@@ -25,7 +25,7 @@ pub fn main() {
             expr
         }
         Fail(_, rest) => {
-            println!("error; rest: {}", unsafe { rest.unwrap() });
+            println!("error; rest: {}", rest.unwrap());
             return;
         }
         Fatal(e) => e.never(),

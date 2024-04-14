@@ -4,7 +4,7 @@ use crate::RewindStream;
 pub struct UnknownLocation<S>(S);
 
 impl<S> UnknownLocation<S> {
-    pub unsafe fn unwrap(self) -> S {
+    pub fn unwrap(self) -> S {
         self.0
     }
     pub fn as_ref(&self) -> UnknownLocation<&S> {
