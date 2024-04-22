@@ -15,7 +15,7 @@ impl<S, P: Parser<S>> Parser<S> for Discard<S, P> {
         match self.parser.parse(input) {
             Done(_, r) => Done((), r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 }
@@ -43,7 +43,7 @@ impl<S, P: Parser<S>> Parser<S> for DiscardErr<S, P> {
         match self.parser.parse(input) {
             Done(e, r) => Done(e, r),
             Fail(_, r) => Fail((), r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 }

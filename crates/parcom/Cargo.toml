@@ -1,11 +1,11 @@
 [package]
 name = "parcom"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 
 [dependencies]
-parcom-core = { workspace = true, default-features = false }
+parcom-core = { workspace = true }
 parcom-streams = { workspace = true }
 parcom-parsers = { workspace = true }
 parcom-measures = { workspace = true }

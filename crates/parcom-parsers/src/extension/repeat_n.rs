@@ -18,7 +18,7 @@ impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, 
             let (v, r) = match self.parser.parse(rest) {
                 Done(v, r) => (v, r),
                 Fail(e, r) => return Fail(e, r),
-                Fatal(e) => return Fatal(e),
+                Fatal(e, r) => return Fatal(e, r),
             };
 
             *elem = MaybeUninit::new(v);

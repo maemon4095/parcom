@@ -4,7 +4,7 @@ use std::fmt::Debug;
 pub enum ParseResult<S, O, E, F = crate::Never> {
     Done(O, S),
     Fail(E, UnknownLocation<S>),
-    Fatal(F),
+    Fatal(F, UnknownLocation<S>),
 }
 
 use ParseResult::*;
@@ -16,7 +16,7 @@ impl<S, O, E, F> ParseResult<S, O, E, F> {
         match self {
             Done(v, r) => Done(f(v), r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 
@@ -24,7 +24,7 @@ impl<S, O, E, F> ParseResult<S, O, E, F> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(f(e), r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 
@@ -32,7 +32,7 @@ impl<S, O, E, F> ParseResult<S, O, E, F> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(f(e)),
+            Fatal(e, r) => Fatal(f(e), r),
         }
     }
 
@@ -47,7 +47,7 @@ impl<S, O, E, F> ParseResult<S, O, E, F> {
                 "called ParseResult::unwrap on an Fail value; Error: {:?}.",
                 e
             ),
-            Fatal(e) => panic!(
+            Fatal(e, _) => panic!(
                 "called ParseResult::unwrap on an Fatal value; Error: {:?}.",
                 e
             ),
@@ -57,7 +57,7 @@ impl<S, O, E, F> ParseResult<S, O, E, F> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r.as_ref()),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r.as_ref()),
         }
     }
 }

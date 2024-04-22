@@ -16,7 +16,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
         match self.parser.parse(input) {
             Done(v, r) => Done(Ok(v), r),
             Fail(e, r) => Done(Err(e), r.rewind(anchor)),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 }

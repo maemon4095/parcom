@@ -17,13 +17,13 @@ impl<S: RewindStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Join<S, P0, P1
         let (item0, rest) = match self.parser0.parse(input) {
             Done(v, r) => (v, r),
             Fail(e, r) => return Fail(Either::First(e), r),
-            Fatal(e) => return Fatal(Either::First(e)),
+            Fatal(e, r) => return Fatal(Either::First(e), r),
         };
 
         let (item1, rest) = match self.parser1.parse(rest) {
             Done(v, r) => (v, r),
             Fail(e, r) => return Fail(Either::Last(e), r),
-            Fatal(e) => return Fatal(Either::Last(e)),
+            Fatal(e, r) => return Fatal(Either::Last(e), r),
         };
 
         Done((item0, item1), rest)

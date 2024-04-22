@@ -34,7 +34,7 @@ where
                 Fail(e, r) => {
                     break Done((acc, Reason(e)), r.rewind(anchor));
                 }
-                Fatal(e) => break Fatal(e),
+                Fatal(e, r) => break Fatal(e, r),
             }
         }
     }

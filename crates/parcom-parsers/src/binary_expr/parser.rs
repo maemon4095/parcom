@@ -42,7 +42,7 @@ where
                 Done((e, Reason(reason)), rest)
             }
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 }
@@ -89,7 +89,7 @@ where
         let (lhs, rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(e, r) => return Fail(e, r),
-            Fatal(e) => return Fatal(Either::Last(e)),
+            Fatal(e, r) => return Fatal(Either::Last(e), r),
         };
 
         let mut lhs = Expr::from(lhs);
@@ -99,7 +99,7 @@ where
             Done(e, r) if e.precedence() >= precedence => (e, r),
             Done(e, r) => return Done((lhs, Ok((e, anchor))), r), // &1: ひとつ前の演算子より優先度が低い場合に演算子を返す．
             Fail(e, r) => return Done((lhs, Err(Either::First(e))), r.rewind(anchor)),
-            Fatal(e) => return Fatal(Either::First(e)),
+            Fatal(e, r) => return Fatal(Either::First(e), r),
         };
 
         loop {
@@ -107,7 +107,7 @@ where
             let ((rhs, reason), r) = match self.parse_impl(rest, next_prec, recursion_limit - 1) {
                 Done((e, r), s) => ((e, r), s),
                 Fail(e, r) => return Done((lhs, Err(Either::Last(e))), r.rewind(anchor)),
-                Fatal(e) => return Fatal(e),
+                Fatal(e, r) => return Fatal(e, r),
             };
 
             rest = r;
@@ -141,7 +141,7 @@ where
         let (rhs, mut rest) = match self.parser_term.parse(input) {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
-            Fatal(e) => return Fatal(Either::Last(e)),
+            Fatal(e, r) => return Fatal(Either::Last(e), r),
         };
         let mut rhs = Expr::from(rhs);
 
@@ -161,7 +161,7 @@ where
                     rest = r.rewind(anchor);
                     break Err(Either::First(e));
                 }
-                Fatal(e) => return Fatal(Either::First(e)),
+                Fatal(e, r) => return Fatal(Either::First(e), r),
             };
 
             let (term, r) = match self.parser_term.parse(r) {
@@ -170,7 +170,7 @@ where
                     rest = r.rewind(anchor);
                     break Err(Either::Last(e));
                 }
-                Fatal(e) => return Fatal(Either::Last(e)),
+                Fatal(e, r) => return Fatal(Either::Last(e), r),
             };
 
             rest = r;
@@ -237,7 +237,7 @@ mod test {
                 assert!(is_empty);
             }
             Fail(_, _) => unreachable!(),
-            Fatal(_) => unreachable!(),
+            Fatal(_, _) => unreachable!(),
         }
     }
 
@@ -257,7 +257,7 @@ mod test {
                 assert_eq!(rest, &[' ', '~', ' ', '@', '@', '@']);
             }
             Fail(_, _) => unreachable!(),
-            Fatal(_) => unreachable!(),
+            Fatal(_, _) => unreachable!(),
         }
     }
 

@@ -40,7 +40,7 @@ where
         match self.parser.parse(input) {
             Done(e, r) => Done(e.unify(), r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 }
@@ -83,7 +83,7 @@ where
         match self.parser.parse(input) {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e.unify(), r),
-            Fatal(e) => Fatal(e),
+            Fatal(e, r) => Fatal(e, r),
         }
     }
 }
@@ -126,7 +126,7 @@ where
         match self.parser.parse(input) {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e) => Fatal(e.unify()),
+            Fatal(e, r) => Fatal(e.unify(), r),
         }
     }
 }

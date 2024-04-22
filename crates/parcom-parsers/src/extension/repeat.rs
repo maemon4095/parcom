@@ -28,7 +28,7 @@ impl<S: RewindStream, P: Parser<S>, R: RangeBounds<usize>> Parser<S> for Repeat<
                 match self.parser.parse(rest) {
                     Done(v, r) => (v, r),
                     Fail(e, r) => break (Some(e), r.rewind(anchor)),
-                    Fatal(e) => return Fatal(e),
+                    Fatal(e, r) => return Fatal(e, r),
                 }
             };
 

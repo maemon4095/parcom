@@ -31,7 +31,7 @@ pub fn main() {
             println!("error; rest: {}", rest.unwrap());
             return;
         }
-        Fatal(e) => e.never(),
+        Fatal(e, _) => e.never(),
     };
 
     println!("result: {} = {}", display(&expr), eval(&expr));

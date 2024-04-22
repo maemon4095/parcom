@@ -1,10 +1,8 @@
 parcom = parser combinator
 
 # TODO
-エラートレラントなパーサを作れるようにしたい．
-
-PEGでパーサを定義できる様にして，それをエラートレラントな実装にしたい．
-
+[] generate error tolerant parser from PEG
+[] async
 
 # LICENSE
 This repository contents are licensed under
