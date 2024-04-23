@@ -7,23 +7,6 @@ unsafe impl ShouldNever for Never {}
 unsafe impl<T: ShouldNever, E: ShouldNever> ShouldNever for Result<T, E> {}
 unsafe impl<T: ShouldNever, const N: usize> ShouldNever for [T; N] {}
 
-macro_rules! tuple_impl {
-    ($t:ident, $u:ident) => {
-        tuple_impl!(@impl $t, $u);
-    };
-
-    ( $u:ident, $($t:ident),+ ) => {
-        tuple_impl!(@impl $u, $($t),*);
-        tuple_impl!($($t),*);
-    };
-
-    (@impl $($t:ident),+) => {
-        unsafe impl<$($t: ShouldNever),*> ShouldNever for ($($t),*) {}
-    };
-}
-
-tuple_impl!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
-
 pub trait ShouldNeverExtension: ShouldNever {
     fn never<T>(&self) -> T {
         unreachable!(
@@ -34,3 +17,10 @@ pub trait ShouldNeverExtension: ShouldNever {
 }
 
 impl<T: ShouldNever> ShouldNeverExtension for T {}
+
+impl std::error::Error for Never {}
+impl std::fmt::Display for Never {
+    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unreachable!()
+    }
+}
