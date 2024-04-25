@@ -1,8 +1,8 @@
 parcom = parser combinator
 
 # TODO
-[] generate error tolerant parser from PEG
-[] async
+- [ ] generate error tolerant parser from PEG
+- [ ] async
 
 # LICENSE
 This repository contents are licensed under
