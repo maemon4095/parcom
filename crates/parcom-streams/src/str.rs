@@ -1,4 +1,4 @@
-use parcom_core::{Location, RewindStream,IntoLocatable, Stream, LocatableStream};
+use parcom_core::{IntoLocatable, LocatableStream, Location, RewindStream, Stream};
 
 #[derive(Debug, Clone)]
 pub struct StrStream<'me> {
@@ -14,11 +14,7 @@ impl<'me> StrStream<'me> {
 impl<'me> Stream for StrStream<'me> {
     type Segment = str;
 
-    type Iter<'a> = std::iter::Once<&'a str>
-    where
-        Self: 'a;
-
-    fn segments(&self) -> Self::Iter<'_> {
+    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
         std::iter::once(self.str)
     }
 
@@ -56,10 +52,11 @@ impl<'me> IntoLocatable for StrStream<'me> {
 
     fn into_locatable_at<L>(self, location: L) -> Self::Locatable<L>
     where
-        L: Location<Self::Segment> {
+        L: Location<Self::Segment>,
+    {
         Locatable {
             location,
-            base: self
+            base: self,
         }
     }
 }
@@ -73,11 +70,7 @@ pub struct Locatable<'me, L: Location<str>> {
 impl<'me, L: Location<str>> Stream for Locatable<'me, L> {
     type Segment = str;
 
-    type Iter<'a> = <StrStream<'me> as Stream>::Iter<'a> 
-    where
-        Self: 'a;
-
-    fn segments(&self) -> Self::Iter<'_> {
+    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
         self.base.segments()
     }
 
@@ -93,7 +86,7 @@ impl<'me, L: Location<str>> RewindStream for Locatable<'me, L> {
 
     fn anchor(&self) -> Self::Anchor {
         LocatableAnchor {
-            stream: self.clone()
+            stream: self.clone(),
         }
     }
 
@@ -103,7 +96,7 @@ impl<'me, L: Location<str>> RewindStream for Locatable<'me, L> {
 }
 
 pub struct LocatableAnchor<'me, L: Location<str>> {
-    stream: Locatable<'me, L>
+    stream: Locatable<'me, L>,
 }
 
 impl<'me, L: Location<str>> LocatableStream<L> for Locatable<'me, L> {

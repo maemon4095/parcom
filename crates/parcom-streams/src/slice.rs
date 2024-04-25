@@ -19,12 +19,7 @@ impl<'me, T> Clone for SliceStream<'me, T> {
 
 impl<'me, T> Stream for SliceStream<'me, T> {
     type Segment = [T];
-
-    type Iter<'a> = std::iter::Once<&'a [T]>
-    where
-        Self: 'a;
-
-    fn segments(&self) -> Self::Iter<'_> {
+    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
         std::iter::once(self.slice)
     }
 
@@ -95,11 +90,7 @@ where
 {
     type Segment = <SliceStream<'me, T> as Stream>::Segment;
 
-    type Iter<'a> = <SliceStream<'me, T> as Stream>::Iter<'a>
-    where
-        Self: 'a;
-
-    fn segments(&self) -> Self::Iter<'_> {
+    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
         self.base.segments()
     }
 

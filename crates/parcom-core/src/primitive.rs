@@ -9,12 +9,8 @@ pub struct Anchor<T> {
 impl Stream for &str {
     type Segment = str;
 
-    type Iter<'a> = std::iter::Once<&'a str>
-    where
-        Self: 'a;
-
-    fn segments(&self) -> Self::Iter<'_> {
-        std::iter::once(self)
+    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
+        std::iter::once(*self)
     }
 
     fn advance(self, count: usize) -> Self {
@@ -48,12 +44,8 @@ impl RewindStream for &str {
 impl<T> Stream for &[T] {
     type Segment = [T];
 
-    type Iter<'a> = std::iter::Once<&'a [T]>
-    where
-        Self: 'a;
-
-    fn segments(&self) -> Self::Iter<'_> {
-        std::iter::once(self)
+    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
+        std::iter::once(*self)
     }
 
     fn advance(self, count: usize) -> Self {
