@@ -9,4 +9,5 @@ pub mod prelude {
     pub use parcom_base::*;
     pub use parcom_core::ParseResult::*;
     pub use parcom_core::*;
+    pub use parcom_parsers::ParserExtension;
 }
