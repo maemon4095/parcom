@@ -8,10 +8,10 @@ pub trait LocatableStream<L>: Stream
 where
     L: Location<<Self as Stream>::Segment>,
 {
-    fn location(&self, nth: usize) -> L;
+    fn location(&self, index: usize) -> L;
 }
 
-pub trait IntoLocatable: Sized + Stream {
+pub trait IntoLocatable: Stream {
     type Locatable<L>: LocatableStream<L, Segment = Self::Segment>
     where
         L: Location<Self::Segment>;
@@ -35,13 +35,10 @@ pub trait RewindStream: Stream {
     fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
-pub trait Stream {
+pub trait Stream: Sized {
     type Segment: ?Sized;
-    type Iter<'a>: 'a + Iterator<Item = &'a Self::Segment>
-    where
-        Self: 'a;
 
-    fn segments(&self) -> Self::Iter<'_>;
+    fn segments(&self) -> impl Iterator<Item = &'_ Self::Segment>;
     fn advance(self, count: usize) -> Self;
 }
 
