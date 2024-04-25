@@ -1,6 +1,6 @@
 pub unsafe trait ShouldNever {}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Copy)]
 pub enum Never {}
 unsafe impl ShouldNever for Never {}
 
@@ -18,9 +18,21 @@ pub trait ShouldNeverExtension: ShouldNever {
 
 impl<T: ShouldNever> ShouldNeverExtension for T {}
 
+impl Clone for Never {
+    fn clone(&self) -> Self {
+        unreachable!("<Never as Clone>::clone should never be called.")
+    }
+}
+
 impl std::error::Error for Never {}
+impl std::fmt::Debug for Never {
+    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unreachable!("<Never as Debug>::fmt should never be called.")
+    }
+}
+
 impl std::fmt::Display for Never {
     fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        unreachable!()
+        unreachable!("<Never as Display>::fmt should never be called.")
     }
 }
