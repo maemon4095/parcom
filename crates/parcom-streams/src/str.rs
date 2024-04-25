@@ -1,17 +1,17 @@
 use parcom_core::{IntoLocatable, LocatableStream, Location, RewindStream, Stream};
 
 #[derive(Debug, Clone)]
-pub struct StrStream<'me> {
+pub struct StrCharStream<'me> {
     str: &'me str,
 }
 
-impl<'me> StrStream<'me> {
+impl<'me> StrCharStream<'me> {
     pub fn new(str: &'me str) -> Self {
         Self { str }
     }
 }
 
-impl<'me> Stream for StrStream<'me> {
+impl<'me> Stream for StrCharStream<'me> {
     type Segment = str;
 
     fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
@@ -27,7 +27,7 @@ impl<'me> Stream for StrStream<'me> {
         self
     }
 }
-impl<'me> RewindStream for StrStream<'me> {
+impl<'me> RewindStream for StrCharStream<'me> {
     type Anchor = Anchor<'me>;
 
     fn anchor(&self) -> Self::Anchor {
@@ -42,10 +42,10 @@ impl<'me> RewindStream for StrStream<'me> {
 }
 
 pub struct Anchor<'me> {
-    stream: StrStream<'me>,
+    stream: StrCharStream<'me>,
 }
 
-impl<'me> IntoLocatable for StrStream<'me> {
+impl<'me> IntoLocatable for StrCharStream<'me> {
     type Locatable<L>  = Locatable<'me, L>
     where
         L: Location<Self::Segment> ;
@@ -64,7 +64,7 @@ impl<'me> IntoLocatable for StrStream<'me> {
 #[derive(Debug, Clone)]
 pub struct Locatable<'me, L: Location<str>> {
     location: L,
-    base: StrStream<'me>,
+    base: StrCharStream<'me>,
 }
 
 impl<'me, L: Location<str>> Stream for Locatable<'me, L> {
