@@ -15,3 +15,16 @@ impl<T> Metrics<[T]> for Count {
         self.0
     }
 }
+
+impl Metrics<str> for Count {
+    type Location = usize;
+
+    fn advance(mut self, segment: &str) -> Self {
+        self.0 += segment.chars().count();
+        self
+    }
+
+    fn location(&self) -> Self::Location {
+        self.0
+    }
+}
