@@ -1,4 +1,4 @@
-use parcom_core::{LocatableStream, IntoLocatable, Location, RewindStream, Stream};
+use parcom_core::{IntoMeasured, MeasuredStream, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug)]
 pub struct SliceStream<'me, T> {
@@ -17,7 +17,7 @@ impl<'me, T> Clone for SliceStream<'me, T> {
     }
 }
 
-impl<'me, T> Stream for SliceStream<'me, T> {
+impl<'me, T> ParcomStream for SliceStream<'me, T> {
     type Segment = [T];
     fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
         std::iter::once(self.slice)
@@ -47,68 +47,74 @@ pub struct Anchor<'me, T> {
     stream: SliceStream<'me, T>,
 }
 
-impl<'me, T> IntoLocatable for SliceStream<'me, T> {
-    type Locatable<L> = Locatable<'me, T, L> 
-    where
-        L: Location<Self::Segment>; 
+impl<'me, T, M> IntoMeasured<M> for SliceStream<'me, T>
+where
+    M: Metrics<[T]>,
+{
+    type Measured = Measured<'me, T, M>;
 
-    fn into_locatable_at<L>(self, location: L) -> Self::Locatable<L>
-    where
-        L: Location<Self::Segment> ,
-    {
-        Locatable {
-            location,
+    fn into_measured_with(self, metrics: M) -> Self::Measured {
+        Measured {
+            metrics,
             base: self,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Locatable<'me, T, L>
+pub struct Measured<'me, T, M>
 where
-    L: Location<[T]>,
+    M: Metrics<[T]>,
 {
-    location: L,
+    metrics: M,
     base: SliceStream<'me, T>,
 }
 
-impl<'me, T, L> Clone for Locatable<'me, T, L>
+impl<'me, T, M> Clone for Measured<'me, T, M>
 where
-    L: Location<[T]>,
+    M: Metrics<[T]> + Clone,
 {
     fn clone(&self) -> Self {
         Self {
-            location: self.location.clone(),
+            metrics: self.metrics.clone(),
             base: self.base.clone(),
         }
     }
 }
 
-impl<'me, T, L> Stream for Locatable<'me, T, L>
+impl<'me, T, M> ParcomStream for Measured<'me, T, M>
 where
-    L: Location<[T]>,
+    M: Metrics<[T]>,
 {
-    type Segment = <SliceStream<'me, T> as Stream>::Segment;
+    type Segment = <SliceStream<'me, T> as ParcomStream>::Segment;
 
     fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
         self.base.segments()
     }
 
     fn advance(mut self, count: usize) -> Self {
-        self.location = self.location(count);
+        let mut rest = count;
+        for segment in self.base.segments() {
+            if segment.len() >= rest {
+                self.metrics = self.metrics.advance(&segment[..rest]);
+                break;
+            }
+            self.metrics = self.metrics.advance(segment);
+            rest -= segment.len();
+        }
         self.base = self.base.advance(count);
         self
     }
 }
 
-impl<'me, T, L> RewindStream for Locatable<'me, T, L>
+impl<'me, T, M> RewindStream for Measured<'me, T, M>
 where
-    L: Location<[T]>,
+    M: Metrics<[T]> + Clone,
 {
-    type Anchor = LocatableAnchor<'me, T, L>;
+    type Anchor = MeasuredAnchor<'me, T, M>;
 
     fn anchor(&self) -> Self::Anchor {
-        LocatableAnchor {
+        MeasuredAnchor {
             stream: self.clone(),
         }
     }
@@ -118,18 +124,19 @@ where
     }
 }
 
-pub struct LocatableAnchor<'me, T, L>
+pub struct MeasuredAnchor<'me, T, M>
 where
-    L: Location<[T]>,
+    M: Metrics<[T]>,
 {
-    stream: Locatable<'me, T, L>,
+    stream: Measured<'me, T, M>,
 }
 
-impl<'me, T, L> LocatableStream<L> for Locatable<'me, T, L>
+impl<'me, T, M> MeasuredStream for Measured<'me, T, M>
 where
-    L: Location<[T]>,
+    M: Metrics<[T]>,
 {
-    fn location(&self, nth: usize) -> L {
-        self.location.clone().advance(&self.base.slice[..nth])
+    type Location = M::Location;
+    fn location(&self) -> Self::Location {
+        self.metrics.location()
     }
 }

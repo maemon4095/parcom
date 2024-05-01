@@ -3,6 +3,8 @@ parcom = parser combinator
 # TODO
 - [ ] generate error tolerant parser from PEG
 - [ ] async
+- [ ] parser extensions without Either
+- [ ] Stream implementations
 
 # LICENSE
 This repository contents are licensed under

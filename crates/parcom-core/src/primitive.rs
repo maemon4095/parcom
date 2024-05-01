@@ -1,12 +1,12 @@
 use core::panic;
 
-use crate::{RewindStream, Stream};
+use crate::{ParcomStream, RewindStream};
 
 pub struct Anchor<T> {
     me: T,
 }
 
-impl Stream for &str {
+impl ParcomStream for &str {
     type Segment = str;
 
     fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
@@ -41,7 +41,7 @@ impl RewindStream for &str {
     }
 }
 
-impl<T> Stream for &[T] {
+impl<T> ParcomStream for &[T] {
     type Segment = [T];
 
     fn segments(&self) -> impl Iterator<Item = &Self::Segment> {

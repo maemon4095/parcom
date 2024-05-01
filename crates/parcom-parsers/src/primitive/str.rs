@@ -1,4 +1,4 @@
-use parcom_core::{Never, ParseResult::*, Parser, ParserResult, Stream};
+use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
 pub fn atom(str: &str) -> Atom<'_> {
     Atom { str }
@@ -16,7 +16,7 @@ pub struct Atom<'a> {
     str: &'a str,
 }
 
-impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
+impl<'a, S: ParcomStream<Segment = str>> Parser<S> for Atom<'a> {
     type Output = &'a str;
     type Error = ();
     type Fault = Never;
@@ -49,7 +49,7 @@ pub struct AtomChar {
     char: char,
 }
 
-impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
+impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
     type Output = char;
     type Error = ();
     type Fault = Never;
@@ -65,7 +65,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
 
 pub struct ConstChar<const C: char>;
 
-impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
+impl<const C: char, S: ParcomStream<Segment = str>> Parser<S> for ConstChar<C> {
     type Output = char;
     type Error = ();
     type Fault = Never;

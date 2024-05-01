@@ -7,9 +7,9 @@ use parcom::{
         primitive::str::{atom, atom_char},
         ParserExtension,
     },
-    Either,
+    Either, ParcomStream,
     ParseResult::{self, *},
-    Parser, RewindStream, Stream,
+    Parser, RewindStream,
 };
 use std::time::Instant;
 use std::{fs::File, io::Write};
@@ -148,7 +148,7 @@ fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
     atom_char(' ').discard().repeat(1..).discard().parse(input)
 }
 
-fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let mut chars = input.segments().flat_map(|s| s.chars());
     let Some(head) = chars.next() else {
         drop(chars);
@@ -166,6 +166,6 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     Done(op, input.advance(1))
 }
 
-fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
     atom_char('0').parse(input)
 }

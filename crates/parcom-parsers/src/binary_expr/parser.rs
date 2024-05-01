@@ -218,8 +218,9 @@ mod test {
     };
     use parcom_base::Either;
     use parcom_core::{
+        ParcomStream,
         ParseResult::{self, *},
-        Parser, RewindStream, Stream,
+        Parser, RewindStream,
     };
 
     #[test]
@@ -343,7 +344,7 @@ mod test {
             .parse(input)
     }
 
-    fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+    fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         let mut chars = input.segments().flat_map(|s| s.chars());
         let Some(head) = chars.next() else {
             drop(chars);
@@ -362,7 +363,7 @@ mod test {
         Done(op, input.advance(1))
     }
 
-    fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+    fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
         str::atom_char('0').parse(input)
     }
 }

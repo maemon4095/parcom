@@ -8,5 +8,5 @@ edition = "2021"
 parcom-core = { workspace = true }
 parcom-streams = { workspace = true }
 parcom-parsers = { workspace = true }
-parcom-measures = { workspace = true }
+parcom-metrics = { workspace = true }
 parcom-base = { workspace = true }

@@ -149,7 +149,7 @@ fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
     atom_char(' ').discard().repeat(1..).discard().parse(input)
 }
 
-fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let mut chars = input.segments().flat_map(|s| s.chars());
     let Some(head) = chars.next() else {
         drop(chars);
@@ -167,7 +167,7 @@ fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     Done(op, input.advance(1))
 }
 
-fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
+fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
     let chars = input.segments().flat_map(|e| e.chars());
     let radix = 10;
 

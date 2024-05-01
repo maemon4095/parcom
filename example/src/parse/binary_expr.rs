@@ -83,7 +83,7 @@ enum Op {
 }
 
 impl Op {
-    fn parse<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+    fn parse<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         let mut chars = input.segments().flat_map(|s| s.chars());
         'scope: {
             match chars.next() {

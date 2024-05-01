@@ -1,4 +1,4 @@
-use parcom_core::{Never, ParseResult::*, Parser, ParserResult, Stream};
+use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
 pub fn atom<T>(items: &[T]) -> Atom<'_, T>
 where
@@ -24,7 +24,7 @@ where
 impl<'a, T, S> Parser<S> for Atom<'a, T>
 where
     T: PartialEq,
-    S: Stream<Segment = [T]>,
+    S: ParcomStream<Segment = [T]>,
 {
     type Output = &'a [T];
     type Error = ();
@@ -72,7 +72,7 @@ where
 impl<'a, T, S> Parser<S> for Single<'a, T>
 where
     T: PartialEq,
-    S: Stream<Segment = [T]>,
+    S: ParcomStream<Segment = [T]>,
 {
     type Output = &'a T;
     type Error = ();

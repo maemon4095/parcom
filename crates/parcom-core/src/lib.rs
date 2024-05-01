@@ -1,3 +1,4 @@
+mod measured;
 mod never;
 mod parse_result;
 mod parser;
@@ -14,7 +15,3 @@ pub use unknown::UnknownLocation;
 
 pub type ParserResult<S, P> =
     ParseResult<S, <P as Parser<S>>::Output, <P as Parser<S>>::Error, <P as Parser<S>>::Fault>;
-
-pub trait Location<S: ?Sized>: Clone {
-    fn advance(self, segment: &S) -> Self;
-}
