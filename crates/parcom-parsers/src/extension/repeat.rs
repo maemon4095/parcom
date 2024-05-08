@@ -29,7 +29,13 @@ fn default_parse<S, P: Parser<S>, R: RepeatBounds<S, P>>(
 where
     S: RewindStream,
 {
-    let mut vec = Vec::new();
+    let start_bound = me.range.start_bound();
+    let capacity = match start_bound {
+        std::ops::Bound::Included(n) => *n,
+        std::ops::Bound::Excluded(n) => n.checked_sub(1).unwrap_or(0),
+        std::ops::Bound::Unbounded => 0,
+    };
+    let mut vec = Vec::with_capacity(capacity);
     let upper_bound = me.range.end_bound();
 
     let mut rest = input;

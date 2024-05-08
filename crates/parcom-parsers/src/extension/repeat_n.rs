@@ -12,19 +12,29 @@ impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, 
 
     fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut buf = std::array::from_fn(|_| MaybeUninit::uninit());
-
         let mut rest = input;
-        for elem in buf.iter_mut() {
+        let mut idx = 0;
+
+        let result = loop {
+            if idx >= buf.len() {
+                return Done(buf.map(|e| unsafe { e.assume_init() }), rest);
+            }
+
             let (v, r) = match self.parser.parse(rest) {
                 Done(v, r) => (v, r),
-                Fail(e, r) => return Fail(e, r),
-                Fatal(e, r) => return Fatal(e, r),
+                Fail(e, r) => break Fail(e, r),
+                Fatal(e, r) => break Fatal(e, r),
             };
 
-            *elem = MaybeUninit::new(v);
+            buf[idx] = MaybeUninit::new(v);
             rest = r;
+            idx += 1;
+        };
+
+        for e in &mut buf[..idx] {
+            unsafe { e.assume_init_drop() }
         }
 
-        Done(unsafe { buf.map(|e| e.assume_init()) }, rest)
+        result
     }
 }
