@@ -1,3 +1,3 @@
 mod line_colmn;
 
-pub use line_colmn::LineColumnMeter;
+pub use line_colmn::{LineColumn, LineColumnMeter};
