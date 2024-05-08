@@ -19,6 +19,6 @@ pub trait ParcomStream: Sized {
 }
 
 pub trait BindableStream: MeasuredStream {
-    fn bind<T>(self, location: Self::Location, item: T) -> Self;
-    fn get<T>(&self, location: Self::Location) -> Option<&T>;
+    fn bind<T>(self, location: Self::Metrics, item: T) -> Self;
+    fn get<T>(&self, location: Self::Metrics) -> Option<&T>;
 }

@@ -1,9 +1,41 @@
-use crate::location;
-use parcom_core::Metrics;
+use parcom_core::{Meter, Metrics};
+
+#[derive(Debug, Eq, Ord, Clone)]
+pub struct LineColumn {
+    pub total_count: usize,
+    pub line: usize,
+    pub column: usize,
+}
+
+impl PartialEq for LineColumn {
+    fn eq(&self, other: &Self) -> bool {
+        self.total_count == other.total_count
+    }
+}
+
+impl PartialOrd for LineColumn {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.total_count.cmp(&other.total_count))
+    }
+}
+
+impl std::default::Default for LineColumn {
+    fn default() -> Self {
+        Self {
+            total_count: 0,
+            line: 0,
+            column: 0,
+        }
+    }
+}
+
+impl Metrics<str> for LineColumn {
+    type Meter = LineColumnMeter;
+}
 
 #[derive(Debug, Clone)]
-pub struct LineColumn {
-    location: location::LineColumn,
+pub struct LineColumnMeter {
+    location: LineColumn,
     state: State,
 }
 
@@ -13,10 +45,9 @@ enum State {
     CR,
 }
 
-impl Metrics<str> for LineColumn {
-    type Location = location::LineColumn;
-
-    fn location(&self) -> Self::Location {
+impl Meter<str> for LineColumnMeter {
+    type Metrics = LineColumn;
+    fn metrics(&self) -> Self::Metrics {
         self.location.clone()
     }
 
@@ -49,8 +80,8 @@ impl Metrics<str> for LineColumn {
     }
 }
 
-impl LineColumn {
-    pub fn new(start: location::LineColumn) -> Self {
+impl LineColumnMeter {
+    pub fn new(start: LineColumn) -> Self {
         Self {
             location: start,
             state: State::Initial,
@@ -58,7 +89,7 @@ impl LineColumn {
     }
 }
 
-impl Default for LineColumn {
+impl Default for LineColumnMeter {
     fn default() -> Self {
         Self {
             location: Default::default(),
@@ -70,18 +101,17 @@ impl Default for LineColumn {
 #[cfg(test)]
 mod test {
     use super::*;
-    use parcom_core::Metrics;
 
     #[test]
     fn test() {
         let cases = ["", "oneline", "line0\n\r\rline3\r\nline4\n"];
 
         for str in cases {
-            let zero = LineColumn::default();
+            let zero = LineColumnMeter::default();
 
             assert_eq!(
-                zero.advance(str).location(),
-                location::LineColumn {
+                zero.advance(str).metrics(),
+                LineColumn {
                     total_count: str.len(),
                     line: str.lines().count(),
                     column: str.lines().last().map_or(0, |l| l.len())

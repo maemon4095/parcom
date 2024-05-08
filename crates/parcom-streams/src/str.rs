@@ -1,4 +1,4 @@
-use parcom_core::{IntoMeasured, MeasuredStream, Metrics, ParcomStream, RewindStream};
+use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug, Clone)]
 pub struct StrCharStream<'me> {
@@ -51,18 +51,28 @@ where
 {
     type Measured = Measured<'me, M>;
 
-    fn into_measured_with(self, metrics: M) -> Self::Measured {
-        Measured {
-            metrics,
-            base: self,
-        }
+    fn into_measured_with(self, meter: M::Meter) -> Self::Measured {
+        Measured { meter, base: self }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Measured<'me, M: Metrics<str>> {
-    metrics: M,
+    meter: M::Meter,
     base: StrCharStream<'me>,
+}
+
+impl<'me, M> Clone for Measured<'me, M>
+where
+    M::Meter: Clone,
+    M: Metrics<str>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            meter: self.meter.clone(),
+            base: self.base.clone(),
+        }
+    }
 }
 
 impl<'me, M: Metrics<str>> ParcomStream for Measured<'me, M> {
@@ -77,11 +87,11 @@ impl<'me, M: Metrics<str>> ParcomStream for Measured<'me, M> {
         for segment in self.base.segments() {
             let count = segment.chars().count();
             if count >= rest {
-                self.metrics = self.metrics.advance(&segment[..rest]);
+                self.meter = self.meter.advance(&segment[..rest]);
                 break;
             }
 
-            self.metrics = self.metrics.advance(segment);
+            self.meter = self.meter.advance(segment);
             rest -= count;
         }
         self.base = self.base.advance(count);
@@ -91,7 +101,8 @@ impl<'me, M: Metrics<str>> ParcomStream for Measured<'me, M> {
 
 impl<'me, M> RewindStream for Measured<'me, M>
 where
-    M: Metrics<str> + Clone,
+    M: Metrics<str>,
+    M::Meter: Clone,
 {
     type Anchor = MeasuredAnchor<'me, M>;
 
@@ -111,9 +122,9 @@ pub struct MeasuredAnchor<'me, M: Metrics<str>> {
 }
 
 impl<'me, M: Metrics<str>> MeasuredStream for Measured<'me, M> {
-    type Location = M::Location;
+    type Metrics = M;
 
-    fn location(&self) -> Self::Location {
-        self.metrics.location()
+    fn metrics(&self) -> Self::Metrics {
+        self.meter.metrics()
     }
 }

@@ -1,4 +1,4 @@
-use parcom_core::{IntoMeasured, MeasuredStream, Metrics, ParcomStream, RewindStream};
+use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug)]
 pub struct SliceStream<'me, T> {
@@ -53,11 +53,8 @@ where
 {
     type Measured = Measured<'me, T, M>;
 
-    fn into_measured_with(self, metrics: M) -> Self::Measured {
-        Measured {
-            metrics,
-            base: self,
-        }
+    fn into_measured_with(self, meter: M::Meter) -> Self::Measured {
+        Measured { meter, base: self }
     }
 }
 
@@ -66,17 +63,18 @@ pub struct Measured<'me, T, M>
 where
     M: Metrics<[T]>,
 {
-    metrics: M,
+    meter: M::Meter,
     base: SliceStream<'me, T>,
 }
 
 impl<'me, T, M> Clone for Measured<'me, T, M>
 where
-    M: Metrics<[T]> + Clone,
+    M: Metrics<[T]>,
+    M::Meter: Clone,
 {
     fn clone(&self) -> Self {
         Self {
-            metrics: self.metrics.clone(),
+            meter: self.meter.clone(),
             base: self.base.clone(),
         }
     }
@@ -96,10 +94,10 @@ where
         let mut rest = count;
         for segment in self.base.segments() {
             if segment.len() >= rest {
-                self.metrics = self.metrics.advance(&segment[..rest]);
+                self.meter = self.meter.advance(&segment[..rest]);
                 break;
             }
-            self.metrics = self.metrics.advance(segment);
+            self.meter = self.meter.advance(segment);
             rest -= segment.len();
         }
         self.base = self.base.advance(count);
@@ -109,7 +107,8 @@ where
 
 impl<'me, T, M> RewindStream for Measured<'me, T, M>
 where
-    M: Metrics<[T]> + Clone,
+    M: Metrics<[T]>,
+    M::Meter: Clone,
 {
     type Anchor = MeasuredAnchor<'me, T, M>;
 
@@ -135,8 +134,8 @@ impl<'me, T, M> MeasuredStream for Measured<'me, T, M>
 where
     M: Metrics<[T]>,
 {
-    type Location = M::Location;
-    fn location(&self) -> Self::Location {
-        self.metrics.location()
+    type Metrics = M;
+    fn metrics(&self) -> Self::Metrics {
+        self.meter.metrics()
     }
 }
