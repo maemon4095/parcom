@@ -66,6 +66,7 @@ impl Meter<str> for LineColumnMeter {
                     }
                     State::CR => {
                         // CRLFが連続で並んでいる場合lineに加算しない; CRを見つけた時点でlineに加算するため。
+                        self.state = State::Initial;
                     }
                 },
                 _ => {
