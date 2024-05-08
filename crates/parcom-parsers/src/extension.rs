@@ -23,13 +23,13 @@ pub use self::{
     repeat_n::RepeatN,
     unify::{Unify, UnifyErr, UnifyFault},
 };
-
 use parcom_base::Either;
 use parcom_core::{Parser, RewindStream, ShouldNever};
-use std::{marker::PhantomData, ops::RangeBounds};
+use repeat::RepeatBounds;
+use std::marker::PhantomData;
 
 pub trait ParserExtension<S>: Parser<S> {
-    fn repeat<R: RangeBounds<usize>>(self, range: R) -> Repeat<S, Self, R>
+    fn repeat<R: RepeatBounds<S, Self>>(self, range: R) -> Repeat<S, Self, R>
     where
         Self: Sized,
         S: RewindStream,

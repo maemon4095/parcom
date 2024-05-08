@@ -52,7 +52,7 @@ pub fn main() {
 
     println!();
 
-    let svg = crate::line_chart::draw(
+    let svg = crate::utils::line_chart::draw(
         (848, 600),
         "elapsed",
         "depth",
