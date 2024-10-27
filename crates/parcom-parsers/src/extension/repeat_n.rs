@@ -10,7 +10,7 @@ impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, 
     type Error = P::Error;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut buf = std::array::from_fn(|_| MaybeUninit::uninit());
         let mut rest = input;
         let mut idx = 0;
@@ -20,7 +20,7 @@ impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, 
                 return Done(buf.map(|e| unsafe { e.assume_init() }), rest);
             }
 
-            let (v, r) = match self.parser.parse(rest) {
+            let (v, r) = match self.parser.parse(rest).await {
                 Done(v, r) => (v, r),
                 Fail(e, r) => break Fail(e, r),
                 Fatal(e, r) => break Fatal(e, r),

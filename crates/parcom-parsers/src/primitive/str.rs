@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
 pub fn atom(str: &str) -> Atom<'_> {
@@ -21,27 +22,25 @@ impl<'a, S: ParcomStream<Segment = str>> Parser<S> for Atom<'a> {
     type Error = ();
     type Fault = Never;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let mut chars = self.str.chars();
-        let mut target = input.segments().flat_map(|s| s.chars());
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let mut remain = self.str;
+        let mut nodes = input.nodes();
 
-        let mut consumed = 0;
-        loop {
-            let Some(c) = chars.next() else {
-                drop(target);
-                return Done(self.str, input.advance(consumed));
-            };
+        while let Some(node) = nodes.next().await {
+            let segment = node.as_ref();
 
-            match target.next() {
-                Some(t) if t == c => {
-                    consumed += 1;
-                }
-                _ => {
-                    drop(target);
-                    return Fail((), input.into());
-                }
+            if !segment.starts_with(remain) {
+                break;
             }
+
+            if segment.len() >= remain.len() {
+                return Done(self.str, input.advance(self.str.len()).await);
+            }
+
+            remain = &remain[segment.len()..];
         }
+
+        return Fail((), input.into());
     }
 }
 
@@ -54,12 +53,26 @@ impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
     type Error = ();
     type Fault = Never;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let head = input.segments().flat_map(|s| s.chars()).next();
-        match head {
-            Some(c) if c == self.char => Done(c, input.advance(1)),
-            _ => Fail((), input.into()),
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let mut nodes = input.nodes();
+
+        loop {
+            let Some(node) = nodes.next().await else {
+                break;
+            };
+
+            let segment = node.as_ref();
+
+            if let Some(c) = segment.chars().next() {
+                if c == self.char {
+                    return Done(self.char, input.advance(1).await);
+                }
+
+                break;
+            }
         }
+
+        Fail((), input.into())
     }
 }
 
@@ -70,11 +83,25 @@ impl<const C: char, S: ParcomStream<Segment = str>> Parser<S> for ConstChar<C> {
     type Error = ();
     type Fault = Never;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let head = input.segments().flat_map(|s| s.chars()).next();
-        match head {
-            Some(c) if c == C => Done(C, input.advance(1)),
-            _ => Fail((), input.into()),
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let mut nodes = input.nodes();
+
+        loop {
+            let Some(node) = nodes.next().await else {
+                break;
+            };
+
+            let segment = node.as_ref();
+
+            if let Some(c) = segment.chars().next() {
+                if c == C {
+                    return Done(C, input.advance(1).await);
+                }
+
+                break;
+            }
         }
+
+        Fail((), input.into())
     }
 }

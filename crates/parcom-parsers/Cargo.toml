@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 parcom-core = { workspace = true }
 parcom-base = { workspace = true }
+futures = { workspace = true }
+
 
 [dev-dependencies]
 mockalloc = { workspace = true }
+pollster = { workspace = true }

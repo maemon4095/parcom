@@ -19,8 +19,8 @@ where
     type Error = P::Error;
     type Fault = Never;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse(input) {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        match self.parser.parse(input).await {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r),
             Fatal(e, _) => e.never(),

@@ -2,53 +2,54 @@
 
 use parcom::{
     parsers::{
-        binary_expr::*,
+        binary_expr::{Associativity, BinaryExprParser, Operator},
         primitive::str::{atom, atom_char},
-        ParserExtension,
     },
-    ParseResult::{self, *},
-    Parser, *,
+    prelude::*,
 };
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
 /// term = integer / (expr)
 #[cfg_attr(test, test)]
 pub fn main() {
-    println!("----- binary expression example -----\n");
+    pollster::block_on(async {
+        println!("----- binary expression example -----\n");
 
-    let input = "1 + 2 * (6 + 4) / 5";
+        let input = "1 + 2 * (6 + 4) / 5";
 
-    println!(" input: {}", &input);
+        println!(" input: {}", &input);
 
-    let result = expr(input);
+        let result = expr(input).await;
 
-    let expr = match result {
-        Done(expr, rest) => {
-            println!("  rest: {}", rest);
-            expr
-        }
-        Fail(_, rest) => {
-            println!("error; rest: {}", rest.unwrap());
-            return;
-        }
-        Fatal(e, _) => e.never(),
-    };
+        let expr = match result {
+            Done(expr, rest) => {
+                println!("  rest: {}", rest);
+                expr
+            }
+            Fail(_, rest) => {
+                println!("error; rest: {}", rest.unwrap());
+                return;
+            }
+            Fatal(e, _) => e.never(),
+        };
 
-    println!("result: {} = {}", display(&expr), eval(&expr));
+        println!("result: {} = {}", display(&expr), eval(&expr));
 
-    println!();
+        println!();
+    })
 }
 
 /// expr = expr op expr / term
-fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
     BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
         .never_fault()
         .parse(input)
+        .await
 }
 
 /// term = integer / (expr)
-fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
+async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
     integer
         .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
@@ -58,6 +59,7 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
         .map_err(|_| ())
         .never_fault()
         .parse(input)
+        .await
 }
 
 fn display(expr: &Expr) -> String {
@@ -145,17 +147,30 @@ impl Operator for Op {
     }
 }
 
-fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
-    atom_char(' ').discard().repeat(1..).discard().parse(input)
+async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
+    atom_char(' ')
+        .discard()
+        .repeat(1..)
+        .discard()
+        .parse(input)
+        .await
 }
 
-fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
-    let mut chars = input.segments().flat_map(|s| s.chars());
-    let Some(head) = chars.next() else {
-        drop(chars);
-        return Fail((), input.into());
+async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+    let head = {
+        let mut nodes = input.nodes();
+
+        loop {
+            let Some(node) = nodes.next().await else {
+                return Fail((), input.into());
+            };
+
+            if let Some(c) = node.as_ref().chars().next() {
+                break c;
+            }
+        }
     };
-    drop(chars);
+
     let op = match head {
         '+' => Op::Add,
         '-' => Op::Sub,
@@ -164,42 +179,41 @@ fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         _ => return Fail((), input.into()),
     };
 
-    Done(op, input.advance(1))
+    Done(op, input.advance(1).await)
 }
 
-fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
-    let chars = input.segments().flat_map(|e| e.chars());
-    let radix = 10;
+async fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
+    let mut nodes = input.nodes();
+    let mut buf = String::new();
 
-    let (max_digit, to_consume) = {
-        let mut chars = chars.take_while(|c| c.is_digit(radix));
-        if chars.next().is_none() {
-            drop(chars);
-            return Fail((), input.into());
+    let mut consumed_chars = 0;
+    while let Some(node) = nodes.next().await {
+        let segment = node.as_ref();
+
+        let c = segment
+            .char_indices()
+            .take_while(|(_, c)| c.is_ascii_digit())
+            .enumerate()
+            .last();
+
+        match c {
+            Some((char_idx, (idx, c))) => {
+                let consumed = idx + c.len_utf8();
+                consumed_chars += char_idx + 1;
+
+                buf.push_str(&segment[..consumed]);
+                if consumed < segment.len() {
+                    break;
+                }
+            }
+            None => break,
         }
-
-        let mut digit = 1;
-        let mut consume = 1;
-
-        for _ in chars {
-            digit *= radix;
-            consume += 1;
-        }
-
-        (digit, consume)
-    };
-
-    let chars = input.segments().flat_map(|e| e.chars());
-    let mut sum = 0;
-    let mut digit = max_digit;
-    for c in chars {
-        let Some(d) = c.to_digit(10) else {
-            break;
-        };
-
-        sum += (d * digit) as usize;
-        digit /= radix;
     }
 
-    Done(sum, input.advance(to_consume))
+    if consumed_chars == 0 {
+        return Fail((), input.into());
+    }
+    let n = usize::from_str_radix(&buf, 10).unwrap();
+
+    Done(n, input.advance(consumed_chars).await)
 }

@@ -31,8 +31,8 @@ where
     type Error = PTerm::Error;
     type Fault = Either<POp::Fault, PTerm::Fault>;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let result = self.parse_impl(input, 0, self.recursion_limit);
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let result = self.parse_impl(input, 0, self.recursion_limit).await;
 
         match result {
             Done((e, reason), rest) => {
@@ -68,7 +68,7 @@ where
         }
     }
 
-    fn parse_impl(
+    async fn parse_impl(
         &self,
         input: S,
         precedence: usize,
@@ -82,50 +82,54 @@ where
         PTerm::Error,
         Either<POp::Fault, PTerm::Fault>,
     > {
-        if recursion_limit == 0 {
-            return self.parse_impl_loop(input, precedence);
-        }
+        Box::pin(async {
+            if recursion_limit == 0 {
+                return self.parse_impl_loop(input, precedence).await;
+            }
 
-        let (lhs, rest) = match self.parser_term.parse(input) {
-            Done(v, r) => (v, r),
-            Fail(e, r) => return Fail(e, r),
-            Fatal(e, r) => return Fatal(Either::Last(e), r),
-        };
-
-        let mut lhs = Expr::from(lhs);
-
-        let mut anchor = rest.anchor();
-        let (mut op, mut rest) = match self.parser_op.parse(rest) {
-            Done(e, r) if e.precedence() >= precedence => (e, r),
-            Done(e, r) => return Done((lhs, Ok((e, anchor))), r), // &1: ひとつ前の演算子より優先度が低い場合に演算子を返す．
-            Fail(e, r) => return Done((lhs, Err(Either::First(e))), r.rewind(anchor)),
-            Fatal(e, r) => return Fatal(Either::First(e), r),
-        };
-
-        loop {
-            let next_prec = next_precedence(&op);
-            let ((rhs, reason), r) = match self.parse_impl(rest, next_prec, recursion_limit - 1) {
-                Done((e, r), s) => ((e, r), s),
-                Fail(e, r) => return Done((lhs, Err(Either::Last(e))), r.rewind(anchor)),
-                Fatal(e, r) => return Fatal(e, r),
+            let (lhs, rest) = match self.parser_term.parse(input).await {
+                Done(v, r) => (v, r),
+                Fail(e, r) => return Fail(e, r),
+                Fatal(e, r) => return Fatal(Either::Last(e), r),
             };
 
-            rest = r;
-            lhs = Expr::from((lhs, op, rhs));
+            let mut lhs = Expr::from(lhs);
 
-            let (next_op, a) = match reason {
-                Ok((next_op, a)) if next_op.precedence() >= precedence => (next_op, a), // &1 より next_op の優先度は op 未満
-                r @ (Ok(_) | Err(_)) => return Done((lhs, r), rest),
+            let mut anchor = rest.anchor();
+            let (mut op, mut rest) = match self.parser_op.parse(rest).await {
+                Done(e, r) if e.precedence() >= precedence => (e, r),
+                Done(e, r) => return Done((lhs, Ok((e, anchor))), r), // *1: ひとつ前の演算子より優先度が低い場合に演算子を返す．
+                Fail(e, r) => return Done((lhs, Err(Either::First(e))), r.rewind(anchor)),
+                Fatal(e, r) => return Fatal(Either::First(e), r),
             };
 
-            // op よりひとつ前の演算子より優先度が高い．
-            op = next_op;
-            anchor = a;
-        }
+            loop {
+                let next_prec = next_precedence(&op);
+                let ((rhs, reason), r) =
+                    match self.parse_impl(rest, next_prec, recursion_limit - 1).await {
+                        Done((e, r), s) => ((e, r), s),
+                        Fail(e, r) => return Done((lhs, Err(Either::Last(e))), r.rewind(anchor)),
+                        Fatal(e, r) => return Fatal(e, r),
+                    };
+
+                rest = r;
+                lhs = Expr::from((lhs, op, rhs));
+
+                let (next_op, a) = match reason {
+                    Ok((next_op, a)) if next_op.precedence() >= precedence => (next_op, a), // *1 より next_op の優先度は op 未満
+                    r @ (Ok(_) | Err(_)) => return Done((lhs, r), rest),
+                };
+
+                // op よりひとつ前の演算子より優先度が高い．
+                op = next_op;
+                anchor = a;
+            }
+        })
+        .await
     }
 
     // consider the input has syntax "term / (term op)+ term"
-    fn parse_impl_loop(
+    async fn parse_impl_loop(
         &self,
         input: S,
         precedence: usize,
@@ -138,7 +142,7 @@ where
         PTerm::Error,
         Either<POp::Fault, PTerm::Fault>,
     > {
-        let (rhs, mut rest) = match self.parser_term.parse(input) {
+        let (rhs, mut rest) = match self.parser_term.parse(input).await {
             Done(v, r) => (v, r),
             Fail(v, r) => return Fail(v, r),
             Fatal(e, r) => return Fatal(Either::Last(e), r),
@@ -151,7 +155,7 @@ where
 
         let reason = loop {
             let anchor = rest.anchor();
-            let (op, r) = match self.parser_op.parse(rest) {
+            let (op, r) = match self.parser_op.parse(rest).await {
                 Done(e, r) if e.precedence() >= precedence => (e, r),
                 Done(e, r) => {
                     rest = r;
@@ -164,7 +168,7 @@ where
                 Fatal(e, r) => return Fatal(Either::First(e), r),
             };
 
-            let (term, r) = match self.parser_term.parse(r) {
+            let (term, r) = match self.parser_term.parse(r).await {
                 Done(e, r) => (Expr::from(e), r),
                 Fail(e, r) => {
                     rest = r.rewind(anchor);
@@ -216,6 +220,7 @@ mod test {
         primitive::str::{self, atom},
         ParserExtension,
     };
+    use futures::StreamExt;
     use parcom_base::Either;
     use parcom_core::{
         ParcomStream,
@@ -225,54 +230,57 @@ mod test {
 
     #[test]
     fn successful_input_and_no_chars_left() {
-        let input = {
-            let mut s = "0".to_string();
-            s.extend(std::iter::repeat(" ~ 0").take(4096));
-            s
-        };
-        let result = expr(input.as_str());
+        pollster::block_on(async {
+            let input = {
+                let mut s = "0".to_string();
+                s.extend(std::iter::repeat(" ~ 0").take(8192));
+                s
+            };
+            let result = expr(input.as_str()).await;
 
-        match result {
-            Done(_, r) => {
-                let is_empty = r.segments().flat_map(|s| s.chars()).next().is_none();
-                assert!(is_empty);
+            match result {
+                Done(_, r) => {
+                    assert!(r.is_empty());
+                }
+                Fail(_, _) => unreachable!(),
+                Fatal(_, _) => unreachable!(),
             }
-            Fail(_, _) => unreachable!(),
-            Fatal(_, _) => unreachable!(),
-        }
+        })
     }
 
     #[test]
     fn successful_input_and_with_chars_left() {
-        let input = {
-            let mut s = "0".to_string();
-            s.extend(std::iter::repeat(" ~ 0").take(32));
-            s.push_str(" ~ @@@");
-            s
-        };
-        let result = expr(input.as_str());
+        pollster::block_on(async {
+            let input = {
+                let mut s = "0".to_string();
+                s.extend(std::iter::repeat(" ~ 0").take(32));
+                s.push_str(" ~ @@@");
+                s
+            };
+            let result = expr(input.as_str()).await;
 
-        match result {
-            Done(_, r) => {
-                let rest = r.segments().flat_map(|s| s.chars()).collect::<Vec<_>>();
-                assert_eq!(rest, &[' ', '~', ' ', '@', '@', '@']);
+            match result {
+                Done(_, r) => {
+                    assert_eq!(r, " ~ @@@");
+                }
+                Fail(_, _) => unreachable!(),
+                Fatal(_, _) => unreachable!(),
             }
-            Fail(_, _) => unreachable!(),
-            Fatal(_, _) => unreachable!(),
-        }
+        })
     }
 
     /// expr = expr op expr / term
-    fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+    async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
         BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
             .map(|(e, _)| e)
             .discard_err()
             .never_fault()
             .parse(input)
+            .await
     }
 
     /// term = 0 / (expr)
-    fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
+    async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
         zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
             .map(|e| match e {
                 Either::First(c) => Term::Atom(c),
@@ -281,6 +289,7 @@ mod test {
             .discard_err()
             .never_fault()
             .parse(input)
+            .await
     }
 
     #[derive(Debug, Clone)]
@@ -336,21 +345,30 @@ mod test {
             }
         }
     }
-    fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
+    async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
         str::atom_char(' ')
             .discard()
             .repeat(1..)
             .discard()
             .parse(input)
+            .await
     }
 
-    fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
-        let mut chars = input.segments().flat_map(|s| s.chars());
-        let Some(head) = chars.next() else {
-            drop(chars);
-            return Fail((), input.into());
+    async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+        let head = {
+            let mut nodes = input.nodes();
+
+            loop {
+                let Some(node) = nodes.next().await else {
+                    return Fail((), input.into());
+                };
+
+                if let Some(c) = node.as_ref().chars().next() {
+                    break c;
+                }
+            }
         };
-        drop(chars);
+
         let op = match head {
             '+' => Op::Add,
             '-' => Op::Sub,
@@ -360,10 +378,10 @@ mod test {
             _ => return Fail((), input.into()),
         };
 
-        Done(op, input.advance(1))
+        Done(op, input.advance(1).await)
     }
 
-    fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
-        str::atom_char('0').parse(input)
+    async fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+        str::atom_char('0').parse(input).await
     }
 }

@@ -1,4 +1,5 @@
 pub use crate::measured::*;
+use std::future::Future;
 
 pub trait ParseStream: MeasuredStream + RewindStream {}
 
@@ -11,11 +12,21 @@ pub trait RewindStream: ParcomStream {
     fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
+pub trait ParcomNodeStream<S: ?Sized>: futures::Stream<Item = Self::Node> + Unpin {
+    type Node: AsRef<S>;
+}
+
+impl<S: ?Sized, N: AsRef<S>, B: Unpin + futures::Stream<Item = N>> ParcomNodeStream<S> for B {
+    type Node = N;
+}
+
 pub trait ParcomStream: Sized {
     type Segment: ?Sized;
+    type Nodes: ParcomNodeStream<Self::Segment>;
+    type Advance: Future<Output = Self>;
 
-    fn segments(&self) -> impl Iterator<Item = &'_ Self::Segment>;
-    fn advance(self, count: usize) -> Self;
+    fn nodes(&self) -> Self::Nodes;
+    fn advance(self, count: usize) -> Self::Advance;
 }
 
 pub trait BindableStream: MeasuredStream {

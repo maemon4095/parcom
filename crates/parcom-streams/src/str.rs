@@ -1,3 +1,4 @@
+use super::Nodes;
 use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug, Clone)]
@@ -11,20 +12,32 @@ impl<'me> StrCharStream<'me> {
     }
 }
 
+pub struct StrCharStreamNode<'me> {
+    me: &'me str,
+}
+
+impl<'me> AsRef<str> for StrCharStreamNode<'me> {
+    fn as_ref(&self) -> &str {
+        &self.me
+    }
+}
+
 impl<'me> ParcomStream for StrCharStream<'me> {
     type Segment = str;
+    type Nodes = Nodes<'me, str>;
+    type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
-        std::iter::once(self.str)
+    fn nodes(&self) -> Self::Nodes {
+        todo!()
     }
 
-    fn advance(mut self, count: usize) -> Self {
+    fn advance(mut self, count: usize) -> Self::Advance {
         let mut chars = self.str.chars();
         for _ in 0..count {
             chars.next();
         }
         self.str = chars.as_str();
-        self
+        std::future::ready(self)
     }
 }
 impl<'me> RewindStream for StrCharStream<'me> {
@@ -77,25 +90,18 @@ where
 
 impl<'me, M: Metrics<str>> ParcomStream for Measured<'me, M> {
     type Segment = str;
+    type Nodes = Nodes<'me, str>;
+    type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
-        self.base.segments()
+    fn nodes(&self) -> Self::Nodes {
+        todo!()
     }
 
-    fn advance(mut self, count: usize) -> Self {
-        let mut rest = count;
-        for segment in self.base.segments() {
-            let count = segment.chars().count();
-            if count >= rest {
-                self.meter = self.meter.advance(&segment[..rest]);
-                break;
-            }
-
-            self.meter = self.meter.advance(segment);
-            rest -= count;
-        }
-        self.base = self.base.advance(count);
-        self
+    fn advance(mut self, count: usize) -> Self::Advance {
+        let segment = self.base.str;
+        self.meter = self.meter.advance(&segment[..count]);
+        self.base = self.base.advance(count).into_inner();
+        std::future::ready(self)
     }
 }
 

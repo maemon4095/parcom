@@ -4,4 +4,10 @@ version = "0.3.0"
 edition = "2021"
 
 [dependencies]
+tokio = { version = "1.41.0", default-features = false, optional = true }
 parcom-core = { workspace = true }
+futures = { workspace = true }
+
+
+[features]
+tokio-stream = ["dep:tokio", "tokio/sync"]

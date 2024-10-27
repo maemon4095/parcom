@@ -19,13 +19,13 @@ where
     type Error = Never;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let (mut acc, mut fold) = (self.init)();
 
         let mut anchor = input.anchor();
         let mut rest = input;
         loop {
-            match self.parser.parse(rest) {
+            match self.parser.parse(rest).await {
                 Done(v, r) => {
                     anchor = r.anchor();
                     rest = r;

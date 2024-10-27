@@ -1,24 +1,48 @@
-use core::panic;
-
 use crate::{ParcomStream, RewindStream};
+use core::panic;
 
 pub struct Anchor<T> {
     me: T,
 }
 
-impl ParcomStream for &str {
-    type Segment = str;
+pub struct Node<'a, T: ?Sized> {
+    me: &'a T,
+}
+impl<'a, T: ?Sized> AsRef<T> for Node<'a, T> {
+    fn as_ref(&self) -> &T {
+        self.me
+    }
+}
 
-    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
-        std::iter::once(*self)
+pub struct Nodes<'a, T: ?Sized> {
+    me: Option<&'a T>,
+}
+impl<'a, T: ?Sized> futures::Stream for Nodes<'a, T> {
+    type Item = &'a T;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        std::task::Poll::Ready(self.me.take())
+    }
+}
+
+impl<'a> ParcomStream for &'a str {
+    type Segment = str;
+    type Nodes = Nodes<'a, str>;
+    type Advance = std::future::Ready<Self>;
+
+    fn nodes(&self) -> Self::Nodes {
+        Nodes { me: Some(self) }
     }
 
-    fn advance(self, count: usize) -> Self {
+    fn advance(self, count: usize) -> Self::Advance {
         let mut chars = self.chars();
         for _ in 0..count {
             chars.next();
         }
-        chars.as_str()
+        std::future::ready(chars.as_str())
     }
 }
 
@@ -41,15 +65,17 @@ impl RewindStream for &str {
     }
 }
 
-impl<T> ParcomStream for &[T] {
+impl<'a, T> ParcomStream for &'a [T] {
     type Segment = [T];
+    type Nodes = Nodes<'a, [T]>;
+    type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
-        std::iter::once(*self)
+    fn nodes(&self) -> Self::Nodes {
+        Nodes { me: Some(self) }
     }
 
-    fn advance(self, count: usize) -> Self {
-        &self[count..]
+    fn advance(self, count: usize) -> Self::Advance {
+        std::future::ready(&self[count..])
     }
 }
 

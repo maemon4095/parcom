@@ -23,7 +23,7 @@ impl<'a, S, P: Parser<S>> Parser<S> for AsRef<'a, S, P> {
     type Error = P::Error;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input)
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        self.parser.parse(input).await
     }
 }

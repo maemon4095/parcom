@@ -2,3 +2,6 @@
 name = "parcom-core"
 version = "0.3.0"
 edition = "2021"
+
+[dependencies]
+futures = { workspace = true }

@@ -11,9 +11,9 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
     type Error = Never;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let anchor = input.anchor();
-        match self.parser.parse(input) {
+        match self.parser.parse(input).await {
             Done(v, r) => Done(Ok(v), r),
             Fail(e, r) => Done(Err(e), r.rewind(anchor)),
             Fatal(e, r) => Fatal(e, r),

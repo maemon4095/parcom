@@ -12,8 +12,8 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<
     type Error = P::Error;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).map(&self.mapping)
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        self.parser.parse(input).await.map(&self.mapping)
     }
 }
 
@@ -28,8 +28,8 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Error) -> U> Parser<S> for MapEr
     type Error = U;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).map_err(&self.mapping)
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        self.parser.parse(input).await.map_err(&self.mapping)
     }
 }
 
@@ -44,7 +44,7 @@ impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Fault) -> U> Parser<S> for MapFa
     type Error = P::Error;
     type Fault = U;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).map_fault(&self.mapping)
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        self.parser.parse(input).await.map_fault(&self.mapping)
     }
 }

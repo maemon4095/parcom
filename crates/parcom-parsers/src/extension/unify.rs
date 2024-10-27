@@ -36,8 +36,8 @@ where
     type Error = P::Error;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse(input) {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        match self.parser.parse(input).await {
             Done(e, r) => Done(e.unify(), r),
             Fail(e, r) => Fail(e, r),
             Fatal(e, r) => Fatal(e, r),
@@ -79,8 +79,8 @@ where
     type Error = T;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse(input) {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        match self.parser.parse(input).await {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e.unify(), r),
             Fatal(e, r) => Fatal(e, r),
@@ -122,8 +122,8 @@ where
     type Error = P::Error;
     type Fault = T;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse(input) {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        match self.parser.parse(input).await {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r),
             Fatal(e, r) => Fatal(e.unify(), r),

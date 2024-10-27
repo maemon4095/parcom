@@ -17,12 +17,12 @@ impl<S: RewindStream, P: Parser<S>, R: RepeatBounds<S, P>> Parser<S> for Repeat<
     type Error = R::Error;
     type Fault = P::Fault;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        R::parse(self, input)
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        R::parse(self, input).await
     }
 }
 
-fn default_parse<S, P: Parser<S>, R: RepeatBounds<S, P>>(
+async fn default_parse<S, P: Parser<S>, R: RepeatBounds<S, P>>(
     me: &Repeat<S, P, R>,
     input: S,
 ) -> ParseResult<S, (Vec<P::Output>, Option<P::Error>), P::Error, P::Fault>
@@ -46,7 +46,7 @@ where
 
         let (e, r) = {
             let anchor = rest.anchor();
-            match me.parser.parse(rest) {
+            match me.parser.parse(rest).await {
                 Done(v, r) => (v, r),
                 Fail(e, r) => break (e, r.rewind(anchor)),
                 Fatal(e, r) => return Fatal(e, r),
@@ -68,14 +68,17 @@ pub trait RepeatBounds<S: RewindStream, P: Parser<S>>: Sized + RangeBounds<usize
     type Output;
     type Error;
 
-    fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>;
+    fn parse(
+        me: &Repeat<S, P, Self>,
+        input: S,
+    ) -> impl std::future::Future<Output = ParserResult<S, Repeat<S, P, Self>>>;
 }
 
 impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::RangeFull {
     type Output = (Vec<P::Output>, P::Error);
     type Error = Never;
 
-    fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
+    async fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
     where
         S: RewindStream,
     {
@@ -84,7 +87,7 @@ impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::RangeFull {
         let (last_error, rest) = loop {
             let (e, r) = {
                 let anchor = rest.anchor();
-                match me.parser.parse(rest) {
+                match me.parser.parse(rest).await {
                     Done(v, r) => (v, r),
                     Fail(e, r) => break (e, r.rewind(anchor)),
                     Fatal(e, r) => return Fatal(e, r),
@@ -103,7 +106,7 @@ impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::RangeFrom<u
     type Output = (Vec<P::Output>, P::Error);
     type Error = P::Error;
 
-    fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
+    async fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
     where
         S: RewindStream,
     {
@@ -112,7 +115,7 @@ impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::RangeFrom<u
         let (last_error, rest) = loop {
             let (e, r) = {
                 let anchor = rest.anchor();
-                match me.parser.parse(rest) {
+                match me.parser.parse(rest).await {
                     Done(v, r) => (v, r),
                     Fail(e, r) => break (e, r.rewind(anchor)),
                     Fatal(e, r) => return Fatal(e, r),
@@ -135,11 +138,11 @@ impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::Range<usize
     type Output = (Vec<P::Output>, Option<P::Error>);
     type Error = P::Error;
 
-    fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
+    async fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
     where
         S: RewindStream,
     {
-        default_parse(me, input)
+        default_parse(me, input).await
     }
 }
 
@@ -147,11 +150,11 @@ impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::RangeTo<usi
     type Output = (Vec<P::Output>, Option<P::Error>);
     type Error = P::Error;
 
-    fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
+    async fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
     where
         S: RewindStream,
     {
-        default_parse(me, input)
+        default_parse(me, input).await
     }
 }
 
@@ -159,10 +162,10 @@ impl<S: RewindStream, P: Parser<S>> RepeatBounds<S, P> for std::ops::RangeToIncl
     type Output = (Vec<P::Output>, Option<P::Error>);
     type Error = P::Error;
 
-    fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
+    async fn parse(me: &Repeat<S, P, Self>, input: S) -> ParserResult<S, Repeat<S, P, Self>>
     where
         S: RewindStream,
     {
-        default_parse(me, input)
+        default_parse(me, input).await
     }
 }

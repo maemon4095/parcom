@@ -3,7 +3,7 @@ members = ["crates/*", "example"]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0"
+version = "1.0.0-nightly"
 edition = "2021"
 
 [workspace.dependencies]
@@ -13,3 +13,5 @@ parcom-parsers = { path = "crates/parcom-parsers", version = "^0.3.0" }
 parcom-streams = { path = "crates/parcom-streams", version = "^0.3.0" }
 parcom-metrics = { path = "crates/parcom-metrics", version = "^0.2.0" }
 mockalloc = "0.1.2"
+futures = "0.3"
+pollster = "0.3.0"

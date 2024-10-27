@@ -1,3 +1,4 @@
+use futures::StreamExt as _;
 use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
 pub fn atom<T>(items: &[T]) -> Atom<'_, T>
@@ -30,35 +31,25 @@ where
     type Error = ();
     type Fault = Never;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut remain = self.items;
-        let mut segments = input.segments();
+        let mut nodes = input.nodes();
 
-        while let Some(segment) = segments.next() {
-            if remain.len() <= segment.len() {
-                if segment.starts_with(remain) {
-                    remain = &[];
-                    break;
-                }
-                drop(segments);
-                return Fail((), input.into());
+        while let Some(node) = nodes.next().await {
+            let segment = node.as_ref();
+
+            if !segment.starts_with(&remain) {
+                break;
             }
 
-            let Some(r) = remain.strip_prefix(segment) else {
-                drop(segments);
-                return Fail((), input.into());
-            };
+            if segment.len() >= remain.len() {
+                return Done(self.items, input.advance(self.items.len()).await);
+            }
 
-            remain = r;
+            remain = &remain[segment.len()..];
         }
 
-        drop(segments);
-
-        if !remain.is_empty() {
-            return Fail((), input.into());
-        }
-
-        Done(self.items, input.advance(self.items.len()))
+        return Fail((), input.into());
     }
 }
 
@@ -78,11 +69,25 @@ where
     type Error = ();
     type Fault = Never;
 
-    fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let head = input.segments().flatten().next();
-        match head {
-            Some(c) if c == self.item => Done(self.item, input.advance(1)),
-            _ => Fail((), input.into()),
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let mut nodes = input.nodes();
+
+        loop {
+            let Some(node) = nodes.next().await else {
+                break;
+            };
+
+            let segment = node.as_ref();
+
+            if let Some(c) = segment.first() {
+                if c == self.item {
+                    return Done(self.item, input.advance(1).await);
+                }
+
+                break;
+            }
         }
+
+        Fail((), input.into())
     }
 }

@@ -1,3 +1,4 @@
+use super::Nodes;
 use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug)]
@@ -19,13 +20,17 @@ impl<'me, T> Clone for SliceStream<'me, T> {
 
 impl<'me, T> ParcomStream for SliceStream<'me, T> {
     type Segment = [T];
-    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
-        std::iter::once(self.slice)
-    }
+    type Nodes = Nodes<'me, [T]>;
+    type Advance = std::future::Ready<Self>;
 
-    fn advance(mut self, count: usize) -> Self {
+    fn nodes(&self) -> Self::Nodes {
+        Nodes {
+            me: Some(&self.slice),
+        }
+    }
+    fn advance(mut self, count: usize) -> Self::Advance {
         self.slice = &self.slice[count..];
-        self
+        std::future::ready(self)
     }
 }
 
@@ -85,23 +90,20 @@ where
     M: Metrics<[T]>,
 {
     type Segment = <SliceStream<'me, T> as ParcomStream>::Segment;
+    type Nodes = Nodes<'me, [T]>;
+    type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> impl Iterator<Item = &Self::Segment> {
-        self.base.segments()
+    fn nodes(&self) -> Self::Nodes {
+        Nodes {
+            me: Some(&self.base.slice),
+        }
     }
 
-    fn advance(mut self, count: usize) -> Self {
-        let mut rest = count;
-        for segment in self.base.segments() {
-            if segment.len() >= rest {
-                self.meter = self.meter.advance(&segment[..rest]);
-                break;
-            }
-            self.meter = self.meter.advance(segment);
-            rest -= segment.len();
-        }
-        self.base = self.base.advance(count);
-        self
+    fn advance(mut self, count: usize) -> Self::Advance {
+        let segment = self.base.slice;
+        self.meter = self.meter.advance(&segment[..count]);
+        self.base = self.base.advance(count).into_inner();
+        std::future::ready(self)
     }
 }
 
@@ -135,6 +137,7 @@ where
     M: Metrics<[T]>,
 {
     type Metrics = M;
+
     fn metrics(&self) -> Self::Metrics {
         self.meter.metrics()
     }

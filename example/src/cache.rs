@@ -1,12 +1,14 @@
 #![cfg_attr(test, cfg(test))]
 
 use chrono::Local;
+
 use parcom::{
     parsers::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
         primitive::str::{atom, atom_char},
         ParserExtension,
     },
+    prelude::StreamExt as _,
     Either, ParcomStream,
     ParseResult::{self, *},
     Parser, RewindStream,
@@ -77,15 +79,16 @@ pub fn main() {
 }
 
 /// expr = expr op expr / term
-fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
     BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
         .never_fault()
         .parse(input)
+        .await
 }
 
 /// term = 0 / (expr)
-fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
+async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
     zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
             Either::First(c) => Term::Atom(c),
@@ -94,6 +97,7 @@ fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
         .map_err(|_| ())
         .never_fault()
         .parse(input)
+        .await
 }
 
 #[derive(Debug, Clone)]
@@ -144,17 +148,30 @@ impl Operator for Op {
         Associativity::Left
     }
 }
-fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
-    atom_char(' ').discard().repeat(1..).discard().parse(input)
+async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
+    atom_char(' ')
+        .discard()
+        .repeat(1..)
+        .discard()
+        .parse(input)
+        .await
 }
 
-fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
-    let mut chars = input.segments().flat_map(|s| s.chars());
-    let Some(head) = chars.next() else {
-        drop(chars);
-        return Fail((), input.into());
+async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+    let head = {
+        let mut nodes = input.nodes();
+
+        loop {
+            let Some(node) = nodes.next().await else {
+                return Fail((), input.into());
+            };
+
+            if let Some(c) = node.as_ref().chars().next() {
+                break c;
+            }
+        }
     };
-    drop(chars);
+
     let op = match head {
         '+' => Op::Add,
         '-' => Op::Sub,
@@ -163,9 +180,9 @@ fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         _ => return Fail((), input.into()),
     };
 
-    Done(op, input.advance(1))
+    Done(op, input.advance(1).await)
 }
 
-fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
-    atom_char('0').parse(input)
+async fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+    atom_char('0').parse(input).await
 }
