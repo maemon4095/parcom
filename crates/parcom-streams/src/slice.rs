@@ -20,10 +20,10 @@ impl<'me, T> Clone for SliceStream<'me, T> {
 
 impl<'me, T> ParcomStream for SliceStream<'me, T> {
     type Segment = [T];
-    type Nodes = Nodes<'me, [T]>;
+    type SegmentStream = Nodes<'me, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::SegmentStream {
         Nodes {
             me: Some(&self.slice),
         }
@@ -90,10 +90,10 @@ where
     M: Metrics<[T]>,
 {
     type Segment = <SliceStream<'me, T> as ParcomStream>::Segment;
-    type Nodes = Nodes<'me, [T]>;
+    type SegmentStream = Nodes<'me, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::SegmentStream {
         Nodes {
             me: Some(&self.base.slice),
         }

@@ -24,10 +24,10 @@ impl<'me> AsRef<str> for StrCharStreamNode<'me> {
 
 impl<'me> ParcomStream for StrCharStream<'me> {
     type Segment = str;
-    type Nodes = Nodes<'me, str>;
+    type SegmentStream = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::SegmentStream {
         todo!()
     }
 
@@ -90,10 +90,10 @@ where
 
 impl<'me, M: Metrics<str>> ParcomStream for Measured<'me, M> {
     type Segment = str;
-    type Nodes = Nodes<'me, str>;
+    type SegmentStream = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::SegmentStream {
         todo!()
     }
 

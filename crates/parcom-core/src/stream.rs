@@ -24,10 +24,10 @@ impl<S: ?Sized, N: Deref<Target = S>, B: Unpin + futures::Stream<Item = N>> Parc
 
 pub trait ParcomStream: Sized {
     type Segment: ?Sized;
-    type Nodes: ParcomSegmentStream<Self::Segment>;
+    type SegmentStream: ParcomSegmentStream<Self::Segment>;
     type Advance: Future<Output = Self>;
 
-    fn segments(&self) -> Self::Nodes;
+    fn segments(&self) -> Self::SegmentStream;
     fn advance(self, count: usize) -> Self::Advance;
 }
 

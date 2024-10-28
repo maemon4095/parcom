@@ -30,10 +30,10 @@ impl<'a, T: ?Sized> futures::Stream for Nodes<'a, T> {
 
 impl<'a> ParcomStream for &'a str {
     type Segment = str;
-    type Nodes = Nodes<'a, str>;
+    type SegmentStream = Nodes<'a, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::SegmentStream {
         Nodes { me: Some(self) }
     }
 
@@ -67,10 +67,10 @@ impl RewindStream for &str {
 
 impl<'a, T> ParcomStream for &'a [T] {
     type Segment = [T];
-    type Nodes = Nodes<'a, [T]>;
+    type SegmentStream = Nodes<'a, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::SegmentStream {
         Nodes { me: Some(self) }
     }
 

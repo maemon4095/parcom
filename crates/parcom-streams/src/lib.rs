@@ -1,6 +1,3 @@
-#[cfg(feature = "tokio-stream")]
-mod once_init;
-
 pub mod slice;
 pub mod str;
 #[cfg(feature = "tokio-stream")]
