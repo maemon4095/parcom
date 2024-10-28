@@ -1,5 +1,7 @@
 #![cfg_attr(test, cfg(test))]
 
+use std::ops::Deref;
+
 use parcom::{
     parsers::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
@@ -158,14 +160,14 @@ async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), (
 
 async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let head = {
-        let mut nodes = input.nodes();
+        let mut segments = input.segments();
 
         loop {
-            let Some(node) = nodes.next().await else {
+            let Some(segment) = segments.next().await else {
                 return Fail((), input.into());
             };
 
-            if let Some(c) = node.as_ref().chars().next() {
+            if let Some(c) = segment.chars().next() {
                 break c;
             }
         }
@@ -183,12 +185,12 @@ async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> 
 }
 
 async fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
-    let mut nodes = input.nodes();
+    let mut segments = input.segments();
     let mut buf = String::new();
 
     let mut consumed_chars = 0;
-    while let Some(node) = nodes.next().await {
-        let segment = node.as_ref();
+    while let Some(segment) = segments.next().await {
+        let segment = segment.deref();
 
         let c = segment
             .char_indices()

@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use futures::StreamExt;
 use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
@@ -24,11 +26,9 @@ impl<'a, S: ParcomStream<Segment = str>> Parser<S> for Atom<'a> {
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut remain = self.str;
-        let mut nodes = input.nodes();
+        let mut segment = input.segments();
 
-        while let Some(node) = nodes.next().await {
-            let segment = node.as_ref();
-
+        while let Some(segment) = segment.next().await {
             if !segment.starts_with(remain) {
                 break;
             }
@@ -54,14 +54,12 @@ impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
     type Fault = Never;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let mut nodes = input.nodes();
+        let mut segments = input.segments();
 
         loop {
-            let Some(node) = nodes.next().await else {
+            let Some(segment) = segments.next().await else {
                 break;
             };
-
-            let segment = node.as_ref();
 
             if let Some(c) = segment.chars().next() {
                 if c == self.char {
@@ -84,14 +82,13 @@ impl<const C: char, S: ParcomStream<Segment = str>> Parser<S> for ConstChar<C> {
     type Fault = Never;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let mut nodes = input.nodes();
+        let mut segments = input.segments();
 
         loop {
-            let Some(node) = nodes.next().await else {
+            let Some(segment) = segments.next().await else {
                 break;
             };
-
-            let segment = node.as_ref();
+            let segment = segment.deref();
 
             if let Some(c) = segment.chars().next() {
                 if c == C {

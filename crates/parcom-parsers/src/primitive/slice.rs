@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use futures::StreamExt as _;
 use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
@@ -33,10 +35,10 @@ where
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut remain = self.items;
-        let mut nodes = input.nodes();
+        let mut segments = input.segments();
 
-        while let Some(node) = nodes.next().await {
-            let segment = node.as_ref();
+        while let Some(segment) = segments.next().await {
+            let segment = segment.deref();
 
             if !segment.starts_with(&remain) {
                 break;
@@ -70,14 +72,12 @@ where
     type Fault = Never;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let mut nodes = input.nodes();
+        let mut segments = input.segments();
 
         loop {
-            let Some(node) = nodes.next().await else {
+            let Some(segment) = segments.next().await else {
                 break;
             };
-
-            let segment = node.as_ref();
 
             if let Some(c) = segment.first() {
                 if c == self.item {

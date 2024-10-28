@@ -13,8 +13,8 @@ use parcom::{
     ParseResult::{self, *},
     Parser, RewindStream,
 };
-use std::time::Instant;
 use std::{fs::File, io::Write};
+use std::{ops::Deref, time::Instant};
 use tempfile::tempdir;
 
 #[cfg_attr(test, test)]
@@ -159,14 +159,14 @@ async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), (
 
 async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let head = {
-        let mut nodes = input.nodes();
+        let mut segments = input.segments();
 
         loop {
-            let Some(node) = nodes.next().await else {
+            let Some(segment) = segments.next().await else {
                 return Fail((), input.into());
             };
 
-            if let Some(c) = node.as_ref().chars().next() {
+            if let Some(c) = segment.deref().chars().next() {
                 break c;
             }
         }

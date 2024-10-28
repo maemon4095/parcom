@@ -27,7 +27,7 @@ impl<'me> ParcomStream for StrCharStream<'me> {
     type Nodes = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn nodes(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::Nodes {
         todo!()
     }
 
@@ -93,7 +93,7 @@ impl<'me, M: Metrics<str>> ParcomStream for Measured<'me, M> {
     type Nodes = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn nodes(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::Nodes {
         todo!()
     }
 

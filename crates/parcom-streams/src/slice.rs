@@ -23,7 +23,7 @@ impl<'me, T> ParcomStream for SliceStream<'me, T> {
     type Nodes = Nodes<'me, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn nodes(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::Nodes {
         Nodes {
             me: Some(&self.slice),
         }
@@ -93,7 +93,7 @@ where
     type Nodes = Nodes<'me, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn nodes(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::Nodes {
         Nodes {
             me: Some(&self.base.slice),
         }

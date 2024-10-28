@@ -33,7 +33,7 @@ impl<'a> ParcomStream for &'a str {
     type Nodes = Nodes<'a, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn nodes(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::Nodes {
         Nodes { me: Some(self) }
     }
 
@@ -70,7 +70,7 @@ impl<'a, T> ParcomStream for &'a [T] {
     type Nodes = Nodes<'a, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn nodes(&self) -> Self::Nodes {
+    fn segments(&self) -> Self::Nodes {
         Nodes { me: Some(self) }
     }
 

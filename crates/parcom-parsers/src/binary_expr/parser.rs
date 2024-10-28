@@ -356,14 +356,14 @@ mod test {
 
     async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         let head = {
-            let mut nodes = input.nodes();
+            let mut segments = input.segments();
 
             loop {
-                let Some(node) = nodes.next().await else {
+                let Some(segment) = segments.next().await else {
                     return Fail((), input.into());
                 };
 
-                if let Some(c) = node.as_ref().chars().next() {
+                if let Some(c) = segment.chars().next() {
                     break c;
                 }
             }
