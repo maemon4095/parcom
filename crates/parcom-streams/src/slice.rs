@@ -1,4 +1,4 @@
-use super::Nodes;
+use super::streams::Nodes;
 use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug)]
@@ -24,9 +24,7 @@ impl<'me, T> ParcomStream for SliceStream<'me, T> {
     type Advance = std::future::Ready<Self>;
 
     fn segments(&self) -> Self::SegmentStream {
-        Nodes {
-            me: Some(&self.slice),
-        }
+        Nodes::new(&self.slice)
     }
     fn advance(mut self, count: usize) -> Self::Advance {
         self.slice = &self.slice[count..];
@@ -94,9 +92,7 @@ where
     type Advance = std::future::Ready<Self>;
 
     fn segments(&self) -> Self::SegmentStream {
-        Nodes {
-            me: Some(&self.base.slice),
-        }
+        Nodes::new(&self.base.slice)
     }
 
     fn advance(mut self, count: usize) -> Self::Advance {

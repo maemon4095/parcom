@@ -1,4 +1,4 @@
-use super::Nodes;
+use super::streams::Nodes;
 use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug, Clone)]
@@ -28,7 +28,7 @@ impl<'me> ParcomStream for StrCharStream<'me> {
     type Advance = std::future::Ready<Self>;
 
     fn segments(&self) -> Self::SegmentStream {
-        todo!()
+        Nodes::new(&self.str)
     }
 
     fn advance(mut self, count: usize) -> Self::Advance {

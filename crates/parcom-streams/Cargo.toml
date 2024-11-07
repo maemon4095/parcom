@@ -4,12 +4,14 @@ version = "0.3.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.41.0", default-features = false, optional = true }
+tokio = { workspace = true, default-features = false, optional = true }
 parcom-core = { workspace = true }
 futures = { workspace = true }
 
 [dev-dependencies]
 pollster = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time", "macros"] }
+rand = "0.8.5"
 
 [features]
 tokio-stream = ["dep:tokio", "tokio/sync"]
