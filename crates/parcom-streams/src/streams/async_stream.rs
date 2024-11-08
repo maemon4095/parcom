@@ -2,7 +2,7 @@ use crate::{
     util::{InitializedCell, OnceCell},
     StreamSource,
 };
-use futures::StreamExt as _;
+use futures::{stream::Next, StreamExt as _};
 use std::sync::Arc;
 
 /// ```text
@@ -27,7 +27,7 @@ struct NodeInner {
 }
 
 pub struct Node {
-    inner: InitializedCell<NodeInner>,
+    inner: InitializedCell<Option<NodeInner>>,
     offset: usize,
 }
 
@@ -35,7 +35,7 @@ impl std::ops::Deref for Node {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner.segment[self.offset..]
+        &self.inner.as_ref().unwrap().segment[self.offset..]
     }
 }
 
@@ -49,13 +49,14 @@ where
     type Advance = futures::future::BoxFuture<'static, Self>;
 
     fn segments(&self) -> Self::SegmentStream {
-        let head = Arc::clone(&self.head);
+        let next = Arc::clone(&self.head);
         let offset = self.offset;
         let source = self.source.clone();
-        futures::stream::unfold((head, offset), move |(node, offset)| {
+
+        futures::stream::unfold((next, offset), move |(next, offset)| {
             let mut source = source.clone();
             async move {
-                let initialized = node
+                let initialized = next
                     .get_or_init_owned(async {
                         let Some(segment) = source.recv().await else {
                             return None;
@@ -67,13 +68,17 @@ where
                     })
                     .await;
 
-                let next = Arc::clone(&initialized.next);
+                let Some(e) = initialized.as_ref() else {
+                    return None;
+                };
+
+                let next = Arc::clone(&e.next);
                 let node = Node {
                     inner: initialized,
                     offset,
                 };
 
-                Some((node, (next, 0)))
+                Some((node, (next, offset)))
             }
         })
         .boxed()
