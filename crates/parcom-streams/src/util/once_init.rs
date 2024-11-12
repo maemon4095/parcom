@@ -22,6 +22,15 @@ unsafe impl<T: Send> Send for OnceCell<T> {}
 unsafe impl<T: Send + Sync> Sync for OnceCell<T> {}
 
 impl<T> OnceCell<T> {
+    pub fn new_initialized(value: T) -> Self {
+        Self {
+            set: AtomicBool::new(true),
+            waiters_count: AtomicU32::new(0),
+            lock: UnsafeCell::new(MaybeUninit::uninit()),
+            value: UnsafeCell::new(MaybeUninit::new(value)),
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             set: AtomicBool::new(false),
@@ -51,7 +60,7 @@ impl<T> OnceCell<T> {
             return Ok(());
         }
 
-        if self.waiters_count.fetch_add(1, Ordering::Relaxed) >= u32::MAX - 1 {
+        if self.waiters_count.fetch_add(1, Ordering::Relaxed) >= u32::MAX / 2 {
             panic!()
         }
 
@@ -103,17 +112,17 @@ impl<T> OnceCell<T> {
     pub async fn try_get_or_init_owned<E, F: Future<Output = Result<T, E>>>(
         self: Arc<OnceCell<T>>,
         f: F,
-    ) -> Result<InitializedCell<T>, E> {
+    ) -> Result<InitializedSharedCell<T>, E> {
         unsafe {
             self.try_ensure_init(f).await?;
-            Ok(InitializedCell { inner: self })
+            Ok(InitializedSharedCell { inner: self })
         }
     }
 
     pub async fn get_or_init_owned<F: Future<Output = T>>(
         self: Arc<OnceCell<T>>,
         f: F,
-    ) -> InitializedCell<T> {
+    ) -> InitializedSharedCell<T> {
         let Ok(v) = self
             .try_get_or_init_owned(async { Ok::<_, Never>(f.await) })
             .await;
@@ -139,11 +148,17 @@ impl<T> Drop for OnceCell<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct InitializedCell<T> {
+pub struct InitializedSharedCell<T> {
     inner: Arc<OnceCell<T>>,
 }
 
-impl<T> std::ops::Deref for InitializedCell<T> {
+impl<T> InitializedSharedCell<T> {
+    pub fn into_cell(self) -> Arc<OnceCell<T>> {
+        self.inner
+    }
+}
+
+impl<T> std::ops::Deref for InitializedSharedCell<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -152,3 +167,60 @@ impl<T> std::ops::Deref for InitializedCell<T> {
 }
 
 enum Never {}
+
+#[cfg(test)]
+mod test {
+    use std::{
+        sync::{Barrier, Mutex},
+        thread,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_init_once() {
+        for _ in 0..100 {
+            test();
+        }
+
+        fn test() {
+            let cell = Arc::new(OnceCell::new());
+
+            let init_values = Arc::new(Mutex::new(Vec::new()));
+
+            let n = 0xFF;
+            let barrier = Arc::new(Barrier::new(n));
+            let handles: Vec<_> = (0..0xFF)
+                .map(|i| {
+                    let barrier = Arc::clone(&barrier);
+                    let cell = Arc::clone(&cell);
+                    let init_values = Arc::clone(&init_values);
+
+                    thread::spawn(move || {
+                        barrier.wait();
+                        pollster::block_on(async {
+                            cell.get_or_init(async {
+                                init_values.lock().unwrap().push(i);
+                                i
+                            })
+                            .await;
+                        });
+                    })
+                })
+                .collect();
+
+            for handle in handles {
+                handle.join().unwrap();
+            }
+
+            let init_values = init_values.lock().unwrap();
+
+            assert_eq!(init_values.len(), 1);
+
+            let cell_value =
+                pollster::block_on(async { cell.get_or_init(async { panic!() }).await });
+
+            assert_eq!(*cell_value, init_values[0]);
+        }
+    }
+}

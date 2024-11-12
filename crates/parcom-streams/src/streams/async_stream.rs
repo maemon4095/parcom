@@ -1,33 +1,26 @@
 use crate::{
-    util::{InitializedCell, OnceCell},
+    util::{InitializedSharedCell, OnceCell},
     StreamSource,
 };
-use futures::{stream::Next, StreamExt as _};
+use futures::{FutureExt, StreamExt as _};
 use std::sync::Arc;
 
-/// ```text
-///   [T]                [T]                [T]
-///    ↑                  ↑                  ↑
-///   [segment][next] -> [segment][next] -> [segment][next]
-///    ↑
-/// [head]
-/// ```
 pub struct StrCharStream<S>
 where
     S: StreamSource<Output = String>,
 {
     source: S,
-    head: Arc<OnceCell<Option<NodeInner>>>,
+    head: Arc<OnceCell<Option<InnerNode>>>,
     offset: usize,
 }
 
-struct NodeInner {
+struct InnerNode {
     segment: String,
     next: Arc<OnceCell<Option<Self>>>,
 }
 
 pub struct Node {
-    inner: InitializedCell<Option<NodeInner>>,
+    inner: InitializedSharedCell<Option<InnerNode>>,
     offset: usize,
 }
 
@@ -61,7 +54,7 @@ where
                         let Some(segment) = source.recv().await else {
                             return None;
                         };
-                        Some(NodeInner {
+                        Some(InnerNode {
                             segment,
                             next: Arc::new(OnceCell::new()),
                         })
@@ -85,6 +78,28 @@ where
     }
 
     fn advance(self, count: usize) -> Self::Advance {
-        todo!()
+        let mut segments = self.segments();
+        let mut rest = count;
+        let source = self.source.clone();
+        async move {
+            while let Some(n) = segments.next().await {
+                let len = n.len() - n.offset;
+                if len >= rest {
+                    return Self {
+                        source,
+                        head: n.inner.into_cell(),
+                        offset: len - rest,
+                    };
+                }
+                rest -= len;
+            }
+
+            Self {
+                source,
+                head: Arc::new(OnceCell::new_initialized(None)),
+                offset: 0,
+            }
+        }
+        .boxed()
     }
 }

@@ -1,2 +1,3 @@
 mod once_init;
-pub use once_init::{InitializedCell, OnceCell};
+
+pub use once_init::{InitializedSharedCell, OnceCell};
