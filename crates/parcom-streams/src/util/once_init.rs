@@ -52,6 +52,24 @@ impl<T> OnceCell<T> {
         (*self.lock.get()).assume_init_ref()
     }
 
+    pub fn get(&self) -> Option<&T> {
+        if self.is_initialized() {
+            unsafe { Some(self.get_value_unchecked()) }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_owned(self: &Arc<Self>) -> Option<InitializedSharedCell<T>> {
+        if self.is_initialized() {
+            Some(InitializedSharedCell {
+                inner: Arc::clone(self),
+            })
+        } else {
+            None
+        }
+    }
+
     async unsafe fn try_ensure_init<E, F: Future<Output = Result<T, E>>>(
         &self,
         f: F,
@@ -179,7 +197,7 @@ mod test {
 
     #[test]
     fn test_init_once() {
-        for _ in 0..100 {
+        for _ in 0..0xFFF {
             test();
         }
 
@@ -190,7 +208,7 @@ mod test {
 
             let n = 0xFF;
             let barrier = Arc::new(Barrier::new(n));
-            let handles: Vec<_> = (0..0xFF)
+            let handles: Vec<_> = (0..n)
                 .map(|i| {
                     let barrier = Arc::clone(&barrier);
                     let cell = Arc::clone(&cell);
@@ -217,8 +235,7 @@ mod test {
 
             assert_eq!(init_values.len(), 1);
 
-            let cell_value =
-                pollster::block_on(async { cell.get_or_init(async { panic!() }).await });
+            let cell_value = cell.get().unwrap();
 
             assert_eq!(*cell_value, init_values[0]);
         }

@@ -1,4 +1,4 @@
-use super::streams::Nodes;
+use super::util::Nodes;
 use parcom_core::{IntoMeasured, MeasuredStream, Meter, Metrics, ParcomStream, RewindStream};
 
 #[derive(Debug)]

@@ -10,8 +10,6 @@ futures = { workspace = true }
 
 [dev-dependencies]
 pollster = { workspace = true }
-tokio = { workspace = true, features = ["rt", "time", "macros"] }
 rand = "0.8.5"
 
 [features]
-tokio-stream = ["dep:tokio", "tokio/sync"]

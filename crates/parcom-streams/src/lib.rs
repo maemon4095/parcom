@@ -1,8 +1,8 @@
 use std::future::Future;
 
+pub mod async_stream;
 pub mod slice;
 pub mod str;
-pub mod streams;
 pub mod util;
 
 pub trait StreamSource: Clone {
