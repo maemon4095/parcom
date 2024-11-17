@@ -1,5 +1,4 @@
-use crate::{ParcomStream, RewindStream};
-use core::panic;
+use crate::{ParcomStream, ParcomStreamSegment, RewindStream};
 
 pub struct Anchor<T> {
     me: T,
@@ -65,6 +64,34 @@ impl RewindStream for &str {
     }
 }
 
+impl ParcomStreamSegment for str {
+    type Offset = usize;
+
+    fn slice(&self, offset: Self::Offset) -> &Self {
+        &self[offset..]
+    }
+
+    fn advance(&self, mut count: usize) -> Result<Self::Offset, usize> {
+        let mut chars = self.char_indices();
+
+        while count > 0 {
+            let Some(_) = chars.next() else {
+                return Err(count);
+            };
+
+            count -= 1;
+        }
+
+        let offset = chars.offset();
+
+        if self.len() <= offset {
+            Err(0)
+        } else {
+            Ok(offset)
+        }
+    }
+}
+
 impl<'a, T> ParcomStream for &'a [T] {
     type Segment = [T];
     type SegmentStream = Nodes<'a, [T]>;
@@ -94,6 +121,22 @@ impl<T> RewindStream for &[T] {
             anchor.me
         } else {
             panic!("the anchor is not an anchor of this stream.")
+        }
+    }
+}
+
+impl<T> ParcomStreamSegment for [T] {
+    type Offset = usize;
+
+    fn slice(&self, offset: Self::Offset) -> &Self {
+        &self[offset..]
+    }
+
+    fn advance(&self, count: usize) -> Result<Self::Offset, usize> {
+        if self.len() <= count {
+            Err(self.len() - count)
+        } else {
+            Ok(count)
         }
     }
 }

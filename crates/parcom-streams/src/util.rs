@@ -1,6 +1,10 @@
+mod notify;
+mod once_cell;
 mod once_init;
 
-pub use once_init::{InitializedSharedCell, OnceCell};
+pub use notify::{Notified, Notify};
+pub use once_cell::{InitializedSharedCell, OnceCell};
+pub use once_init::OnceInit;
 
 pub struct Nodes<'me, T: ?Sized> {
     me: Option<&'me T>,

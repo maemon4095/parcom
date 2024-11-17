@@ -16,6 +16,13 @@ pub trait ParcomSegmentStream<S: ?Sized>: futures::Stream<Item = Self::Node> + U
     type Node: Deref<Target = S>;
 }
 
+pub trait ParcomStreamSegment {
+    type Offset;
+
+    fn slice(&self, offset: Self::Offset) -> &Self;
+    fn advance(&self, count: usize) -> Result<Self::Offset, usize>;
+}
+
 impl<S: ?Sized, N: Deref<Target = S>, B: Unpin + futures::Stream<Item = N>> ParcomSegmentStream<S>
     for B
 {

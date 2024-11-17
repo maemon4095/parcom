@@ -1,10 +1,9 @@
-use crate::{
-    util::{InitializedSharedCell, OnceCell},
-    StreamSource,
-};
+use super::StreamSource;
+use crate::util::{InitializedSharedCell, OnceCell};
 use futures::{FutureExt, StreamExt as _};
 use std::sync::Arc;
 
+// notify一つを使った構成にしたい。
 pub struct StrCharStream<S>
 where
     S: StreamSource<Output = String>,
@@ -51,7 +50,7 @@ where
             async move {
                 let initialized = next
                     .get_or_init_owned(async {
-                        let Some(segment) = source.recv().await else {
+                        let Some(segment) = source.next().await else {
                             return None;
                         };
                         Some(InnerNode {
