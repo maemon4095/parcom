@@ -12,6 +12,7 @@ pub trait RewindStream: ParcomStream {
     fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
+// TODO: size_hintを渡せるように変更する。
 pub trait ParcomSegmentStream<S: ?Sized>: futures::Stream<Item = Self::Node> + Unpin {
     type Node: Deref<Target = S>;
 }

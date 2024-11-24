@@ -53,15 +53,6 @@ impl Notify {
         }
     }
 
-    pub fn notify_first(&self) {
-        let inner = &self.inner;
-        let mut lock = inner.wakers.lock().unwrap();
-        inner.increment_version();
-        for waker in lock.drain().take(1) {
-            waker.wake();
-        }
-    }
-
     pub fn notify_all(&self) {
         let inner = &self.inner;
         let mut lock = inner.wakers.lock().unwrap();
@@ -88,19 +79,6 @@ impl NotifyInner {
     fn get_version(&self) -> usize {
         self.version.load(Ordering::Relaxed)
     }
-
-    fn register_waker(&self, waker: &Waker) -> usize {
-        let mut lock = self.wakers.lock().unwrap();
-        if lock.len() >= WAKER_COUNT_MAX {
-            panic!("Too many waiters on the notify.")
-        }
-        lock.insert(waker.clone())
-    }
-
-    fn remove_waker(&self, waker_id: usize) {
-        let mut lock = self.wakers.lock().unwrap();
-        lock.try_remove(waker_id);
-    }
 }
 
 pub struct Notified {
@@ -121,132 +99,85 @@ impl Future for Notified {
             .is_gt()
         {
             self.waker_id = None;
+            return Poll::Ready(());
+        }
+
+        let Self {
+            notify,
+            version,
+            waker_id,
+        } = self.get_mut();
+        // *1
+        let mut lock = notify.wakers.lock().unwrap();
+        if lock.len() >= WAKER_COUNT_MAX {
+            panic!("Too many waiters on the notify.");
+        }
+
+        let id = lock.insert(cx.waker().clone());
+        *waker_id = Some(id);
+
+        // *1でlockを獲得する前にnotifyが呼ばれる場合がある。その場合にはwakerが呼ばれないためチェックする。
+        if cycle_compare(notify.get_version(), *version)
+            .unwrap()
+            .is_gt()
+        {
+            lock.remove(id);
+            *waker_id = None;
             Poll::Ready(())
         } else {
-            let id = self.notify.register_waker(cx.waker());
-            self.waker_id = Some(id);
             Poll::Pending
         }
     }
 }
+
 impl Drop for Notified {
     fn drop(&mut self) {
         if let Some(id) = self.waker_id {
-            self.notify.remove_waker(id);
+            let mut lock = self.notify.wakers.lock().unwrap();
+            lock.try_remove(id);
         }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use std::sync::Barrier;
+
     use super::*;
 
-    struct Countdown {
-        notify: tokio::sync::Notify,
-        count: AtomicUsize,
-    }
-
-    unsafe impl Send for Countdown {}
-    unsafe impl Sync for Countdown {}
-
-    impl Countdown {
-        fn new(count: usize) -> Self {
-            Self {
-                notify: tokio::sync::Notify::new(),
-                count: AtomicUsize::new(count),
-            }
+    #[test]
+    fn test_all_waiters_notified_on_notify_all() {
+        for _ in 0..0xFF {
+            test_once();
         }
 
-        fn countdown(&self) {
-            let current = self.count.load(Ordering::Relaxed);
-            if current == 0 {
-                return;
-            }
+        fn test_once() {
+            let notify = Notify::new();
+            let waiter_count = 0xFF;
+            let mut handles = Vec::new();
+            let barrier = Arc::new(Barrier::new(waiter_count + 1));
 
-            let result = self.count.compare_exchange(
-                current,
-                current - 1,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            );
-
-            if Ok(1) == result {
-                self.notify.notify_waiters();
-            }
-        }
-
-        async fn wait(&self) {
-            self.notify.notified().await
-        }
-    }
-
-    #[tokio::test]
-    async fn test_all_waiters_notified_on_notify_all() {
-        let notify = Notify::new();
-        let waiter_count = 0xFF;
-        let ready = Arc::new(Countdown::new(waiter_count));
-        let mut handles = Vec::new();
-
-        for _ in 0..waiter_count {
-            let handle = tokio::spawn({
-                let ready = Arc::clone(&ready);
+            for _ in 0..waiter_count {
                 let notify = notify.clone();
-                async move {
-                    let notified = notify.notified();
-                    ready.countdown();
-                    notified.await;
-                }
-            });
+                let barrier = Arc::clone(&barrier);
 
-            handles.push(handle);
-        }
+                let handle = std::thread::spawn(move || {
+                    pollster::block_on(async move {
+                        let notified = notify.notified();
+                        barrier.wait();
+                        notified.await
+                    })
+                });
 
-        ready.wait().await;
-        notify.notify_all();
+                handles.push(handle);
+            }
 
-        futures::future::join_all(handles).await;
-    }
+            barrier.wait();
+            notify.notify_all();
 
-    #[tokio::test]
-    async fn test_the_first_waiter_notified_on_notify_first() {
-        let notify = Notify::new();
-        let waiter_count = 0xFF;
-        let ready = Arc::new(Countdown::new(waiter_count));
-        let mut handles = Vec::new();
-        let notified_waiters = Arc::new(Mutex::new(Vec::new()));
-
-        for id in 0..waiter_count {
-            let handle = tokio::spawn({
-                let ready = Arc::clone(&ready);
-                let notify = notify.clone();
-                let notified_waiters = Arc::clone(&notified_waiters);
-                async move {
-                    let notified = notify.notified();
-                    ready.countdown();
-                    notified.await;
-                    notified_waiters.lock().unwrap().push(id);
-                }
-            });
-
-            handles.push(handle);
-        }
-
-        ready.wait().await;
-        notify.notify_first();
-
-        let _ = futures::future::select_all(handles).await;
-
-        {
-            // assert the first waiter was notified
-            let lock = notified_waiters.lock().unwrap();
-            assert_eq!(lock.len(), 1);
-            assert_eq!(lock[0], 0);
-        }
-
-        {
-            // assert all wakers were removed
-            let lock = notify.inner.wakers.lock().unwrap();
-            assert_eq!(lock.len(), 0);
+            for h in handles {
+                h.join().unwrap();
+            }
         }
     }
 }

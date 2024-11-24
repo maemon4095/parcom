@@ -6,7 +6,7 @@ use std::sync::Arc;
 // notify一つを使った構成にしたい。
 pub struct StrCharStream<S>
 where
-    S: StreamSource<Output = String>,
+    S: StreamSource<Node = String>,
 {
     source: S,
     head: Arc<OnceCell<Option<InnerNode>>>,
@@ -33,7 +33,7 @@ impl std::ops::Deref for Node {
 
 impl<S: StreamSource> parcom_core::ParcomStream for StrCharStream<S>
 where
-    S: 'static + StreamSource<Output = String> + Send,
+    S: 'static + StreamSource<Node = String> + Send,
     S::Future: Send,
 {
     type Segment = str;
