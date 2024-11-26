@@ -163,7 +163,7 @@ async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> 
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await else {
+            let Some(segment) = segments.next(0).await else {
                 return Fail((), input.into());
             };
 
@@ -189,7 +189,7 @@ async fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usi
     let mut buf = String::new();
 
     let mut consumed_chars = 0;
-    while let Some(segment) = segments.next().await {
+    while let Some(segment) = segments.next(0).await {
         let segment = segment.deref();
 
         let c = segment

@@ -1,7 +1,7 @@
+use parcom_core::{
+    Never, ParcomSegmentIterator, ParcomStream, ParseResult::*, Parser, ParserResult,
+};
 use std::ops::Deref;
-
-use futures::StreamExt as _;
-use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
 pub fn atom<T>(items: &[T]) -> Atom<'_, T>
 where
@@ -37,7 +37,7 @@ where
         let mut remain = self.items;
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await {
+        while let Some(segment) = segments.next(remain.len()).await {
             let segment = segment.deref();
 
             if !segment.starts_with(&remain) {
@@ -75,7 +75,7 @@ where
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await else {
+            let Some(segment) = segments.next(1).await else {
                 break;
             };
 

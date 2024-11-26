@@ -1,7 +1,7 @@
+use parcom_core::{
+    Never, ParcomSegmentIterator, ParcomStream, ParseResult::*, Parser, ParserResult,
+};
 use std::ops::Deref;
-
-use futures::StreamExt;
-use parcom_core::{Never, ParcomStream, ParseResult::*, Parser, ParserResult};
 
 pub fn atom(str: &str) -> Atom<'_> {
     Atom { str }
@@ -28,7 +28,7 @@ impl<'a, S: ParcomStream<Segment = str>> Parser<S> for Atom<'a> {
         let mut remain = self.str;
         let mut segment = input.segments();
 
-        while let Some(segment) = segment.next().await {
+        while let Some(segment) = segment.next(remain.len()).await {
             if !segment.starts_with(remain) {
                 break;
             }
@@ -57,7 +57,7 @@ impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await else {
+            let Some(segment) = segments.next(1).await else {
                 break;
             };
 
@@ -85,7 +85,7 @@ impl<const C: char, S: ParcomStream<Segment = str>> Parser<S> for ConstChar<C> {
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await else {
+            let Some(segment) = segments.next(1).await else {
                 break;
             };
             let segment = segment.deref();

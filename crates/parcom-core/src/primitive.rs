@@ -1,4 +1,4 @@
-use crate::{ParcomStream, ParcomStreamSegment, RewindStream};
+use crate::{ParcomSegmentIterator, ParcomStream, ParcomStreamSegment, RewindStream};
 
 pub struct Anchor<T> {
     me: T,
@@ -16,6 +16,17 @@ impl<'a, T: ?Sized> AsRef<T> for Node<'a, T> {
 pub struct Nodes<'a, T: ?Sized> {
     me: Option<&'a T>,
 }
+
+impl<'a, T: ?Sized> ParcomSegmentIterator for Nodes<'a, T> {
+    type Segment = T;
+    type Node = &'a T;
+    type Next = std::future::Ready<Option<Self::Node>>;
+
+    fn next(&mut self, _: usize) -> Self::Next {
+        std::future::ready(self.me.take())
+    }
+}
+
 impl<'a, T: ?Sized> futures::Stream for Nodes<'a, T> {
     type Item = &'a T;
 

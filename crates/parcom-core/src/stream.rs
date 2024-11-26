@@ -12,9 +12,12 @@ pub trait RewindStream: ParcomStream {
     fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
-// TODO: size_hintを渡せるように変更する。
-pub trait ParcomSegmentStream<S: ?Sized>: futures::Stream<Item = Self::Node> + Unpin {
-    type Node: Deref<Target = S>;
+pub trait ParcomSegmentIterator: Unpin {
+    type Segment: ?Sized;
+    type Node: Deref<Target = Self::Segment>;
+    type Next: Future<Output = Option<Self::Node>>;
+
+    fn next(&mut self, size_hint: usize) -> Self::Next;
 }
 
 pub trait ParcomStreamSegment {
@@ -24,15 +27,9 @@ pub trait ParcomStreamSegment {
     fn advance(&self, count: usize) -> Result<Self::Offset, usize>;
 }
 
-impl<S: ?Sized, N: Deref<Target = S>, B: Unpin + futures::Stream<Item = N>> ParcomSegmentStream<S>
-    for B
-{
-    type Node = N;
-}
-
 pub trait ParcomStream: Sized {
     type Segment: ?Sized;
-    type SegmentStream: ParcomSegmentStream<Self::Segment>;
+    type SegmentStream: ParcomSegmentIterator<Segment = Self::Segment>;
     type Advance: Future<Output = Self>;
 
     fn segments(&self) -> Self::SegmentStream;

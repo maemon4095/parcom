@@ -8,8 +8,7 @@ use parcom::{
         primitive::str::{atom, atom_char},
         ParserExtension,
     },
-    prelude::StreamExt as _,
-    Either, ParcomStream,
+    Either, ParcomSegmentIterator, ParcomStream,
     ParseResult::{self, *},
     Parser, RewindStream,
 };
@@ -162,7 +161,7 @@ async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> 
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await else {
+            let Some(segment) = segments.next(0).await else {
                 return Fail((), input.into());
             };
 

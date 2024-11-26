@@ -1,12 +1,8 @@
 use std::future::Future;
 
 pub trait StreamSource: Clone {
-    type Output: ?Sized;
-    type Node: AsRef<Self::Output>;
-    type Future: Future<Output = Option<Self::Node>>;
+    type Output;
+    type Future: Future<Output = Option<Self::Output>>;
 
-    fn next(&mut self) -> Self::Future {
-        self.next_with_hint(0)
-    }
-    fn next_with_hint(&mut self, size_hint: usize) -> Self::Future;
+    fn next(&mut self, size_hint: usize) -> Self::Future;
 }

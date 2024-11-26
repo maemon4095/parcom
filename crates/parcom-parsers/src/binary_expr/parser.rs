@@ -220,8 +220,8 @@ mod test {
         primitive::str::{self, atom},
         ParserExtension,
     };
-    use futures::StreamExt;
     use parcom_base::Either;
+    use parcom_core::ParcomSegmentIterator;
     use parcom_core::{
         ParcomStream,
         ParseResult::{self, *},
@@ -359,7 +359,7 @@ mod test {
             let mut segments = input.segments();
 
             loop {
-                let Some(segment) = segments.next().await else {
+                let Some(segment) = segments.next(0).await else {
                     return Fail((), input.into());
                 };
 
