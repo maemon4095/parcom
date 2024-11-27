@@ -1,5 +1,8 @@
 use std::{
-    mem::MaybeUninit,
+    borrow::BorrowMut,
+    future::Future,
+    mem::{ManuallyDrop, MaybeUninit},
+    ops::DerefMut,
     pin::Pin,
     sync::{atomic::Ordering, Arc},
     task::Poll,
@@ -14,14 +17,18 @@ use crate::{
     util::Notified,
 };
 
-pub(super) enum EnsureInit<S: StreamSource> {
+pub struct EnsureInit<S: StreamSource> {
+    state: State<S>,
+}
+
+enum State<S: StreamSource> {
     Initial {
         node: Arc<InnerNode<S::Output>>,
         size_hint: usize,
         stream: Arc<InnerStream<S>>,
     },
     Initializing {
-        initialize: S::Future,
+        next: ManuallyDrop<S::Future>,
         node: Arc<InnerNode<S::Output>>,
         stream: Arc<InnerStream<S>>,
     },
@@ -39,28 +46,26 @@ impl<S: StreamSource> EnsureInit<S> {
         size_hint: usize,
         stream: Arc<InnerStream<S>>,
     ) -> Self {
-        Self::Initial {
-            node,
-            size_hint,
-            stream,
+        Self {
+            state: State::Initial {
+                node,
+                size_hint,
+                stream,
+            },
         }
     }
 }
 
-impl<S: StreamSource> std::future::Future for EnsureInit<S> {
+impl<S: StreamSource> Future for EnsureInit<S> {
     type Output = ();
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        let me = unsafe { self.get_unchecked_mut() };
+        let me = unsafe { &mut self.get_unchecked_mut().state };
         match me {
-            EnsureInit::Initial {
-                node,
-                size_hint,
-                stream,
-            } => {
+            State::Initial { node, .. } => {
                 let result = node.state.compare_exchange(
                     STATE_INITIAL,
                     STATE_INITIALIZING,
@@ -68,14 +73,22 @@ impl<S: StreamSource> std::future::Future for EnsureInit<S> {
                     Ordering::Acquire,
                 );
 
+                let State::Initial {
+                    node,
+                    stream,
+                    size_hint,
+                } = std::mem::replace(me, State::Final)
+                else {
+                    unreachable!()
+                };
                 match result {
                     Ok(_) => {
                         let mut source = stream.source.clone();
 
-                        *me = Self::Initializing {
-                            initialize: source.next(*size_hint),
-                            node: Arc::clone(&node),
-                            stream: Arc::clone(&stream),
+                        *me = State::Initializing {
+                            next: ManuallyDrop::new(source.next(size_hint)),
+                            node,
+                            stream,
                         };
 
                         cx.waker().wake_by_ref();
@@ -88,16 +101,15 @@ impl<S: StreamSource> std::future::Future for EnsureInit<S> {
                         match state {
                             STATE_INITIALIZED_NONE | STATE_INITIALIZED_SOME => {
                                 drop(notified);
-                                *me = Self::Final;
                                 Poll::Ready(())
                             }
                             _ => {
-                                *me = EnsureInit::Waiting {
-                                    node: Arc::clone(&node),
-                                    stream: Arc::clone(&stream),
+                                *me = State::Waiting {
+                                    node,
+                                    stream,
                                     notified,
                                 };
-
+                                cx.waker().wake_by_ref();
                                 Poll::Pending
                             }
                         }
@@ -106,7 +118,7 @@ impl<S: StreamSource> std::future::Future for EnsureInit<S> {
                     Err(_) => unreachable!(),
                 }
             }
-            EnsureInit::Waiting {
+            State::Waiting {
                 node,
                 notified,
                 stream,
@@ -118,24 +130,21 @@ impl<S: StreamSource> std::future::Future for EnsureInit<S> {
                     match state {
                         STATE_INITIALIZED_NONE | STATE_INITIALIZED_SOME => {
                             drop(new_notified);
-                            *me = Self::Final;
+                            *me = State::Final;
                             Poll::Ready(())
                         }
                         _ => {
                             *notified = new_notified;
+                            cx.waker().wake_by_ref();
                             Poll::Pending
                         }
                     }
                 }
                 Poll::Pending => Poll::Pending,
             },
-            EnsureInit::Initializing {
-                initialize,
-                node,
-                stream,
-            } => {
-                let initialize = unsafe { Pin::new_unchecked(initialize) };
-                match initialize.poll(cx) {
+            State::Initializing { next, node, stream } => {
+                let pinned_next = unsafe { Pin::new_unchecked(next.deref_mut()) };
+                match pinned_next.poll(cx) {
                     Poll::Ready(v) => {
                         match v {
                             Some(segment) => {
@@ -153,13 +162,16 @@ impl<S: StreamSource> std::future::Future for EnsureInit<S> {
                             }
                         }
                         stream.on_append.notify_all();
-                        *me = Self::Final;
+                        unsafe {
+                            ManuallyDrop::drop(next);
+                        }
+                        *me = State::Final;
                         Poll::Ready(())
                     }
                     Poll::Pending => Poll::Pending,
                 }
             }
-            EnsureInit::Final => {
+            State::Final => {
                 panic!("`poll` should not be called on resolved EnsureInit")
             }
         }
