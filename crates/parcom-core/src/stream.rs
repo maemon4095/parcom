@@ -20,11 +20,10 @@ pub trait ParcomSegmentIterator: Unpin {
     fn next(&mut self, size_hint: usize) -> Self::Next;
 }
 
-pub trait ParcomStreamSegment {
-    type Offset;
+pub trait ParcomStreamNode: Sized + Deref<Target = Self::Segment> {
+    type Segment;
 
-    fn slice(&self, offset: Self::Offset) -> &Self;
-    fn advance(&self, count: usize) -> Result<Self::Offset, usize>;
+    fn advance(self, count: usize) -> Result<Self, usize>;
 }
 
 pub trait ParcomStream: Sized {

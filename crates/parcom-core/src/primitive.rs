@@ -1,4 +1,4 @@
-use crate::{ParcomSegmentIterator, ParcomStream, ParcomStreamSegment, RewindStream};
+use crate::{ParcomSegmentIterator, ParcomStream, RewindStream};
 
 pub struct Anchor<T> {
     me: T,
@@ -24,17 +24,6 @@ impl<'a, T: ?Sized> ParcomSegmentIterator for Nodes<'a, T> {
 
     fn next(&mut self, _: usize) -> Self::Next {
         std::future::ready(self.me.take())
-    }
-}
-
-impl<'a, T: ?Sized> futures::Stream for Nodes<'a, T> {
-    type Item = &'a T;
-
-    fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        std::task::Poll::Ready(self.me.take())
     }
 }
 
@@ -75,34 +64,6 @@ impl RewindStream for &str {
     }
 }
 
-impl ParcomStreamSegment for str {
-    type Offset = usize;
-
-    fn slice(&self, offset: Self::Offset) -> &Self {
-        &self[offset..]
-    }
-
-    fn advance(&self, mut count: usize) -> Result<Self::Offset, usize> {
-        let mut chars = self.char_indices();
-
-        while count > 0 {
-            let Some(_) = chars.next() else {
-                return Err(count);
-            };
-
-            count -= 1;
-        }
-
-        let offset = chars.offset();
-
-        if self.len() <= offset {
-            Err(0)
-        } else {
-            Ok(offset)
-        }
-    }
-}
-
 impl<'a, T> ParcomStream for &'a [T] {
     type Segment = [T];
     type SegmentStream = Nodes<'a, [T]>;
@@ -132,22 +93,6 @@ impl<T> RewindStream for &[T] {
             anchor.me
         } else {
             panic!("the anchor is not an anchor of this stream.")
-        }
-    }
-}
-
-impl<T> ParcomStreamSegment for [T] {
-    type Offset = usize;
-
-    fn slice(&self, offset: Self::Offset) -> &Self {
-        &self[offset..]
-    }
-
-    fn advance(&self, count: usize) -> Result<Self::Offset, usize> {
-        if self.len() <= count {
-            Err(self.len() - count)
-        } else {
-            Ok(count)
         }
     }
 }
