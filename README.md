@@ -2,7 +2,6 @@ parcom = parser combinator
 
 # TODO
 - [ ] generate error tolerant parser from PEG
-- [ ] async
 - [ ] parser extensions without Either
 - [ ] Stream implementations
 
