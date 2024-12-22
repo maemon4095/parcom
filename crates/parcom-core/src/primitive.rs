@@ -1,4 +1,4 @@
-use crate::{ParcomSegmentIterator, ParcomStream, ParcomStreamSegment, RewindStream};
+use crate::{RewindStream, SegmentIterator, Stream, StreamSegment};
 
 pub struct Anchor<T> {
     me: T,
@@ -17,7 +17,7 @@ pub struct Nodes<'a, T: ?Sized> {
     me: Option<&'a T>,
 }
 
-impl<'a, T: ?Sized> ParcomSegmentIterator for Nodes<'a, T> {
+impl<'a, T: ?Sized> SegmentIterator for Nodes<'a, T> {
     type Segment = T;
     type Node = &'a T;
     type Next = std::future::Ready<Option<Self::Node>>;
@@ -38,22 +38,40 @@ impl<'a, T: ?Sized> futures::Stream for Nodes<'a, T> {
     }
 }
 
-impl<'a> ParcomStream for &'a str {
+impl<'a> Stream for &'a str {
     type Segment = str;
-    type SegmentStream = Nodes<'a, str>;
+    type SegmentIter = Nodes<'a, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::SegmentStream {
+    fn segments(&self) -> Self::SegmentIter {
         Nodes { me: Some(self) }
     }
 
-    fn advance(self, count: usize) -> Self::Advance {
-        let mut chars = self.chars();
-        for _ in 0..count {
-            chars.next();
-        }
-        std::future::ready(chars.as_str())
+    fn advance(self, delta: BytesDelta) -> Self::Advance {
+        let delta: usize = delta.into();
+
+        let rest = self.get(delta..).unwrap_or("");
+        std::future::ready(rest)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BytesDelta(usize);
+
+impl From<usize> for BytesDelta {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<usize> for BytesDelta {
+    fn into(self) -> usize {
+        self.0
+    }
+}
+
+impl StreamSegment for str {
+    type Delta = BytesDelta;
 }
 
 impl RewindStream for &str {
@@ -75,40 +93,12 @@ impl RewindStream for &str {
     }
 }
 
-impl ParcomStreamSegment for str {
-    type Offset = usize;
-
-    fn slice(&self, offset: Self::Offset) -> &Self {
-        &self[offset..]
-    }
-
-    fn advance(&self, mut count: usize) -> Result<Self::Offset, usize> {
-        let mut chars = self.char_indices();
-
-        while count > 0 {
-            let Some(_) = chars.next() else {
-                return Err(count);
-            };
-
-            count -= 1;
-        }
-
-        let offset = chars.offset();
-
-        if self.len() <= offset {
-            Err(0)
-        } else {
-            Ok(offset)
-        }
-    }
-}
-
-impl<'a, T> ParcomStream for &'a [T] {
+impl<'a, T> Stream for &'a [T] {
     type Segment = [T];
-    type SegmentStream = Nodes<'a, [T]>;
+    type SegmentIter = Nodes<'a, [T]>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::SegmentStream {
+    fn segments(&self) -> Self::SegmentIter {
         Nodes { me: Some(self) }
     }
 
@@ -136,18 +126,6 @@ impl<T> RewindStream for &[T] {
     }
 }
 
-impl<T> ParcomStreamSegment for [T] {
-    type Offset = usize;
-
-    fn slice(&self, offset: Self::Offset) -> &Self {
-        &self[offset..]
-    }
-
-    fn advance(&self, count: usize) -> Result<Self::Offset, usize> {
-        if self.len() <= count {
-            Err(self.len() - count)
-        } else {
-            Ok(count)
-        }
-    }
+impl<T> StreamSegment for [T] {
+    type Delta = usize;
 }

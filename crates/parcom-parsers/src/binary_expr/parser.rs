@@ -221,11 +221,10 @@ mod test {
         ParserExtension,
     };
     use parcom_base::Either;
-    use parcom_core::ParcomSegmentIterator;
+    use parcom_core::SegmentIterator;
     use parcom_core::{
-        ParcomStream,
         ParseResult::{self, *},
-        Parser, RewindStream,
+        Parser, RewindStream, Stream,
     };
 
     #[test]
@@ -354,7 +353,7 @@ mod test {
             .await
     }
 
-    async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+    async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         let head = {
             let mut segments = input.segments();
 
@@ -378,10 +377,10 @@ mod test {
             _ => return Fail((), input.into()),
         };
 
-        Done(op, input.advance(1).await)
+        Done(op, input.advance(1.into()).await)
     }
 
-    async fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+    async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
         str::atom_char('0').parse(input).await
     }
 }

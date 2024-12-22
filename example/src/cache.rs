@@ -8,9 +8,9 @@ use parcom::{
         primitive::str::{atom, atom_char},
         ParserExtension,
     },
-    Either, ParcomSegmentIterator, ParcomStream,
+    Either,
     ParseResult::{self, *},
-    Parser, RewindStream,
+    Parser, RewindStream, SegmentIterator, Stream,
 };
 use std::{fs::File, io::Write};
 use std::{ops::Deref, time::Instant};
@@ -23,7 +23,7 @@ pub fn main() {
 
     let mut no_cache_samples = Vec::new();
     let max_depth = 256;
-    let poplation = 32;
+    let poplation = 1024;
     for depth in 0..max_depth {
         let input = {
             let mut s = String::with_capacity(depth * 2 + 1);
@@ -156,7 +156,7 @@ async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), (
         .await
 }
 
-async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let head = {
         let mut segments = input.segments();
 
@@ -179,9 +179,9 @@ async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> 
         _ => return Fail((), input.into()),
     };
 
-    Done(op, input.advance(1).await)
+    Done(op, input.advance(head.len_utf8().into()).await)
 }
 
-async fn zero<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
     atom_char('0').parse(input).await
 }

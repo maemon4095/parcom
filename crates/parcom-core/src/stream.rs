@@ -5,14 +5,14 @@ pub trait ParseStream: MeasuredStream + RewindStream {}
 
 impl<S: MeasuredStream + RewindStream> ParseStream for S {}
 
-pub trait RewindStream: ParcomStream {
+pub trait RewindStream: Stream {
     type Anchor;
 
     fn anchor(&self) -> Self::Anchor;
     fn rewind(self, anchor: Self::Anchor) -> Self;
 }
 
-pub trait ParcomSegmentIterator: Unpin {
+pub trait SegmentIterator: Unpin {
     type Segment: ?Sized;
     type Node: Deref<Target = Self::Segment>;
     type Next: Future<Output = Option<Self::Node>>;
@@ -20,20 +20,17 @@ pub trait ParcomSegmentIterator: Unpin {
     fn next(&mut self, size_hint: usize) -> Self::Next;
 }
 
-pub trait ParcomStreamSegment {
-    type Offset;
-
-    fn slice(&self, offset: Self::Offset) -> &Self;
-    fn advance(&self, count: usize) -> Result<Self::Offset, usize>;
+pub trait StreamSegment {
+    type Delta;
 }
 
-pub trait ParcomStream: Sized {
-    type Segment: ?Sized;
-    type SegmentStream: ParcomSegmentIterator<Segment = Self::Segment>;
+pub trait Stream: Sized {
+    type Segment: StreamSegment + ?Sized;
+    type SegmentIter: SegmentIterator<Segment = Self::Segment>;
     type Advance: Future<Output = Self>;
 
-    fn segments(&self) -> Self::SegmentStream;
-    fn advance(self, count: usize) -> Self::Advance;
+    fn segments(&self) -> Self::SegmentIter;
+    fn advance(self, delta: <Self::Segment as StreamSegment>::Delta) -> Self::Advance;
 }
 
 pub trait BindableStream: MeasuredStream {

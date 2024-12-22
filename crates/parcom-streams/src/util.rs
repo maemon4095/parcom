@@ -3,7 +3,7 @@ mod once_cell;
 
 pub use notify::{Notified, Notify};
 pub use once_cell::{InitializedSharedCell, OnceCell};
-use parcom_core::ParcomSegmentIterator;
+use parcom_core::SegmentIterator;
 
 pub struct Nodes<'me, T: ?Sized> {
     me: Option<&'me T>,
@@ -15,7 +15,7 @@ impl<'me, T: ?Sized> Nodes<'me, T> {
     }
 }
 
-impl<'me, T: ?Sized> ParcomSegmentIterator for Nodes<'me, T> {
+impl<'me, T: ?Sized> SegmentIterator for Nodes<'me, T> {
     type Segment = T;
     type Node = &'me T;
     type Next = std::future::Ready<Option<Self::Node>>;

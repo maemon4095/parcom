@@ -1,6 +1,4 @@
-use parcom_core::{
-    Never, ParcomSegmentIterator, ParcomStream, ParseResult::*, Parser, ParserResult,
-};
+use parcom_core::{Never, ParseResult::*, Parser, ParserResult, SegmentIterator, Stream};
 use std::ops::Deref;
 
 pub fn atom(str: &str) -> Atom<'_> {
@@ -19,7 +17,7 @@ pub struct Atom<'a> {
     str: &'a str,
 }
 
-impl<'a, S: ParcomStream<Segment = str>> Parser<S> for Atom<'a> {
+impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
     type Output = &'a str;
     type Error = ();
     type Fault = Never;
@@ -29,12 +27,14 @@ impl<'a, S: ParcomStream<Segment = str>> Parser<S> for Atom<'a> {
         let mut segment = input.segments();
 
         while let Some(segment) = segment.next(remain.len()).await {
-            if !segment.starts_with(remain) {
+            if segment.len() >= remain.len() {
+                if segment.starts_with(remain) {
+                    return Done(self.str, input.advance(self.str.len().into()).await);
+                }
                 break;
             }
-
-            if segment.len() >= remain.len() {
-                return Done(self.str, input.advance(self.str.len()).await);
+            if !remain.starts_with(&*segment) {
+                break;
             }
 
             remain = &remain[segment.len()..];
@@ -48,7 +48,7 @@ pub struct AtomChar {
     char: char,
 }
 
-impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
+impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
     type Output = char;
     type Error = ();
     type Fault = Never;
@@ -56,14 +56,15 @@ impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
+        let expected = self.char;
         loop {
-            let Some(segment) = segments.next(1).await else {
+            let Some(segment) = segments.next(expected.len_utf8()).await else {
                 break;
             };
 
             if let Some(c) = segment.chars().next() {
-                if c == self.char {
-                    return Done(self.char, input.advance(1).await);
+                if c == expected {
+                    return Done(c, input.advance(c.len_utf8().into()).await);
                 }
 
                 break;
@@ -76,7 +77,7 @@ impl<S: ParcomStream<Segment = str>> Parser<S> for AtomChar {
 
 pub struct ConstChar<const C: char>;
 
-impl<const C: char, S: ParcomStream<Segment = str>> Parser<S> for ConstChar<C> {
+impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
     type Output = char;
     type Error = ();
     type Fault = Never;
@@ -85,14 +86,14 @@ impl<const C: char, S: ParcomStream<Segment = str>> Parser<S> for ConstChar<C> {
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next(1).await else {
+            let Some(segment) = segments.next(C.len_utf8()).await else {
                 break;
             };
             let segment = segment.deref();
 
             if let Some(c) = segment.chars().next() {
                 if c == C {
-                    return Done(C, input.advance(1).await);
+                    return Done(C, input.advance(C.len_utf8().into()).await);
                 }
 
                 break;

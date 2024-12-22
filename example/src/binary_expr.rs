@@ -158,7 +158,7 @@ async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), (
         .await
 }
 
-async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
     let head = {
         let mut segments = input.segments();
 
@@ -181,27 +181,26 @@ async fn op<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> 
         _ => return Fail((), input.into()),
     };
 
-    Done(op, input.advance(1).await)
+    Done(op, input.advance(head.len_utf8().into()).await)
 }
 
-async fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
+async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
     let mut segments = input.segments();
     let mut buf = String::new();
 
-    let mut consumed_chars = 0;
+    let mut consumed_bytes = 0;
     while let Some(segment) = segments.next(0).await {
         let segment = segment.deref();
 
         let c = segment
             .char_indices()
             .take_while(|(_, c)| c.is_ascii_digit())
-            .enumerate()
             .last();
 
         match c {
-            Some((char_idx, (idx, c))) => {
+            Some((idx, c)) => {
                 let consumed = idx + c.len_utf8();
-                consumed_chars += char_idx + 1;
+                consumed_bytes += consumed;
 
                 buf.push_str(&segment[..consumed]);
                 if consumed < segment.len() {
@@ -212,10 +211,10 @@ async fn integer<S: ParcomStream<Segment = str>>(input: S) -> ParseResult<S, usi
         }
     }
 
-    if consumed_chars == 0 {
+    if consumed_bytes == 0 {
         return Fail((), input.into());
     }
     let n = usize::from_str_radix(&buf, 10).unwrap();
 
-    Done(n, input.advance(consumed_chars).await)
+    Done(n, input.advance(consumed_bytes.into()).await)
 }

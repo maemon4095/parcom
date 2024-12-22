@@ -4,6 +4,7 @@ use std::{
     cell::UnsafeCell,
     mem::MaybeUninit,
     ops::Deref,
+    process::Output,
     sync::{
         atomic::{AtomicIsize, AtomicU8, AtomicUsize, Ordering},
         Arc, Mutex, OnceLock,
@@ -11,7 +12,7 @@ use std::{
 };
 
 use node::{ArcNode, Node};
-use parcom_core::{ParcomSegmentIterator, ParcomStream};
+use parcom_core::{SegmentIterator, Stream};
 
 use crate::util::Notify;
 
@@ -45,4 +46,11 @@ struct Segments<S: StreamSource> {
     stream: Arc<InnerStream<S>>,
     offset: usize,
     node: Option<ArcNode<S::Output>>,
+}
+// impl ParcomSegmentIterator for Segments where S::Item: ParcomStreamNode
+
+pub trait ParcomStreamNode: Sized + Deref<Target = Self::Segment> {
+    type Segment: ?Sized;
+
+    fn advance(self, count: usize) -> Result<Self, usize>;
 }

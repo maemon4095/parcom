@@ -1,4 +1,4 @@
-use crate::ParcomStream;
+use crate::Stream;
 
 pub trait Meter<S: ?Sized> {
     type Metrics: Metrics<S, Meter = Self>;
@@ -11,12 +11,12 @@ pub trait Metrics<S: ?Sized>: Eq + Ord {
     type Meter: Meter<S, Metrics = Self>;
 }
 
-pub trait MeasuredStream: ParcomStream {
+pub trait MeasuredStream: Stream {
     type Metrics: Metrics<Self::Segment>;
     fn metrics(&self) -> Self::Metrics;
 }
 
-pub trait IntoMeasured<M: Metrics<Self::Segment>>: ParcomStream {
+pub trait IntoMeasured<M: Metrics<Self::Segment>>: Stream {
     type Measured: MeasuredStream<Metrics = M>;
 
     fn into_measured(self) -> Self::Measured

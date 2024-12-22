@@ -1,5 +1,5 @@
 use parcom_core::{
-    Never, ParcomSegmentIterator, ParcomStream, ParseResult::*, Parser, ParserResult,
+    Never, SegmentIterator, Stream, ParseResult::*, Parser, ParserResult,
 };
 use std::ops::Deref;
 
@@ -27,7 +27,7 @@ where
 impl<'a, T, S> Parser<S> for Atom<'a, T>
 where
     T: PartialEq,
-    S: ParcomStream<Segment = [T]>,
+    S: Stream<Segment = [T]>,
 {
     type Output = &'a [T];
     type Error = ();
@@ -65,7 +65,7 @@ where
 impl<'a, T, S> Parser<S> for Single<'a, T>
 where
     T: PartialEq,
-    S: ParcomStream<Segment = [T]>,
+    S: Stream<Segment = [T]>,
 {
     type Output = &'a T;
     type Error = ();
