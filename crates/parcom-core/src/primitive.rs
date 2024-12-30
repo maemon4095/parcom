@@ -27,17 +27,6 @@ impl<'a, T: ?Sized> SegmentIterator for Nodes<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> futures::Stream for Nodes<'a, T> {
-    type Item = &'a T;
-
-    fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        std::task::Poll::Ready(self.me.take())
-    }
-}
-
 impl<'a> Stream for &'a str {
     type Segment = str;
     type SegmentIter = Nodes<'a, str>;

@@ -49,7 +49,7 @@ struct Segments<S: StreamSource> {
 }
 // impl ParcomSegmentIterator for Segments where S::Item: ParcomStreamNode
 
-pub trait ParcomStreamNode: Sized + Deref<Target = Self::Segment> {
+pub trait StreamNode: Sized + Deref<Target = Self::Segment> {
     type Segment: ?Sized;
 
     fn advance(self, count: usize) -> Result<Self, usize>;

@@ -13,6 +13,5 @@ parcom-parsers = { path = "crates/parcom-parsers", version = "^0.3.0" }
 parcom-streams = { path = "crates/parcom-streams", version = "^0.3.0" }
 parcom-metrics = { path = "crates/parcom-metrics", version = "^0.2.0" }
 mockalloc = "0.1.2"
-futures = "0.3"
 pollster = "0.3.0"
 tokio = { version = "1.41.0", default-features = false }
