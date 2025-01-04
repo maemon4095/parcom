@@ -8,6 +8,7 @@ mod optional;
 mod or;
 mod repeat;
 mod repeat_n;
+mod then;
 mod unify;
 
 pub use self::{
@@ -24,9 +25,10 @@ pub use self::{
     unify::{Unify, UnifyErr, UnifyFault},
 };
 use parcom_base::Either;
-use parcom_core::{Parser, RewindStream, ShouldNever};
+use parcom_core::{ParseResult, Parser, ParserResult, RewindStream, ShouldNever};
 use repeat::RepeatBounds;
 use std::marker::PhantomData;
+use then::Then;
 
 pub trait ParserExtension<S>: Parser<S> {
     fn repeat<R: RepeatBounds<S, Self>>(self, range: R) -> Repeat<S, Self, R>
@@ -181,6 +183,14 @@ pub trait ParserExtension<S>: Parser<S> {
             parser: self,
             marker: PhantomData,
         }
+    }
+
+    fn then<O, E, F, Fun>(self, f: Fun) -> Then<S, Self, O, E, F, Fun>
+    where
+        Self: Sized,
+        Fun: Fn(ParserResult<S, Self>) -> ParseResult<S, O, E, F>,
+    {
+        Then::new(self, f)
     }
 }
 
