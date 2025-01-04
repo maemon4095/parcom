@@ -1,7 +1,5 @@
-use parcom_core::{
-    Never, SegmentIterator, Stream, ParseResult::*, Parser, ParserResult,
-};
-use std::ops::Deref;
+use parcom_core::{Never, ParseResult::*, Parser, ParserResult, SegmentIterator, Stream};
+use std::{marker::PhantomData, ops::Deref};
 
 pub fn atom<T>(items: &[T]) -> Atom<'_, T>
 where
@@ -15,6 +13,12 @@ where
     T: PartialEq,
 {
     Single { item }
+}
+
+pub fn any_item<T: Clone>() -> AnyItem<T> {
+    AnyItem {
+        marker: PhantomData,
+    }
 }
 
 pub struct Atom<'a, T>
@@ -89,5 +93,29 @@ where
         }
 
         Fail((), input.into())
+    }
+}
+
+pub struct AnyItem<T: Clone> {
+    marker: PhantomData<T>,
+}
+
+impl<T: Clone, S: Stream<Segment = [T]>> Parser<S> for AnyItem<T> {
+    type Output = T;
+    type Error = ();
+    type Fault = Never;
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let mut segments = input.segments();
+
+        loop {
+            let Some(segment) = segments.next(1).await else {
+                break Fail((), input.into());
+            };
+
+            if let Some(c) = segment.first() {
+                let rest = input.advance(1).await;
+                break Done(c.clone(), rest);
+            }
+        }
     }
 }

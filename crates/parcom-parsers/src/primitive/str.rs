@@ -13,6 +13,10 @@ pub fn const_char<const C: char>() -> ConstChar<C> {
     ConstChar::<C>
 }
 
+pub fn any_char() -> AnyChar {
+    AnyChar
+}
+
 pub struct Atom<'a> {
     str: &'a str,
 }
@@ -101,5 +105,35 @@ impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
         }
 
         Fail((), input.into())
+    }
+}
+
+pub struct AnyChar;
+
+impl AnyChar {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl<S: Stream<Segment = str>> Parser<S> for AnyChar {
+    type Output = char;
+    type Error = ();
+    type Fault = Never;
+
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let mut segments = input.segments();
+
+        loop {
+            let Some(segment) = segments.next(0).await else {
+                break Fail((), input.into());
+            };
+            let segment = segment.deref();
+
+            if let Some(c) = segment.chars().next() {
+                let rest = input.advance(c.len_utf8().into()).await;
+                break Done(c, rest);
+            }
+        }
     }
 }
