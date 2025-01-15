@@ -1,45 +1,33 @@
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub enum ParseResult<S, O, E, F = crate::Never> {
+pub enum ParseResult<S, O, E: ParseError> {
     Done(O, S),
     Fail(E, UnknownLocation<S>),
-    Fatal(F, UnknownLocation<S>),
 }
 
 use ParseResult::*;
 
-use crate::UnknownLocation;
+use crate::{ParseError, UnknownLocation};
 
-impl<S, O, E, F> ParseResult<S, O, E, F> {
-    pub fn map<T>(self, f: impl FnOnce(O) -> T) -> ParseResult<S, T, E, F> {
+impl<S, O, E: ParseError> ParseResult<S, O, E> {
+    pub fn map<T>(self, f: impl FnOnce(O) -> T) -> ParseResult<S, T, E> {
         match self {
             Done(v, r) => Done(f(v), r),
             Fail(e, r) => Fail(e, r),
-            Fatal(e, r) => Fatal(e, r),
         }
     }
 
-    pub fn map_err<T>(self, f: impl FnOnce(E) -> T) -> ParseResult<S, O, T, F> {
+    pub fn map_err<T: ParseError>(self, f: impl FnOnce(E) -> T) -> ParseResult<S, O, T> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(f(e), r),
-            Fatal(e, r) => Fatal(e, r),
-        }
-    }
-
-    pub fn map_fault<T>(self, f: impl FnOnce(F) -> T) -> ParseResult<S, O, E, T> {
-        match self {
-            Done(v, r) => Done(v, r),
-            Fail(e, r) => Fail(e, r),
-            Fatal(e, r) => Fatal(f(e), r),
         }
     }
 
     pub fn unwrap(self) -> (O, S)
     where
         E: Debug,
-        F: Debug,
     {
         match self {
             Done(v, r) => (v, r),
@@ -47,17 +35,19 @@ impl<S, O, E, F> ParseResult<S, O, E, F> {
                 "called ParseResult::unwrap on an Fail value; Error: {:?}.",
                 e
             ),
-            Fatal(e, _) => panic!(
-                "called ParseResult::unwrap on an Fatal value; Error: {:?}.",
-                e
-            ),
         }
     }
-    pub fn as_ref(&self) -> ParseResult<&S, &O, &E, &F> {
+    pub fn as_ref(&self) -> ParseResult<&S, &O, &E> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e, r.as_ref()),
-            Fatal(e, r) => Fatal(e, r.as_ref()),
+        }
+    }
+
+    pub fn as_result(&self) -> Result<&O, &E> {
+        match self {
+            Done(v, _) => Ok(v),
+            Fail(e, _) => Err(e),
         }
     }
 }

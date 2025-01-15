@@ -56,9 +56,3 @@ impl<T> Measureable<usize> for [T] {
         self.len()
     }
 }
-
-impl Measureable<usize> for str {
-    fn measure(&self) -> usize {
-        self.chars().count()
-    }
-}

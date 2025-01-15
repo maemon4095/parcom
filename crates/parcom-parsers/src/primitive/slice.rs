@@ -1,4 +1,5 @@
-use parcom_core::{Never, ParseResult::*, Parser, ParserResult, SegmentIterator, Stream};
+use parcom_base::error::Miss;
+use parcom_core::{ParseResult::*, Parser, ParserResult, SegmentIterator, Stream};
 use std::{marker::PhantomData, ops::Deref};
 
 pub fn atom<T>(items: &[T]) -> Atom<'_, T>
@@ -34,8 +35,7 @@ where
     S: Stream<Segment = [T]>,
 {
     type Output = &'a [T];
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut remain = self.items;
@@ -55,7 +55,7 @@ where
             remain = &remain[segment.len()..];
         }
 
-        return Fail((), input.into());
+        return Fail(().into(), input.into());
     }
 }
 
@@ -72,8 +72,7 @@ where
     S: Stream<Segment = [T]>,
 {
     type Output = &'a T;
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
@@ -92,7 +91,7 @@ where
             }
         }
 
-        Fail((), input.into())
+        Fail(().into(), input.into())
     }
 }
 
@@ -102,14 +101,14 @@ pub struct AnyItem<T: Clone> {
 
 impl<T: Clone, S: Stream<Segment = [T]>> Parser<S> for AnyItem<T> {
     type Output = T;
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
+
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
         loop {
             let Some(segment) = segments.next(1).await else {
-                break Fail((), input.into());
+                break Fail(().into(), input.into());
             };
 
             if let Some(c) = segment.first() {

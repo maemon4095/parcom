@@ -1,50 +1,52 @@
-use parcom_core::{Parser, ParserResult, RewindStream};
+use parcom_core::{ParseError, Parser, ParserResult};
 use std::marker::PhantomData;
 
-pub struct Map<T: RewindStream, P: Parser<T>, U, F: Fn(P::Output) -> U> {
-    pub(super) parser: P,
-    pub(super) mapping: F,
-    pub(super) marker: PhantomData<(T, U)>,
+pub struct Map<T, P: Parser<T>, U, F: Fn(P::Output) -> U> {
+    parser: P,
+    mapping: F,
+    marker: PhantomData<(T, U)>,
 }
 
-impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
+impl<T, P: Parser<T>, U, F: Fn(P::Output) -> U> Map<T, P, U, F> {
+    pub fn new(parser: P, mapping: F) -> Self {
+        Self {
+            parser,
+            mapping,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<S, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
     type Output = U;
     type Error = P::Error;
-    type Fault = P::Fault;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         self.parser.parse(input).await.map(&self.mapping)
     }
 }
 
-pub struct MapErr<T: RewindStream, P: Parser<T>, U, F: Fn(P::Error) -> U> {
-    pub(super) parser: P,
-    pub(super) mapping: F,
-    pub(super) marker: PhantomData<(T, U)>,
+pub struct MapErr<S, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> {
+    parser: P,
+    mapping: F,
+    marker: PhantomData<(S, U)>,
 }
 
-impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Error) -> U> Parser<S> for MapErr<S, P, U, F> {
-    type Output = P::Output;
-    type Error = U;
-    type Fault = P::Fault;
-
-    async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).await.map_err(&self.mapping)
+impl<S, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> MapErr<S, P, U, F> {
+    pub fn new(parser: P, mapping: F) -> Self {
+        Self {
+            parser,
+            mapping,
+            marker: PhantomData,
+        }
     }
 }
 
-pub struct MapFault<T: RewindStream, P: Parser<T>, U, F: Fn(P::Fault) -> U> {
-    pub(super) parser: P,
-    pub(super) mapping: F,
-    pub(super) marker: PhantomData<(T, U)>,
-}
-
-impl<S: RewindStream, P: Parser<S>, U, F: Fn(P::Fault) -> U> Parser<S> for MapFault<S, P, U, F> {
+impl<S, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> Parser<S> for MapErr<S, P, U, F> {
     type Output = P::Output;
-    type Error = P::Error;
-    type Fault = U;
+    type Error = U;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).await.map_fault(&self.mapping)
+        self.parser.parse(input).await.map_err(&self.mapping)
     }
 }

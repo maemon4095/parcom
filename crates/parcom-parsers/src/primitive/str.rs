@@ -1,4 +1,5 @@
-use parcom_core::{Never, ParseResult::*, Parser, ParserResult, SegmentIterator, Stream};
+use parcom_base::error::Miss;
+use parcom_core::{ParseResult::*, Parser, ParserResult, SegmentIterator, Stream};
 use std::ops::Deref;
 
 pub fn atom(str: &str) -> Atom<'_> {
@@ -23,8 +24,7 @@ pub struct Atom<'a> {
 
 impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
     type Output = &'a str;
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut remain = self.str;
@@ -44,7 +44,7 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
             remain = &remain[segment.len()..];
         }
 
-        return Fail((), input.into());
+        return Fail(().into(), input.into());
     }
 }
 
@@ -54,8 +54,7 @@ pub struct AtomChar {
 
 impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
     type Output = char;
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
@@ -75,7 +74,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
             }
         }
 
-        Fail((), input.into())
+        Fail(().into(), input.into())
     }
 }
 
@@ -83,8 +82,7 @@ pub struct ConstChar<const C: char>;
 
 impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
     type Output = char;
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
@@ -104,7 +102,7 @@ impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
             }
         }
 
-        Fail((), input.into())
+        Fail(().into(), input.into())
     }
 }
 
@@ -118,15 +116,14 @@ impl AnyChar {
 
 impl<S: Stream<Segment = str>> Parser<S> for AnyChar {
     type Output = char;
-    type Error = ();
-    type Fault = Never;
+    type Error = Miss<()>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
         loop {
             let Some(segment) = segments.next(0).await else {
-                break Fail((), input.into());
+                break Fail(().into(), input.into());
             };
             let segment = segment.deref();
 

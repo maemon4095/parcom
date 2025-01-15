@@ -65,17 +65,18 @@ impl StreamSegment for str {
 
 impl RewindStream for &str {
     type Anchor = Anchor<Self>;
+    type Rewind = std::future::Ready<Self>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self }
     }
 
-    fn rewind(self, anchor: Self::Anchor) -> Self {
+    fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
         let ptr = anchor.me.as_ptr();
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
         if !offset.is_negative() && (offset as usize) <= len {
-            anchor.me
+            std::future::ready(anchor.me)
         } else {
             panic!("the anchor is not an anchor of this stream.")
         }
@@ -98,17 +99,18 @@ impl<'a, T> Stream for &'a [T] {
 
 impl<T> RewindStream for &[T] {
     type Anchor = Anchor<Self>;
+    type Rewind = std::future::Ready<Self>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self }
     }
 
-    fn rewind(self, anchor: Self::Anchor) -> Self {
+    fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
         let ptr = anchor.me.as_ptr();
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
         if !offset.is_negative() && (offset as usize) <= len {
-            anchor.me
+            std::future::ready(anchor.me)
         } else {
             panic!("the anchor is not an anchor of this stream.")
         }

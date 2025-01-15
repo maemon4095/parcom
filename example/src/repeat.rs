@@ -6,7 +6,7 @@ pub fn main() {
     pollster::block_on(async {
         println!("----- repeat example -----\n");
 
-        let parser = atom("text").repeat(..);
+        let parser = atom("text").repeat_range(..);
         let input = "texttexttextaaaa";
 
         match parser.parse(input).await {
@@ -14,8 +14,7 @@ pub fn main() {
                 println!("result: {:?}", v.0);
                 println!("  rest: {}", r)
             }
-            Fail(e, _) => e.never(),
-            Fatal(e, _) => e.never(),
+            Fail(_, _) => unreachable!(),
         }
     });
 }

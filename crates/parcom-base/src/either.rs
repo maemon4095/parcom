@@ -1,4 +1,4 @@
-use parcom_core::{ShouldNever, ShouldNeverExtension};
+use parcom_core::{ParseError, ShouldNever, ShouldNeverExtension};
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
@@ -69,3 +69,12 @@ impl<T0, T1> Either<T0, T1> {
 }
 
 unsafe impl<T0: ShouldNever, T1: ShouldNever> ShouldNever for Either<T0, T1> {}
+
+impl<T0: ParseError, T1: ParseError> ParseError for Either<T0, T1> {
+    fn should_terminate(&self) -> bool {
+        match self {
+            Either::First(e) => e.should_terminate(),
+            Either::Last(e) => e.should_terminate(),
+        }
+    }
+}

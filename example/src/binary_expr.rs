@@ -2,6 +2,7 @@
 
 use std::ops::Deref;
 
+use error::Miss;
 use parcom::{
     parsers::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
@@ -28,11 +29,10 @@ pub fn main() {
                 println!("  rest: {}", rest);
                 expr
             }
-            Fail(_, rest) => {
+            Fail(_, rest) => unsafe {
                 println!("error; rest: {}", rest.unwrap());
                 return;
-            }
-            Fatal(e, _) => e.never(),
+            },
         };
 
         println!("result: {} = {}", display(&expr), eval(&expr));
@@ -42,24 +42,23 @@ pub fn main() {
 }
 
 /// expr = expr op expr / term
-async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, Miss<()>> {
     BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
-        .never_fault()
+        .map_err(|_| ().into())
         .parse(input)
         .await
 }
 
 /// term = integer / (expr)
-async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
+async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, Miss<()>> {
     integer
         .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
             Either::First(n) => Term::Integer(n),
             Either::Last(e) => Term::Parenthesized(Box::new(e)),
         })
-        .map_err(|_| ())
-        .never_fault()
+        .map_err(|_| ().into())
         .parse(input)
         .await
 }
@@ -149,22 +148,22 @@ impl Operator for Op {
     }
 }
 
-async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
+async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
     atom_char(' ')
         .discard()
-        .repeat(1..)
+        .repeat_range(1..)
         .discard()
         .parse(input)
         .await
 }
 
-async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> {
     let head = {
         let mut segments = input.segments();
 
         loop {
             let Some(segment) = segments.next(0).await else {
-                return Fail((), input.into());
+                return Fail(().into(), input.into());
             };
 
             if let Some(c) = segment.chars().next() {
@@ -178,13 +177,13 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return Fail((), input.into()),
+        _ => return Fail(().into(), input.into()),
     };
 
     Done(op, input.advance(head.len_utf8().into()).await)
 }
 
-async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()> {
+async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Miss<()>> {
     let mut segments = input.segments();
     let mut buf = String::new();
 
@@ -212,7 +211,7 @@ async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, ()
     }
 
     if consumed_bytes == 0 {
-        return Fail((), input.into());
+        return Fail(().into(), input.into());
     }
     let n = usize::from_str_radix(&buf, 10).unwrap();
 

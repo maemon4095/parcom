@@ -3,44 +3,37 @@ mod discard;
 mod fold;
 mod join;
 mod maps;
-mod never_fault;
 mod optional;
 mod or;
-mod repeat;
 mod repeat_n;
+mod repeat_range;
 mod then;
 mod unify;
 
 pub use self::{
     as_ref::AsRef,
-    discard::{Discard, DiscardErr},
+    discard::Discard,
     fold::Fold,
     join::Join,
     maps::{Map, MapErr},
-    never_fault::NeverFault,
     optional::Optional,
     or::Or,
-    repeat::Repeat,
     repeat_n::RepeatN,
-    unify::{Unify, UnifyErr, UnifyFault},
+    repeat_range::RepeatRange,
+    unify::{Unify, UnifyErr},
 };
 use parcom_base::Either;
-use parcom_core::{ParseResult, Parser, ParserResult, RewindStream, ShouldNever};
-use repeat::RepeatBounds;
-use std::marker::PhantomData;
+use parcom_core::{ParseError, ParseResult, Parser, ParserResult, RewindStream};
+use repeat_range::RepeatBounds;
 use then::Then;
 
 pub trait ParserExtension<S>: Parser<S> {
-    fn repeat<R: RepeatBounds<S, Self>>(self, range: R) -> Repeat<S, Self, R>
+    fn repeat_range<R: RepeatBounds<S, Self>>(self, range: R) -> RepeatRange<S, Self, R>
     where
         Self: Sized,
         S: RewindStream,
     {
-        Repeat {
-            range,
-            parser: self,
-            marker: PhantomData,
-        }
+        RepeatRange::new(self, range)
     }
 
     fn repeat_n<const N: usize>(self) -> RepeatN<S, Self, N>
@@ -48,10 +41,7 @@ pub trait ParserExtension<S>: Parser<S> {
         Self: Sized,
         S: RewindStream,
     {
-        RepeatN {
-            parser: self,
-            marker: PhantomData,
-        }
+        RepeatN::new(self)
     }
 
     fn optional(self) -> Optional<S, Self>
@@ -59,10 +49,7 @@ pub trait ParserExtension<S>: Parser<S> {
         Self: Sized,
         S: RewindStream,
     {
-        Optional {
-            parser: self,
-            marker: PhantomData,
-        }
+        Optional::new(self)
     }
 
     fn or<P: Parser<S>>(self, other: P) -> Or<S, Self, P>
@@ -70,11 +57,7 @@ pub trait ParserExtension<S>: Parser<S> {
         Self: Sized,
         S: RewindStream,
     {
-        Or {
-            parser0: self,
-            parser1: other,
-            marker: PhantomData,
-        }
+        Or::new(self, other)
     }
 
     fn join<P: Parser<S>>(self, other: P) -> Join<S, Self, P>
@@ -82,42 +65,25 @@ pub trait ParserExtension<S>: Parser<S> {
         Self: Sized,
         S: RewindStream,
     {
-        Join {
-            parser0: self,
-            parser1: other,
-            marker: PhantomData,
-        }
+        Join::new(self, other)
     }
 
     fn map<U, F: Fn(Self::Output) -> U>(self, mapping: F) -> Map<S, Self, U, F>
     where
         Self: Sized,
-        S: RewindStream,
     {
-        Map {
-            parser: self,
-            mapping,
-            marker: PhantomData,
-        }
+        Map::new(self, mapping)
     }
 
-    fn map_err<U, F: Fn(Self::Error) -> U>(self, mapping: F) -> MapErr<S, Self, U, F>
+    fn map_err<U: ParseError, F: Fn(Self::Error) -> U>(self, mapping: F) -> MapErr<S, Self, U, F>
     where
         Self: Sized,
-        S: RewindStream,
     {
-        MapErr {
-            parser: self,
-            mapping,
-            marker: PhantomData,
-        }
+        MapErr::new(self, mapping)
     }
 
     fn as_ref(&self) -> AsRef<'_, S, Self> {
-        AsRef {
-            parser: self,
-            marker: PhantomData,
-        }
+        AsRef::new(self)
     }
 
     fn unify<T0, T1, T>(self) -> Unify<S, T0, T1, T, Self>
@@ -138,26 +104,14 @@ pub trait ParserExtension<S>: Parser<S> {
         UnifyErr::new(self)
     }
 
-    fn unify_fault<T0, T1, T>(self) -> UnifyFault<S, T0, T1, T, Self>
-    where
-        Self: Sized + Parser<S, Fault = Either<T0, T1>>,
-        T0: Into<T>,
-        T1: Into<T>,
-    {
-        UnifyFault::new(self)
-    }
-
     fn fold<A, FInit, FBody>(self, init: FInit) -> Fold<S, Self, A, FInit, FBody>
     where
+        S: RewindStream,
         Self: Sized,
         FInit: Fn() -> (A, FBody),
         FBody: FnMut(A, Self::Output) -> A,
     {
-        Fold {
-            parser: self,
-            init,
-            marker: PhantomData,
-        }
+        Fold::new(self, init)
     }
 
     fn discard(self) -> Discard<S, Self>
@@ -167,28 +121,10 @@ pub trait ParserExtension<S>: Parser<S> {
         Discard::new(self)
     }
 
-    fn discard_err(self) -> DiscardErr<S, Self>
+    fn then<O, E: ParseError, Fun>(self, f: Fun) -> Then<S, Self, O, E, Fun>
     where
         Self: Sized,
-    {
-        DiscardErr::new(self)
-    }
-
-    fn never_fault(self) -> NeverFault<S, Self>
-    where
-        Self: Sized,
-        Self::Fault: ShouldNever,
-    {
-        NeverFault {
-            parser: self,
-            marker: PhantomData,
-        }
-    }
-
-    fn then<O, E, F, Fun>(self, f: Fun) -> Then<S, Self, O, E, F, Fun>
-    where
-        Self: Sized,
-        Fun: Fn(ParserResult<S, Self>) -> ParseResult<S, O, E, F>,
+        Fun: Fn(ParserResult<S, Self>) -> ParseResult<S, O, E>,
     {
         Then::new(self, f)
     }

@@ -3,6 +3,7 @@
 use chrono::Local;
 
 use parcom::{
+    error::Miss,
     parsers::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
         primitive::str::{atom, atom_char},
@@ -78,23 +79,22 @@ pub fn main() {
 }
 
 /// expr = expr op expr / term
-async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, ()> {
+async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, Miss<()>> {
     BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
-        .never_fault()
+        .map_err(|_| ().into())
         .parse(input)
         .await
 }
 
 /// term = 0 / (expr)
-async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, ()> {
+async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, Miss<()>> {
     zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
             Either::First(c) => Term::Atom(c),
             Either::Last(e) => Term::Parenthesized(e),
         })
-        .map_err(|_| ())
-        .never_fault()
+        .map_err(|_| ().into())
         .parse(input)
         .await
 }
@@ -147,22 +147,22 @@ impl Operator for Op {
         Associativity::Left
     }
 }
-async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), ()> {
+async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
     atom_char(' ')
         .discard()
-        .repeat(1..)
+        .repeat_range(1..)
         .discard()
         .parse(input)
         .await
 }
 
-async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
+async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> {
     let head = {
         let mut segments = input.segments();
 
         loop {
             let Some(segment) = segments.next(0).await else {
-                return Fail((), input.into());
+                return Fail(().into(), input.into());
             };
 
             if let Some(c) = segment.deref().chars().next() {
@@ -176,12 +176,12 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, ()> {
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return Fail((), input.into()),
+        _ => return Fail(().into(), input.into()),
     };
 
     Done(op, input.advance(head.len_utf8().into()).await)
 }
 
-async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, ()> {
+async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, Miss<()>> {
     atom_char('0').parse(input).await
 }

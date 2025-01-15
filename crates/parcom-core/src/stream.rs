@@ -7,9 +7,10 @@ impl<S: MeasuredStream + RewindStream> ParseStream for S {}
 
 pub trait RewindStream: Stream {
     type Anchor;
+    type Rewind: std::future::Future<Output = Self>;
 
     fn anchor(&self) -> Self::Anchor;
-    fn rewind(self, anchor: Self::Anchor) -> Self;
+    fn rewind(self, anchor: Self::Anchor) -> Self::Rewind;
 }
 
 pub trait SegmentIterator: Unpin {

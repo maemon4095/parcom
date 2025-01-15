@@ -1,3 +1,5 @@
+use crate::ParseError;
+
 pub unsafe trait ShouldNever {}
 
 #[derive(Copy)]
@@ -34,5 +36,11 @@ impl std::fmt::Debug for Never {
 impl std::fmt::Display for Never {
     fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unreachable!("<Never as Display>::fmt should never be called.")
+    }
+}
+
+impl ParseError for Never {
+    fn should_terminate(&self) -> bool {
+        unreachable!()
     }
 }

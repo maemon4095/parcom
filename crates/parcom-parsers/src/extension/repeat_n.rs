@@ -1,14 +1,23 @@
-use parcom_core::{ParseResult::*, Parser, ParserResult, RewindStream};
+use parcom_core::{ParseError, ParseResult::*, Parser, ParserResult, RewindStream};
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 pub struct RepeatN<T: RewindStream, P: Parser<T>, const N: usize> {
-    pub(super) parser: P,
-    pub(super) marker: PhantomData<T>,
+    parser: P,
+    marker: PhantomData<T>,
 }
+
+impl<S: RewindStream, P: Parser<S>, const N: usize> RepeatN<S, P, N> {
+    pub fn new(parser: P) -> Self {
+        Self {
+            parser,
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, N> {
     type Output = [P::Output; N];
     type Error = P::Error;
-    type Fault = P::Fault;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let mut buf = std::array::from_fn(|_| MaybeUninit::uninit());
@@ -22,8 +31,8 @@ impl<S: RewindStream, P: Parser<S>, const N: usize> Parser<S> for RepeatN<S, P, 
 
             let (v, r) = match self.parser.parse(rest).await {
                 Done(v, r) => (v, r),
+                Fail(e, r) if !e.should_terminate() => break Fail(e, r),
                 Fail(e, r) => break Fail(e, r),
-                Fatal(e, r) => break Fatal(e, r),
             };
 
             buf[idx] = MaybeUninit::new(v);
