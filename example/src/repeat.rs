@@ -6,7 +6,7 @@ pub fn main() {
     pollster::block_on(async {
         println!("----- repeat example -----\n");
 
-        let parser = atom("text").repeat_range(..);
+        let parser = atom("text").repeat();
         let input = "texttexttextaaaa";
 
         match parser.parse(input).await {

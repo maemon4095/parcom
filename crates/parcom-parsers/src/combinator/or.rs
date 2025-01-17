@@ -2,6 +2,7 @@ use parcom_base::{Either, EitherBoth};
 use parcom_core::{ParseError, ParseResult::*, Parser, ParserResult, RewindStream};
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 pub struct Or<T: RewindStream, P0: Parser<T>, P1: Parser<T>> {
     parser0: P0,
     parser1: P1,

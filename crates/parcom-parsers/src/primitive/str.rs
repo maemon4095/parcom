@@ -18,6 +18,7 @@ pub fn any_char() -> AnyChar {
     AnyChar
 }
 
+#[derive(Debug)]
 pub struct Atom<'a> {
     str: &'a str,
 }
@@ -48,6 +49,7 @@ impl<'a, S: Stream<Segment = str>> Parser<S> for Atom<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct AtomChar {
     char: char,
 }
@@ -78,6 +80,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AtomChar {
     }
 }
 
+#[derive(Debug)]
 pub struct ConstChar<const C: char>;
 
 impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
@@ -106,6 +109,7 @@ impl<const C: char, S: Stream<Segment = str>> Parser<S> for ConstChar<C> {
     }
 }
 
+#[derive(Debug)]
 pub struct AnyChar;
 
 impl AnyChar {

@@ -1,6 +1,7 @@
 use parcom_core::{ParseError, Parser, ParserResult};
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 pub struct Map<T, P: Parser<T>, U, F: Fn(P::Output) -> U> {
     parser: P,
     mapping: F,
@@ -26,6 +27,7 @@ impl<S, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
     }
 }
 
+#[derive(Debug)]
 pub struct MapErr<S, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> {
     parser: P,
     mapping: F,

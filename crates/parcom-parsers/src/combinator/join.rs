@@ -2,6 +2,7 @@ use parcom_base::Either;
 use parcom_core::{ParseResult::*, Parser, ParserResult, RewindStream};
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 pub struct Join<S: RewindStream, P0: Parser<S>, P1: Parser<S>> {
     parser0: P0,
     parser1: P1,

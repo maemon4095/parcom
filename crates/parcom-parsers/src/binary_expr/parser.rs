@@ -9,6 +9,7 @@ use parcom_core::{
 use std::marker::PhantomData;
 
 // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
+#[derive(Debug)]
 pub struct BinaryExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>, Expr>
 where
     POp::Output: Operator,
@@ -217,7 +218,7 @@ mod test {
     use super::{Associativity, BinaryExprParser, Operator};
     use crate::{
         primitive::str::{self, atom},
-        ParserExtension,
+        IterativeParserExtension, ParserExtension,
     };
     use parcom_base::{error::Miss, Either};
     use parcom_core::SegmentIterator;
@@ -342,7 +343,9 @@ mod test {
     async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
         str::atom_char(' ')
             .discard()
-            .repeat_range(1..)
+            .repeat()
+            .at_least(1)
+            .map_err(|_| Miss(()))
             .discard()
             .parse(input)
             .await

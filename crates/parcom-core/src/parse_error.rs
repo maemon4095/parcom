@@ -7,3 +7,12 @@ impl<T: ParseError> ParseError for &T {
         T::should_terminate(self)
     }
 }
+
+impl<T: ParseError> ParseError for Option<T> {
+    fn should_terminate(&self) -> bool {
+        match self {
+            Some(v) => v.should_terminate(),
+            None => false,
+        }
+    }
+}

@@ -2,6 +2,7 @@ use parcom_base::Either;
 use parcom_core::{ParseError, ParseResult::*, Parser, ParserResult};
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 pub struct Unify<S, T0, T1, T, P>
 where
     P: Parser<S, Output = Either<T0, T1>>,
@@ -18,7 +19,7 @@ where
     T0: Into<T>,
     T1: Into<T>,
 {
-    pub(super) fn new(parser: P) -> Self {
+    pub fn new(parser: P) -> Self {
         Self {
             parser,
             marker: PhantomData,
@@ -59,7 +60,7 @@ where
     T0: Into<T>,
     T1: Into<T>,
 {
-    pub(super) fn new(parser: P) -> Self {
+    pub fn new(parser: P) -> Self {
         Self {
             parser,
             marker: PhantomData,

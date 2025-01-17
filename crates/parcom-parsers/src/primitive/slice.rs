@@ -22,6 +22,7 @@ pub fn any_item<T: Clone>() -> AnyItem<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct Atom<'a, T>
 where
     T: PartialEq,
@@ -59,6 +60,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Single<'a, T>
 where
     T: PartialEq,
@@ -95,6 +97,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct AnyItem<T: Clone> {
     marker: PhantomData<T>,
 }

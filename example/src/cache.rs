@@ -7,7 +7,7 @@ use parcom::{
     parsers::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
         primitive::str::{atom, atom_char},
-        ParserExtension,
+        IterativeParserExtension, ParserExtension,
     },
     Either,
     ParseResult::{self, *},
@@ -150,7 +150,9 @@ impl Operator for Op {
 async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
     atom_char(' ')
         .discard()
-        .repeat_range(1..)
+        .repeat()
+        .at_least(1)
+        .map_err(|_| Miss(()))
         .discard()
         .parse(input)
         .await

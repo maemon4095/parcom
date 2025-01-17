@@ -1,49 +1,8 @@
-mod as_ref;
-mod discard;
-mod fold;
-mod join;
-mod maps;
-mod optional;
-mod or;
-mod repeat_n;
-mod repeat_range;
-mod then;
-mod unify;
-
-pub use self::{
-    as_ref::AsRef,
-    discard::Discard,
-    fold::Fold,
-    join::Join,
-    maps::{Map, MapErr},
-    optional::Optional,
-    or::Or,
-    repeat_n::RepeatN,
-    repeat_range::RepeatRange,
-    unify::{Unify, UnifyErr},
-};
+use crate::{Discard, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
 use parcom_base::Either;
-use parcom_core::{ParseError, ParseResult, Parser, ParserResult, RewindStream};
-use repeat_range::RepeatBounds;
-use then::Then;
+use parcom_core::{ParseError, Parser, RewindStream};
 
 pub trait ParserExtension<S>: Parser<S> {
-    fn repeat_range<R: RepeatBounds<S, Self>>(self, range: R) -> RepeatRange<S, Self, R>
-    where
-        Self: Sized,
-        S: RewindStream,
-    {
-        RepeatRange::new(self, range)
-    }
-
-    fn repeat_n<const N: usize>(self) -> RepeatN<S, Self, N>
-    where
-        Self: Sized,
-        S: RewindStream,
-    {
-        RepeatN::new(self)
-    }
-
     fn optional(self) -> Optional<S, Self>
     where
         Self: Sized,
@@ -82,8 +41,8 @@ pub trait ParserExtension<S>: Parser<S> {
         MapErr::new(self, mapping)
     }
 
-    fn as_ref(&self) -> AsRef<'_, S, Self> {
-        AsRef::new(self)
+    fn as_ref(&self) -> Ref<'_, S, Self> {
+        Ref::new(self)
     }
 
     fn unify<T0, T1, T>(self) -> Unify<S, T0, T1, T, Self>
@@ -104,16 +63,6 @@ pub trait ParserExtension<S>: Parser<S> {
         UnifyErr::new(self)
     }
 
-    fn fold<A, FInit, FBody>(self, init: FInit) -> Fold<S, Self, A, FInit, FBody>
-    where
-        S: RewindStream,
-        Self: Sized,
-        FInit: Fn() -> (A, FBody),
-        FBody: FnMut(A, Self::Output) -> A,
-    {
-        Fold::new(self, init)
-    }
-
     fn discard(self) -> Discard<S, Self>
     where
         Self: Sized,
@@ -121,12 +70,12 @@ pub trait ParserExtension<S>: Parser<S> {
         Discard::new(self)
     }
 
-    fn then<O, E: ParseError, Fun>(self, f: Fun) -> Then<S, Self, O, E, Fun>
+    fn repeat(self) -> Repeat<S, Self>
     where
+        S: RewindStream,
         Self: Sized,
-        Fun: Fn(ParserResult<S, Self>) -> ParseResult<S, O, E>,
     {
-        Then::new(self, f)
+        Repeat::new(self)
     }
 }
 

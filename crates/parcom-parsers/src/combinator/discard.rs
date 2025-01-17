@@ -1,6 +1,7 @@
+use parcom_core::{ParseResult::*, Parser, ParserResult};
 use std::marker::PhantomData;
 
-use parcom_core::{ParseResult::*, Parser, ParserResult};
+#[derive(Debug)]
 pub struct Discard<S, P: Parser<S>> {
     parser: P,
     marker: PhantomData<S>,
@@ -19,7 +20,7 @@ impl<S, P: Parser<S>> Parser<S> for Discard<S, P> {
 }
 
 impl<S, P: Parser<S>> Discard<S, P> {
-    pub(super) fn new(parser: P) -> Self {
+    pub fn new(parser: P) -> Self {
         Self {
             parser,
             marker: PhantomData,
@@ -42,9 +43,7 @@ mod test {
     #[allow(unused_variables)]
     fn no_alloc() {
         let info = mockalloc::record_allocs(|| {
-            let parser = crate::primitive::str::atom_char(' ')
-                .discard()
-                .repeat_range(1..);
+            let parser = crate::primitive::str::atom_char(' ').discard().repeat();
             let result = parser.parse("        ");
         });
 
