@@ -1,5 +1,5 @@
 use crate::binary_expr::{Associativity, Operator};
-use parcom_base::{Either, Reason};
+use parcom_base::Either;
 use parcom_core::{
     ParseError,
     ParseResult::{self, *},
@@ -29,7 +29,7 @@ where
     POp: Parser<S>,
     Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
 {
-    type Output = (Expr, Reason<Either<POp::Error, PTerm::Error>>);
+    type Output = (Expr, Either<POp::Error, PTerm::Error>);
     type Error = Either<POp::Error, PTerm::Error>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
@@ -40,7 +40,7 @@ where
                 // Ok になる場合は op をパースしたときに op.precedence() < precedence の場合のみ．
                 // 常に precedence >= 0 であるから，ここで Ok にはならない．
                 let Err(reason) = reason else { unreachable!() };
-                Done((e, Reason(reason)), rest)
+                Done((e, reason), rest)
             }
             Fail(e, r) => Fail(e, r),
         }
