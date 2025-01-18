@@ -7,7 +7,6 @@ use parcom::{
     parsers::{
         binary_expr::{Associativity, BinaryExprParser, Operator},
         primitive::str::{atom, atom_char},
-        IterativeParserExtension,
     },
     prelude::*,
 };
@@ -151,11 +150,8 @@ impl Operator for Op {
 
 async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
     atom_char(' ')
-        .map(|_| ())
         .repeat()
-        .at_least(1)
-        .map(|_| ())
-        .map_err(|_| Miss(()))
+        .and_then(|(v, _)| if v.is_empty() { Err(Miss(())) } else { Ok(()) })
         .parse(input)
         .await
 }

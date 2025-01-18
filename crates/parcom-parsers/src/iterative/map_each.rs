@@ -23,7 +23,6 @@ impl<S, P: IterativeParser<S>, T, F: Fn(P::Output) -> T> IterativeParser<S>
 {
     type Output = T;
     type Error = P::Error;
-    type PrerequisiteError = P::PrerequisiteError;
     type State<'a>
         = IterationState<'a, S, P, T, F>
     where
@@ -48,11 +47,6 @@ impl<'a, S, P: 'a + IterativeParser<S>, T, F: Fn(P::Output) -> T> IterativeParse
 {
     type Output = T;
     type Error = P::Error;
-    type PrerequisiteError = P::PrerequisiteError;
-
-    fn prerequisite_error(&self) -> Option<Self::PrerequisiteError> {
-        self.state.prerequisite_error()
-    }
 
     async fn parse_next(
         &mut self,

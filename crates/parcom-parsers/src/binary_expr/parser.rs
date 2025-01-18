@@ -218,7 +218,7 @@ mod test {
     use super::{Associativity, BinaryExprParser, Operator};
     use crate::{
         primitive::str::{self, atom},
-        IterativeParserExtension, ParserExtension,
+        ParserExtension,
     };
     use parcom_base::{error::Miss, Either};
     use parcom_core::SegmentIterator;
@@ -343,9 +343,13 @@ mod test {
     async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
         str::atom_char(' ')
             .repeat()
-            .at_least(1)
-            .map(|_| ())
-            .map_err(|_| Miss(()))
+            .and_then(|e| {
+                if e.0.is_empty() {
+                    Err(Miss(()))
+                } else {
+                    Ok(())
+                }
+            })
             .parse(input)
             .await
     }

@@ -1,5 +1,5 @@
 use parcom_core::{
-    IterativeParser, IterativeParserState, Never, ParseError, ParseResult, Parser, RewindStream,
+    IterativeParser, IterativeParserState, ParseError, ParseResult, Parser, RewindStream,
 };
 use std::marker::PhantomData;
 
@@ -51,7 +51,6 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Repeat<S, P> {
 impl<S: RewindStream, P: Parser<S>> IterativeParser<S> for Repeat<S, P> {
     type Output = P::Output;
     type Error = P::Error;
-    type PrerequisiteError = Never;
     type State<'a>
         = IterationState<'a, S, P>
     where
@@ -70,11 +69,6 @@ pub struct IterationState<'a, S: RewindStream, P: Parser<S>> {
 impl<'a, S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<'a, S, P> {
     type Output = P::Output;
     type Error = P::Error;
-    type PrerequisiteError = Never;
-
-    fn prerequisite_error(&self) -> Option<Self::PrerequisiteError> {
-        None
-    }
 
     async fn parse_next(
         &mut self,

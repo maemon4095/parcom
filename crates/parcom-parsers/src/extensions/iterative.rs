@@ -1,6 +1,6 @@
 use parcom_core::IterativeParser;
 
-use crate::iterative::{AtLeast, Collect, MapEach, Take};
+use crate::iterative::{Collect, MapEach, Take};
 
 pub trait IterativeParserExtension<S>: IterativeParser<S> {
     fn collect<C: Extend<Self::Output> + Default>(self) -> Collect<S, Self, C>
@@ -22,13 +22,6 @@ pub trait IterativeParserExtension<S>: IterativeParser<S> {
         Self: Sized,
     {
         Take::new(self, count)
-    }
-
-    fn at_least(self, count: usize) -> AtLeast<S, Self>
-    where
-        Self: Sized,
-    {
-        AtLeast::new(self, count)
     }
 }
 

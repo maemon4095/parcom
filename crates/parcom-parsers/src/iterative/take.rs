@@ -23,7 +23,6 @@ impl<S, P: IterativeParser<S>> Take<S, P> {
 impl<S, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
     type Output = P::Output;
     type Error = Option<P::Error>;
-    type PrerequisiteError = P::PrerequisiteError;
     type State<'a>
         = IterationState<S, P::State<'a>>
     where
@@ -48,11 +47,6 @@ pub struct IterationState<S, P: IterativeParserState<S>> {
 impl<S, P: IterativeParserState<S>> IterativeParserState<S> for IterationState<S, P> {
     type Output = P::Output;
     type Error = Option<P::Error>;
-    type PrerequisiteError = P::PrerequisiteError;
-
-    fn prerequisite_error(&self) -> Option<Self::PrerequisiteError> {
-        self.state.prerequisite_error()
-    }
 
     async fn parse_next(
         &mut self,

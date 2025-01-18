@@ -1,4 +1,4 @@
-use crate::{Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
+use crate::{AndThen, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
 use parcom_base::Either;
 use parcom_core::{ParseError, Parser, RewindStream};
 
@@ -69,6 +69,15 @@ pub trait ParserExtension<S>: Parser<S> {
         Self: Sized,
     {
         Repeat::new(self)
+    }
+
+    fn and_then<O, E, F>(self, map: F) -> AndThen<S, Self, O, E, F>
+    where
+        Self: Sized,
+        F: Fn(Self::Output) -> Result<O, E>,
+        E: ParseError + From<Self::Error>,
+    {
+        AndThen::new(self, map)
     }
 }
 
