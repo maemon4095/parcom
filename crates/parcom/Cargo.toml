@@ -3,7 +3,6 @@ name = "parcom"
 version.workspace = true
 edition.workspace = true
 
-
 [dependencies]
 parcom-core = { workspace = true }
 parcom-streams = { workspace = true }

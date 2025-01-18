@@ -1,12 +1,11 @@
 [package]
 name = "parcom-parsers"
-version = "0.5.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 parcom-core = { workspace = true }
 parcom-base = { workspace = true }
-
 
 [dev-dependencies]
 mockalloc = { workspace = true }
