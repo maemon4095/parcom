@@ -1,4 +1,4 @@
-use crate::{Discard, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
+use crate::{Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
 use parcom_base::Either;
 use parcom_core::{ParseError, Parser, RewindStream};
 
@@ -61,13 +61,6 @@ pub trait ParserExtension<S>: Parser<S> {
         T1: Into<T>,
     {
         UnifyErr::new(self)
-    }
-
-    fn discard(self) -> Discard<S, Self>
-    where
-        Self: Sized,
-    {
-        Discard::new(self)
     }
 
     fn repeat(self) -> Repeat<S, Self>

@@ -151,10 +151,10 @@ impl Operator for Op {
 
 async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
     atom_char(' ')
-        .discard()
+        .map(|_| ())
         .repeat()
         .at_least(1)
-        .discard()
+        .map(|_| ())
         .map_err(|_| Miss(()))
         .parse(input)
         .await

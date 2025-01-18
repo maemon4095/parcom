@@ -251,7 +251,7 @@ mod test {
         pollster::block_on(async {
             let input = {
                 let mut s = "0".to_string();
-                s.extend(std::iter::repeat(" ~ 0").take(32));
+                s.extend(std::iter::repeat(" ~ 0").take(8192));
                 s.push_str(" ~ @@@");
                 s
             };
@@ -342,11 +342,10 @@ mod test {
     }
     async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
         str::atom_char(' ')
-            .discard()
             .repeat()
             .at_least(1)
+            .map(|_| ())
             .map_err(|_| Miss(()))
-            .discard()
             .parse(input)
             .await
     }
