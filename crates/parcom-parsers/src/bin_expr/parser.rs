@@ -1,4 +1,4 @@
-use crate::binary_expr::{Associativity, Operator};
+use super::{Associativity, Operator};
 use parcom_base::Either;
 use parcom_core::{
     ParseError,
@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 
 // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
 #[derive(Debug)]
-pub struct BinaryExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>, Expr>
+pub struct BinExprParser<S: RewindStream, PTerm: Parser<S>, POp: Parser<S>, Expr>
 where
     POp::Output: Operator,
     Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
@@ -21,7 +21,7 @@ where
     marker: PhantomData<(S, Expr)>,
 }
 
-impl<S, PTerm, POp, Expr> Parser<S> for BinaryExprParser<S, PTerm, POp, Expr>
+impl<S, PTerm, POp, Expr> Parser<S> for BinExprParser<S, PTerm, POp, Expr>
 where
     S: RewindStream,
     POp::Output: Operator,
@@ -47,7 +47,7 @@ where
     }
 }
 
-impl<S, PTerm, POp, Expr> BinaryExprParser<S, PTerm, POp, Expr>
+impl<S, PTerm, POp, Expr> BinExprParser<S, PTerm, POp, Expr>
 where
     S: RewindStream,
     POp::Output: Operator,
@@ -215,7 +215,7 @@ fn next_precedence<T: Operator>(op: &T) -> usize {
 
 #[cfg(test)]
 mod test {
-    use super::{Associativity, BinaryExprParser, Operator};
+    use super::{Associativity, BinExprParser, Operator};
     use crate::{
         primitive::str::{self, atom},
         ParserExtension,
@@ -268,7 +268,7 @@ mod test {
 
     /// expr = expr op expr / term
     async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, Miss<()>> {
-        BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+        BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
             .map(|(e, _)| e)
             .map_err(|_| ().into())
             .parse(input)

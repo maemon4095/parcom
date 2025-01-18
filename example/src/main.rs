@@ -1,13 +1,13 @@
 #![cfg_attr(test, cfg(test))]
 
-mod binary_expr;
+mod bin_expr;
 mod cache;
 mod repeat;
 mod utils;
 
 #[cfg_attr(test, test)]
 fn main() {
-    binary_expr::main();
+    bin_expr::main();
     cache::main();
     repeat::main();
 }

@@ -1,6 +1,6 @@
 mod parser;
 
-pub use parser::BinaryExprParser;
+pub use parser::BinExprParser;
 
 pub enum Associativity {
     Left,

@@ -5,7 +5,7 @@ use std::ops::Deref;
 use error::Miss;
 use parcom::{
     parsers::{
-        binary_expr::{Associativity, BinaryExprParser, Operator},
+        bin_expr::{Associativity, BinExprParser, Operator},
         primitive::str::{atom, atom_char},
     },
     prelude::*,
@@ -43,7 +43,7 @@ pub fn main() {
 
 /// expr = expr op expr / term
 async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, Miss<()>> {
-    BinaryExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
+    BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
         .map_err(|_| ().into())
         .parse(input)
