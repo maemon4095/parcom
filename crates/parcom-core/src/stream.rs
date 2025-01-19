@@ -23,6 +23,8 @@ pub trait SegmentIterator: Unpin {
 
 pub trait StreamSegment {
     type Delta;
+
+    fn slice(&self, delta: Self::Delta) -> &Self;
 }
 
 pub trait Stream: Sized {

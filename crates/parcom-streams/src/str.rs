@@ -4,17 +4,17 @@ use parcom_core::{
 };
 
 #[derive(Debug, Clone)]
-pub struct StrCharStream<'me> {
+pub struct StrStream<'me> {
     str: &'me str,
 }
 
-impl<'me> StrCharStream<'me> {
+impl<'me> StrStream<'me> {
     pub fn new(str: &'me str) -> Self {
         Self { str }
     }
 }
 
-impl<'me> Stream for StrCharStream<'me> {
+impl<'me> Stream for StrStream<'me> {
     type Segment = str;
     type SegmentIter = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
@@ -30,7 +30,7 @@ impl<'me> Stream for StrCharStream<'me> {
         std::future::ready(self)
     }
 }
-impl<'me> RewindStream for StrCharStream<'me> {
+impl<'me> RewindStream for StrStream<'me> {
     type Anchor = Anchor<'me>;
     type Rewind = std::future::Ready<Self>;
 
@@ -46,16 +46,13 @@ impl<'me> RewindStream for StrCharStream<'me> {
 }
 
 pub struct Anchor<'me> {
-    stream: StrCharStream<'me>,
+    stream: StrStream<'me>,
 }
 
-impl<'me, M> IntoMeasured<M> for StrCharStream<'me>
-where
-    M: Metrics<str>,
-{
-    type Measured = Measured<'me, M>;
+impl<'me> IntoMeasured for StrStream<'me> {
+    type Measured<M: Metrics<Self::Segment>> = Measured<'me, M>;
 
-    fn into_measured_with(self, meter: M::Meter) -> Self::Measured {
+    fn into_measured_with<M: Metrics<Self::Segment>>(self, meter: M::Meter) -> Self::Measured<M> {
         Measured { meter, base: self }
     }
 }
@@ -63,7 +60,7 @@ where
 #[derive(Debug)]
 pub struct Measured<'me, M: Metrics<str>> {
     meter: M::Meter,
-    base: StrCharStream<'me>,
+    base: StrStream<'me>,
 }
 
 impl<'me, M> Clone for Measured<'me, M>

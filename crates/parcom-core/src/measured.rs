@@ -16,39 +16,38 @@ pub trait MeasuredStream: Stream {
     fn metrics(&self) -> Self::Metrics;
 }
 
-pub trait IntoMeasured<M: Metrics<Self::Segment>>: Stream {
-    type Measured: MeasuredStream<Metrics = M>;
+pub trait IntoMeasured: Stream {
+    type Measured<M: Metrics<Self::Segment>>: MeasuredStream<Metrics = M>;
 
-    fn into_measured(self) -> Self::Measured
+    fn into_measured<M: Metrics<Self::Segment>>(self) -> Self::Measured<M>
     where
         M::Meter: Default,
     {
         self.into_measured_with(<M::Meter as Default>::default())
     }
 
-    fn into_measured_with(self, meter: M::Meter) -> Self::Measured;
+    fn into_measured_with<M: Metrics<Self::Segment>>(self, meter: M::Meter) -> Self::Measured<M>;
 }
 
 pub trait Measureable<M: Metrics<Self>> {
     fn measure(&self) -> M;
 }
 
-pub struct Counter(usize);
-impl<S: ?Sized + Measureable<usize>> Meter<S> for Counter {
+impl<S: ?Sized + Measureable<usize>> Meter<S> for usize {
     type Metrics = usize;
 
     fn advance(mut self, segment: &S) -> Self {
-        self.0 += segment.measure();
+        self += segment.measure();
         self
     }
 
     fn metrics(&self) -> Self::Metrics {
-        self.0
+        *self
     }
 }
 
 impl<S: ?Sized + Measureable<usize>> Metrics<S> for usize {
-    type Meter = Counter;
+    type Meter = usize;
 }
 
 impl<T> Measureable<usize> for [T] {

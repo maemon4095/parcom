@@ -61,6 +61,10 @@ impl Into<usize> for BytesDelta {
 
 impl StreamSegment for str {
     type Delta = BytesDelta;
+
+    fn slice(&self, delta: Self::Delta) -> &Self {
+        &self[delta.0..]
+    }
 }
 
 impl RewindStream for &str {
@@ -119,4 +123,8 @@ impl<T> RewindStream for &[T] {
 
 impl<T> StreamSegment for [T] {
     type Delta = usize;
+
+    fn slice(&self, delta: Self::Delta) -> &Self {
+        &self[delta..]
+    }
 }

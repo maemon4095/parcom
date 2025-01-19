@@ -1,10 +1,10 @@
-mod measured;
 mod never;
 mod parse_result;
 mod parser;
 mod stream;
 mod unknown;
 
+pub mod measured;
 pub mod parse_error;
 pub mod primitive;
 
