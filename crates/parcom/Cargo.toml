@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 parcom-core = { workspace = true }
-parcom-streams = { workspace = true }
 parcom-parsers = { workspace = true }
 parcom-metrics = { workspace = true }
 parcom-base = { workspace = true }

@@ -10,7 +10,6 @@ edition = "2021"
 parcom-core = { path = "crates/parcom-core", version = "^0.5.0" }
 parcom-base = { path = "crates/parcom-base", version = "^0.5.0" }
 parcom-parsers = { path = "crates/parcom-parsers", version = "^0.5.0" }
-parcom-streams = { path = "crates/parcom-streams", version = "^0.5.0" }
 parcom-metrics = { path = "crates/parcom-metrics", version = "^0.5.0" }
 mockalloc = "0.1.2"
 pollster = "0.3.0"
