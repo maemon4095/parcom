@@ -1,55 +1,44 @@
-use parcom_core::{
-    primitive::{BytesDelta, Nodes},
-    IntoMeasured, MeasuredStream, Meter, Metrics, RewindStream, Stream,
-};
+use super::{Anchor, BytesDelta, Nodes};
+use crate::{IntoMeasured, MeasuredStream, Meter, Metrics, RewindStream, Stream};
 
-#[derive(Debug, Clone)]
-pub struct StrStream<'me> {
-    str: &'me str,
-}
-
-impl<'me> StrStream<'me> {
-    pub fn new(str: &'me str) -> Self {
-        Self { str }
-    }
-}
-
-impl<'me> Stream for StrStream<'me> {
+impl<'a> Stream for &'a str {
     type Segment = str;
-    type SegmentIter = Nodes<'me, str>;
+    type SegmentIter = Nodes<'a, str>;
     type Advance = std::future::Ready<Self>;
 
     fn segments(&self) -> Self::SegmentIter {
-        self.str.segments()
+        Nodes { me: Some(self) }
     }
 
-    fn advance(mut self, delta: BytesDelta) -> Self::Advance {
+    fn advance(self, delta: BytesDelta) -> Self::Advance {
         let delta: usize = delta.into();
-        let end = self.str.len().min(delta);
-        self.str = &self.str[..end];
-        std::future::ready(self)
+
+        let rest = self.get(delta..).unwrap_or("");
+        std::future::ready(rest)
     }
 }
-impl<'me> RewindStream for StrStream<'me> {
-    type Anchor = Anchor<'me>;
+
+impl RewindStream for &str {
+    type Anchor = Anchor<Self>;
     type Rewind = std::future::Ready<Self>;
 
     fn anchor(&self) -> Self::Anchor {
-        Anchor {
-            stream: self.clone(),
-        }
+        Anchor { me: self }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
-        std::future::ready(anchor.stream)
+        let ptr = anchor.me.as_ptr();
+        let len = anchor.me.len();
+        let offset = unsafe { self.as_ptr().offset_from(ptr) };
+        if !offset.is_negative() && (offset as usize) <= len {
+            std::future::ready(anchor.me)
+        } else {
+            panic!("the anchor is not an anchor of this stream.")
+        }
     }
 }
 
-pub struct Anchor<'me> {
-    stream: StrStream<'me>,
-}
-
-impl<'me> IntoMeasured for StrStream<'me> {
+impl<'me> IntoMeasured for &'me str {
     type Measured<M: Metrics<Self::Segment>> = Measured<'me, M>;
 
     fn into_measured_with<M: Metrics<Self::Segment>>(self, meter: M::Meter) -> Self::Measured<M> {
@@ -60,7 +49,7 @@ impl<'me> IntoMeasured for StrStream<'me> {
 #[derive(Debug)]
 pub struct Measured<'me, M: Metrics<str>> {
     meter: M::Meter,
-    base: StrStream<'me>,
+    base: &'me str,
 }
 
 impl<'me, M> Clone for Measured<'me, M>
@@ -71,7 +60,7 @@ where
     fn clone(&self) -> Self {
         Self {
             meter: self.meter.clone(),
-            base: self.base.clone(),
+            base: self.base,
         }
     }
 }
@@ -86,7 +75,7 @@ impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
     }
 
     fn advance(mut self, delta: BytesDelta) -> Self::Advance {
-        let segment = self.base.str;
+        let segment = self.base;
         let end = segment.len().min(delta.into());
         self.meter = self.meter.advance(&segment[..end]);
         self.base = self.base.advance(delta).into_inner();
@@ -99,22 +88,16 @@ where
     M: Metrics<str>,
     M::Meter: Clone,
 {
-    type Anchor = MeasuredAnchor<'me, M>;
+    type Anchor = Anchor<Self>;
     type Rewind = std::future::Ready<Self>;
 
     fn anchor(&self) -> Self::Anchor {
-        MeasuredAnchor {
-            stream: self.clone(),
-        }
+        Anchor { me: self.clone() }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
-        std::future::ready(anchor.stream)
+        std::future::ready(anchor.me)
     }
-}
-
-pub struct MeasuredAnchor<'me, M: Metrics<str>> {
-    stream: Measured<'me, M>,
 }
 
 impl<'me, M: Metrics<str>> MeasuredStream for Measured<'me, M> {
