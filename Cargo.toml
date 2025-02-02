@@ -3,15 +3,17 @@ members = ["crates/*", "example"]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 
 [workspace.dependencies]
-parcom-core = { path = "crates/parcom-core", version = "^0.5.0" }
-parcom-base = { path = "crates/parcom-base", version = "^0.5.0" }
-parcom-parsers = { path = "crates/parcom-parsers", version = "^0.5.0" }
-parcom-streams = { path = "crates/parcom-streams", version = "^0.5.0" }
-parcom-metrics = { path = "crates/parcom-metrics", version = "^0.5.0" }
+parcom-core = { path = "crates/parcom-core" }
+parcom-base = { path = "crates/parcom-base" }
+parcom-parsers = { path = "crates/parcom-parsers" }
+parcom-streams = { path = "crates/parcom-streams" }
+parcom-metrics = { path = "crates/parcom-metrics" }
+parcom-internals = { path = "crates/parcom-internals" }
+
 mockalloc = "0.1.2"
 pollster = "0.3.0"
 tokio = { version = "1.41.0", default-features = false }

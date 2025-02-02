@@ -1,4 +1,4 @@
-use crate::{AndThen, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
+use crate::{util::Boxed, AndThen, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
 use parcom_base::Either;
 use parcom_core::{ParseError, Parser, RewindStream};
 
@@ -78,6 +78,13 @@ pub trait ParserExtension<S>: Parser<S> {
         E: ParseError + From<Self::Error>,
     {
         AndThen::new(self, map)
+    }
+
+    fn boxed(self) -> Boxed<S, Self>
+    where
+        Self: Sized,
+    {
+        Boxed::new(self)
     }
 }
 

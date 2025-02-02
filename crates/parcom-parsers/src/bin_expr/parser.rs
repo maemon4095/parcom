@@ -5,7 +5,7 @@ use parcom_core::{
     ParseResult::{self, *},
     Parser, ParserResult, RewindStream,
 };
-
+use parcom_internals::ShortVec;
 use std::marker::PhantomData;
 
 // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
@@ -17,7 +17,6 @@ where
 {
     parser_term: PTerm,
     parser_op: POp,
-    recursion_limit: usize,
     marker: PhantomData<(S, Expr)>,
 }
 
@@ -33,7 +32,7 @@ where
     type Error = Either<POp::Error, PTerm::Error>;
 
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let result = self.parse_impl(input, 0, self.recursion_limit).await;
+        let result = self.parse_impl(input, 0).await;
 
         match result {
             Done((e, reason), rest) => {
@@ -56,82 +55,15 @@ where
     Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
 {
     pub fn new(parser_term: PTerm, parser_op: POp) -> Self {
-        Self::new_with_limit(256, parser_term, parser_op)
-    }
-
-    pub fn new_with_limit(recursion_limit: usize, parser_term: PTerm, parser_op: POp) -> Self {
         Self {
             parser_term,
             parser_op,
-            recursion_limit,
             marker: PhantomData,
         }
     }
 
-    async fn parse_impl(
-        &self,
-        input: S,
-        precedence: usize,
-        recursion_limit: usize,
-    ) -> ParseResult<
-        S,
-        (
-            Expr,
-            Result<(POp::Output, S::Anchor), Either<POp::Error, PTerm::Error>>,
-        ),
-        Either<POp::Error, PTerm::Error>,
-    > {
-        Box::pin(async {
-            if recursion_limit == 0 {
-                return self.parse_impl_loop(input, precedence).await;
-            }
-
-            let (lhs, rest) = match self.parser_term.parse(input).await {
-                Done(v, r) => (v, r),
-                Fail(e, r) => return Fail(Either::Last(e), r),
-            };
-
-            let mut lhs = Expr::from(lhs);
-
-            let mut anchor = rest.anchor();
-            let (mut op, mut rest) = match self.parser_op.parse(rest).await {
-                Done(e, r) if e.precedence() >= precedence => (e, r),
-                Done(e, r) => return Done((lhs, Ok((e, anchor))), r), // *1: ひとつ前の演算子より優先度が低い場合に演算子を返す．
-                Fail(e, r) if !e.should_terminate() => {
-                    return Done((lhs, Err(Either::First(e))), r.rewind(anchor).await)
-                }
-                Fail(e, r) => return Fail(Either::First(e), r),
-            };
-
-            loop {
-                let next_prec = next_precedence(&op);
-                let ((rhs, reason), r) =
-                    match self.parse_impl(rest, next_prec, recursion_limit - 1).await {
-                        Done((e, r), s) => ((e, r), s),
-                        Fail(e, r) if !e.should_terminate() => {
-                            return Done((lhs, Err(e)), r.rewind(anchor).await)
-                        }
-                        Fail(e, r) => return Fail(e, r),
-                    };
-
-                rest = r;
-                lhs = Expr::from((lhs, op, rhs));
-
-                let (next_op, a) = match reason {
-                    Ok((next_op, a)) if next_op.precedence() >= precedence => (next_op, a), // *1 より next_op の優先度は op 未満
-                    r @ (Ok(_) | Err(_)) => return Done((lhs, r), rest),
-                };
-
-                // op よりひとつ前の演算子より優先度が高い．
-                op = next_op;
-                anchor = a;
-            }
-        })
-        .await
-    }
-
     // consider the input has syntax "term / (term op)+ term"
-    async fn parse_impl_loop(
+    async fn parse_impl(
         &self,
         input: S,
         precedence: usize,
@@ -151,7 +83,7 @@ where
 
         // (lhs0 op0 (lhs1 op1 ... (lhsN opN rhs
         // 優先度は op0 <= op1 <= ... <= opN
-        let mut stack = Vec::new();
+        let mut stack = ShortVec::<_, 8>::new();
 
         let reason = loop {
             let anchor = rest.anchor();
@@ -271,6 +203,7 @@ mod test {
         BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
             .map(|(e, _)| e)
             .map_err(|_| ().into())
+            .boxed()
             .parse(input)
             .await
     }
