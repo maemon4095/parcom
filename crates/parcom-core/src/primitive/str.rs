@@ -1,5 +1,5 @@
 use super::{Anchor, BytesDelta, Nodes};
-use crate::{IntoMeasured, MeasuredStream, Meter, Metrics, RewindStream, Stream};
+use crate::{IntoMeasured, MeasuredStream, Meter, Metrics, RewindStream, Stream, StreamSegment};
 
 impl<'a> Stream for &'a str {
     type Segment = str;
@@ -105,5 +105,17 @@ impl<'me, M: Metrics<str>> MeasuredStream for Measured<'me, M> {
 
     fn metrics(&self) -> Self::Metrics {
         self.meter.metrics()
+    }
+}
+
+impl StreamSegment for str {
+    type Delta = BytesDelta;
+
+    fn len(&self) -> Self::Delta {
+        str::len(self).into()
+    }
+
+    fn split_at(&self, mid: Self::Delta) -> (&Self, &Self) {
+        str::split_at(&self, mid.0)
     }
 }

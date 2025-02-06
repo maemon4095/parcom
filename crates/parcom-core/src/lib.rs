@@ -15,4 +15,5 @@ pub use parser::*;
 pub use stream::*;
 pub use unknown::UnknownLocation;
 
-pub type ParserResult<S, P> = ParseResult<S, <P as Parser<S>>::Output, <P as Parser<S>>::Error>;
+pub type ParserResult<S, P> =
+    ParseResult<S, <P as ParserOnce<S>>::Output, <P as ParserOnce<S>>::Error>;

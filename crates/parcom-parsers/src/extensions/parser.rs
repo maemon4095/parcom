@@ -1,8 +1,8 @@
 use crate::{util::Boxed, AndThen, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
 use parcom_base::Either;
-use parcom_core::{ParseError, Parser, RewindStream};
+use parcom_core::{ParseError, Parser, ParserOnce, RewindStream};
 
-pub trait ParserExtension<S>: Parser<S> {
+pub trait ParserExtension<S>: ParserOnce<S> {
     fn optional(self) -> Optional<S, Self>
     where
         Self: Sized,
@@ -11,7 +11,7 @@ pub trait ParserExtension<S>: Parser<S> {
         Optional::new(self)
     }
 
-    fn or<P: Parser<S>>(self, other: P) -> Or<S, Self, P>
+    fn or<P: ParserOnce<S>>(self, other: P) -> Or<S, Self, P>
     where
         Self: Sized,
         S: RewindStream,
@@ -19,7 +19,7 @@ pub trait ParserExtension<S>: Parser<S> {
         Or::new(self, other)
     }
 
-    fn join<P: Parser<S>>(self, other: P) -> Join<S, Self, P>
+    fn join<P: ParserOnce<S>>(self, other: P) -> Join<S, Self, P>
     where
         Self: Sized,
         S: RewindStream,
@@ -41,7 +41,10 @@ pub trait ParserExtension<S>: Parser<S> {
         MapErr::new(self, mapping)
     }
 
-    fn as_ref(&self) -> Ref<'_, S, Self> {
+    fn as_ref(&self) -> Ref<'_, S, Self>
+    where
+        Self: Parser<S>,
+    {
         Ref::new(self)
     }
 
@@ -66,7 +69,7 @@ pub trait ParserExtension<S>: Parser<S> {
     fn repeat(self) -> Repeat<S, Self>
     where
         S: RewindStream,
-        Self: Sized,
+        Self: Sized + Parser<S>,
     {
         Repeat::new(self)
     }

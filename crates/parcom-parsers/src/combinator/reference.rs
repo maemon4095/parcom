@@ -1,4 +1,4 @@
-use parcom_core::{Parser, ParserResult};
+use parcom_core::{Parser, ParserOnce, ParserResult};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -26,10 +26,15 @@ impl<'a, S, P: Parser<S>> Clone for Ref<'a, S, P> {
 
 impl<'a, S, P: Parser<S>> Copy for Ref<'a, S, P> {}
 
-impl<'a, S, P: Parser<S>> Parser<S> for Ref<'a, S, P> {
+impl<'a, S, P: Parser<S>> ParserOnce<S> for Ref<'a, S, P> {
     type Output = P::Output;
     type Error = P::Error;
 
+    async fn parse_once(self, input: S) -> ParserResult<S, Self> {
+        self.parse(input).await
+    }
+}
+impl<'a, S, P: Parser<S>> Parser<S> for Ref<'a, S, P> {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         self.parser.parse(input).await
     }

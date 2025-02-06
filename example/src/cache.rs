@@ -6,7 +6,7 @@ use parcom::{
     error::Miss,
     parsers::{
         bin_expr::{Associativity, BinExprParser, Operator},
-        primitive::str::{atom, atom_char},
+        primitive::{atom, the_char},
         ParserExtension,
     },
     Either,
@@ -83,6 +83,7 @@ async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, 
     BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
         .map_err(|_| ().into())
+        .boxed()
         .parse(input)
         .await
 }
@@ -91,7 +92,7 @@ async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, 
 async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, Miss<()>> {
     zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
-            Either::First(c) => Term::Atom(c),
+            Either::First(_) => Term::Zero,
             Either::Last(e) => Term::Parenthesized(e),
         })
         .map_err(|_| ().into())
@@ -121,7 +122,7 @@ impl From<(Expr, Op, Expr)> for Expr {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 enum Term {
-    Atom(char),
+    Zero,
     Parenthesized(Expr),
 }
 
@@ -148,7 +149,7 @@ impl Operator for Op {
     }
 }
 async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
-    atom_char(' ')
+    the_char(' ')
         .repeat()
         .and_then(|(v, _)| if v.is_empty() { Err(Miss(())) } else { Ok(()) })
         .parse(input)
@@ -160,7 +161,7 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next(0).await else {
+            let Some(segment) = segments.next(Default::default()).await else {
                 return Fail(().into(), input.into());
             };
 
@@ -181,6 +182,6 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
     Done(op, input.advance(head.len_utf8().into()).await)
 }
 
-async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, Miss<()>> {
-    atom_char('0').parse(input).await
+async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
+    the_char('0').parse(input).await
 }

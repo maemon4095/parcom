@@ -3,7 +3,7 @@ use parcom_base::Either;
 use parcom_core::{
     ParseError,
     ParseResult::{self, *},
-    Parser, ParserResult, RewindStream,
+    Parser, ParserOnce, ParserResult, RewindStream,
 };
 use parcom_internals::ShortVec;
 use std::marker::PhantomData;
@@ -20,7 +20,7 @@ where
     marker: PhantomData<(S, Expr)>,
 }
 
-impl<S, PTerm, POp, Expr> Parser<S> for BinExprParser<S, PTerm, POp, Expr>
+impl<S, PTerm, POp, Expr> ParserOnce<S> for BinExprParser<S, PTerm, POp, Expr>
 where
     S: RewindStream,
     POp::Output: Operator,
@@ -31,6 +31,19 @@ where
     type Output = (Expr, Either<POp::Error, PTerm::Error>);
     type Error = Either<POp::Error, PTerm::Error>;
 
+    async fn parse_once(self, input: S) -> ParserResult<S, Self> {
+        self.parse(input).await
+    }
+}
+
+impl<S, PTerm, POp, Expr> Parser<S> for BinExprParser<S, PTerm, POp, Expr>
+where
+    S: RewindStream,
+    POp::Output: Operator,
+    PTerm: Parser<S>,
+    POp: Parser<S>,
+    Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
+{
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let result = self.parse_impl(input, 0).await;
 
@@ -148,10 +161,8 @@ fn next_precedence<T: Operator>(op: &T) -> usize {
 #[cfg(test)]
 mod test {
     use super::{Associativity, BinExprParser, Operator};
-    use crate::{
-        primitive::str::{self, atom},
-        ParserExtension,
-    };
+    use crate::primitive::the_char;
+    use crate::{primitive::atom, ParserExtension};
     use parcom_base::{error::Miss, Either};
     use parcom_core::SegmentIterator;
     use parcom_core::{
@@ -212,7 +223,7 @@ mod test {
     async fn term<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Term, Miss<()>> {
         zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
             .map(|e| match e {
-                Either::First(c) => Term::Atom(c),
+                Either::First(_) => Term::Zero,
                 Either::Last(e) => Term::Parenthesized(e),
             })
             .map_err(|_| ().into())
@@ -242,7 +253,7 @@ mod test {
     #[derive(Debug, Clone)]
     #[allow(dead_code)]
     enum Term {
-        Atom(char),
+        Zero,
         Parenthesized(Expr),
     }
 
@@ -274,7 +285,7 @@ mod test {
         }
     }
     async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
-        str::atom_char(' ')
+        the_char(' ')
             .repeat()
             .and_then(|e| {
                 if e.0.is_empty() {
@@ -292,7 +303,7 @@ mod test {
             let mut segments = input.segments();
 
             loop {
-                let Some(segment) = segments.next(0).await else {
+                let Some(segment) = segments.next(Default::default()).await else {
                     return Fail(().into(), input.into());
                 };
 
@@ -314,7 +325,7 @@ mod test {
         Done(op, input.advance(1.into()).await)
     }
 
-    async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, char, Miss<()>> {
-        str::atom_char('0').parse(input).await
+    async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
+        atom("0").parse(input).await
     }
 }

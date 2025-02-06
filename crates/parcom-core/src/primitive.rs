@@ -20,17 +20,17 @@ pub struct Nodes<'a, T: ?Sized> {
     me: Option<&'a T>,
 }
 
-impl<'a, T: ?Sized> SegmentIterator for Nodes<'a, T> {
+impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
     type Segment = T;
     type Node = &'a T;
     type Next = std::future::Ready<Option<Self::Node>>;
 
-    fn next(&mut self, _: usize) -> Self::Next {
+    fn next(&mut self, _: T::Delta) -> Self::Next {
         std::future::ready(self.me.take())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BytesDelta(usize);
 
 impl From<usize> for BytesDelta {
@@ -42,13 +42,5 @@ impl From<usize> for BytesDelta {
 impl Into<usize> for BytesDelta {
     fn into(self) -> usize {
         self.0
-    }
-}
-
-impl StreamSegment for str {
-    type Delta = BytesDelta;
-
-    fn slice(&self, delta: Self::Delta) -> &Self {
-        &self[delta.0..]
     }
 }

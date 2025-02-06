@@ -1,5 +1,5 @@
 use parcom_core::{
-    IterativeParser, IterativeParserState,
+    IterativeParser, IterativeParserOnce, IterativeParserState,
     ParseResult::{self, *},
 };
 use std::marker::PhantomData;
@@ -20,9 +20,21 @@ impl<S, P: IterativeParser<S>> Take<S, P> {
     }
 }
 
-impl<S, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
+impl<S, P: IterativeParser<S>> IterativeParserOnce<S> for Take<S, P> {
     type Output = P::Output;
-    type Error = Option<P::Error>;
+    type Error = P::Error;
+    type StateOnce = IterationState<S, P::StateOnce>;
+
+    fn start_once(self) -> Self::StateOnce {
+        IterationState {
+            state: self.parser.start_once(),
+            left: self.count,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<S, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
     type State<'a>
         = IterationState<S, P::State<'a>>
     where
@@ -46,22 +58,20 @@ pub struct IterationState<S, P: IterativeParserState<S>> {
 
 impl<S, P: IterativeParserState<S>> IterativeParserState<S> for IterationState<S, P> {
     type Output = P::Output;
-    type Error = Option<P::Error>;
+    type Error = P::Error;
 
-    async fn parse_next(
-        &mut self,
-        input: S,
-    ) -> ParseResult<S, Result<Self::Output, Self::Error>, Self::Error> {
+    async fn parse_next(&mut self, input: S) -> ParseResult<S, Option<Self::Output>, Self::Error> {
         if self.left == 0 {
-            return Done(Err(None), input);
+            return Done(None, input);
         }
 
         match self.state.parse_next(input).await {
-            Done(v, r) => {
+            Done(Some(v), r) => {
                 self.left -= 1;
-                Done(v.map_err(Some), r)
+                Done(Some(v), r)
             }
-            Fail(e, r) => Fail(Some(e), r),
+            Done(None, r) => Done(None, r),
+            Fail(e, r) => Fail(e, r),
         }
     }
 }

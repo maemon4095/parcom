@@ -1,10 +1,11 @@
-use parcom_core::IterativeParser;
+use parcom_core::{IterativeParser, RewindStream};
 
 use crate::iterative::{Collect, MapEach, Take};
 
 pub trait IterativeParserExtension<S>: IterativeParser<S> {
     fn collect<C: Extend<Self::Output> + Default>(self) -> Collect<S, Self, C>
     where
+        S: RewindStream,
         Self: Sized,
     {
         Collect::new(self)

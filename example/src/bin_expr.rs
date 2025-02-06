@@ -6,7 +6,7 @@ use error::Miss;
 use parcom::{
     parsers::{
         bin_expr::{Associativity, BinExprParser, Operator},
-        primitive::str::{atom, atom_char},
+        primitive::{atom, the_char},
     },
     prelude::*,
 };
@@ -46,6 +46,7 @@ async fn expr<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, Expr, 
     BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
         .map_err(|_| ().into())
+        .boxed()
         .parse(input)
         .await
 }
@@ -149,7 +150,7 @@ impl Operator for Op {
 }
 
 async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
-    atom_char(' ')
+    the_char(' ')
         .repeat()
         .and_then(|(v, _)| if v.is_empty() { Err(Miss(())) } else { Ok(()) })
         .parse(input)
@@ -161,7 +162,7 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next(0).await else {
+            let Some(segment) = segments.next(Default::default()).await else {
                 return Fail(().into(), input.into());
             };
 
@@ -187,7 +188,7 @@ async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Mi
     let mut buf = String::new();
 
     let mut consumed_bytes = 0;
-    while let Some(segment) = segments.next(0).await {
+    while let Some(segment) = segments.next(Default::default()).await {
         let segment = segment.deref();
 
         let c = segment

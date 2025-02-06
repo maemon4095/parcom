@@ -14,17 +14,18 @@ pub trait RewindStream: Stream {
 }
 
 pub trait SegmentIterator: Unpin {
-    type Segment: ?Sized;
+    type Segment: ?Sized + StreamSegment;
     type Node: Deref<Target = Self::Segment>;
     type Next: Future<Output = Option<Self::Node>>;
 
-    fn next(&mut self, size_hint: usize) -> Self::Next;
+    fn next(&mut self, size_hint: <Self::Segment as StreamSegment>::Delta) -> Self::Next;
 }
 
 pub trait StreamSegment {
-    type Delta;
+    type Delta: Default + std::cmp::Ord;
 
-    fn slice(&self, delta: Self::Delta) -> &Self;
+    fn len(&self) -> Self::Delta;
+    fn split_at(&self, mid: Self::Delta) -> (&Self, &Self);
 }
 
 pub trait Stream: Sized {
