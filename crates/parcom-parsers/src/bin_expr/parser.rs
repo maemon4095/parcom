@@ -161,10 +161,9 @@ fn next_precedence<T: Operator>(op: &T) -> usize {
 #[cfg(test)]
 mod test {
     use super::{Associativity, BinExprParser, Operator};
-    use crate::primitive::the_char;
+    use crate::primitive::{any_char, the_char};
     use crate::{primitive::atom, ParserExtension};
     use parcom_base::{error::Miss, Either};
-    use parcom_core::SegmentIterator;
     use parcom_core::{
         ParseResult::{self, *},
         Parser, RewindStream, Stream,
@@ -284,6 +283,7 @@ mod test {
             }
         }
     }
+
     async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
         the_char(' ')
             .repeat()
@@ -299,30 +299,21 @@ mod test {
     }
 
     async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> {
-        let head = {
-            let mut segments = input.segments();
-
-            loop {
-                let Some(segment) = segments.next(Default::default()).await else {
-                    return Fail(().into(), input.into());
+        any_char()
+            .and_then(|head| {
+                let op = match head {
+                    '+' => Op::Add,
+                    '-' => Op::Sub,
+                    '*' => Op::Mul,
+                    '/' => Op::Div,
+                    '~' => Op::Til,
+                    _ => return Err(Miss(())),
                 };
 
-                if let Some(c) = segment.chars().next() {
-                    break c;
-                }
-            }
-        };
-
-        let op = match head {
-            '+' => Op::Add,
-            '-' => Op::Sub,
-            '*' => Op::Mul,
-            '/' => Op::Div,
-            '~' => Op::Til,
-            _ => return Fail(().into(), input.into()),
-        };
-
-        Done(op, input.advance(1.into()).await)
+                Ok(op)
+            })
+            .parse(input)
+            .await
     }
 
     async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {

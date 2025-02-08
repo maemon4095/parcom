@@ -1,5 +1,5 @@
 use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState, ParseError,
+    IterativeParser, IterativeParserOnce, IterativeParserState,
     ParseResult::{self, *},
     Parser, ParserOnce, RewindStream,
 };
@@ -50,11 +50,10 @@ async fn parse<S: RewindStream, P: IterativeParserState<S>, C: Extend<P::Output>
             Done(None, r) => {
                 return Done((collection, None), r.rewind(anchor).await);
             }
-            Done(v, r) => {
-                collection.extend(v);
+            Done(Some(v), r) => {
+                collection.extend(std::iter::once(v));
                 rest = r;
             }
-            Fail(e, r) if e.should_terminate() => return Fail(e, r),
             Fail(e, r) => {
                 return Done((collection, Some(e)), r.rewind(anchor).await);
             }

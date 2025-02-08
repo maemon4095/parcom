@@ -94,9 +94,16 @@ impl<S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<S
     type Error = P::Error;
 
     async fn parse_next(&mut self, input: S) -> ParseResult<S, Option<Self::Output>, Self::Error> {
+        let anchor = input.anchor();
         match self.parser.parse(input).await {
             ParseResult::Done(v, r) => ParseResult::Done(Some(v), r),
-            ParseResult::Fail(e, r) => ParseResult::Fail(e, r),
+            ParseResult::Fail(e, r) => {
+                if e.should_terminate() {
+                    ParseResult::Fail(e, r)
+                } else {
+                    ParseResult::Done(None, r.rewind(anchor).await)
+                }
+            }
         }
     }
 }

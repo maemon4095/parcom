@@ -47,7 +47,6 @@ pub trait IterativeParserState<S>: Sized {
 pub trait IterativeParserOnce<S> {
     type Output;
     type Error: ParseError;
-
     type StateOnce: IterativeParserState<S, Output = Self::Output, Error = Self::Error>;
 
     fn start_once(self) -> Self::StateOnce;
@@ -57,6 +56,7 @@ pub trait IterativeParser<S>: IterativeParserOnce<S> {
     type State<'a>: IterativeParserState<S, Output = Self::Output, Error = Self::Error>
     where
         Self: 'a;
+
     fn start(&self) -> Self::State<'_>;
 }
 

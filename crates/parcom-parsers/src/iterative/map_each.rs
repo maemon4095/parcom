@@ -2,13 +2,13 @@ use parcom_core::{IterativeParser, IterativeParserOnce, IterativeParserState, Pa
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct MapEach<S, P: IterativeParserOnce<S>, T, F: Fn(P::Output) -> T> {
+pub struct MapEach<S, P: IterativeParserOnce<S>, F> {
     parser: P,
     map: F,
     marker: PhantomData<S>,
 }
 
-impl<S, P: IterativeParserOnce<S>, T, F: Fn(P::Output) -> T> MapEach<S, P, T, F> {
+impl<S, P: IterativeParserOnce<S>, F> MapEach<S, P, F> {
     pub fn new(parser: P, map: F) -> Self {
         Self {
             parser,
@@ -19,7 +19,7 @@ impl<S, P: IterativeParserOnce<S>, T, F: Fn(P::Output) -> T> MapEach<S, P, T, F>
 }
 
 impl<S, P: IterativeParserOnce<S>, T, F: Fn(P::Output) -> T> IterativeParserOnce<S>
-    for MapEach<S, P, T, F>
+    for MapEach<S, P, F>
 {
     type Output = T;
     type Error = P::Error;
@@ -34,9 +34,7 @@ impl<S, P: IterativeParserOnce<S>, T, F: Fn(P::Output) -> T> IterativeParserOnce
     }
 }
 
-impl<S, P: IterativeParser<S>, T, F: Fn(P::Output) -> T> IterativeParser<S>
-    for MapEach<S, P, T, F>
-{
+impl<S, P: IterativeParser<S>, T, F: Fn(P::Output) -> T> IterativeParser<S> for MapEach<S, P, F> {
     type State<'a>
         = IterationState<S, P::State<'a>, T, &'a F>
     where
