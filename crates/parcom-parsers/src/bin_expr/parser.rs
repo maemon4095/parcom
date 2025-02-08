@@ -96,7 +96,7 @@ where
 
         // (lhs0 op0 (lhs1 op1 ... (lhsN opN rhs
         // 優先度は op0 <= op1 <= ... <= opN
-        let mut stack = ShortVec::<_, 8>::new();
+        let mut stack = ShortVec::<_, 4>::new();
 
         let reason = loop {
             let anchor = rest.anchor();
