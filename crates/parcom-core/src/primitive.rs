@@ -25,7 +25,7 @@ impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
     type Node = &'a T;
     type Next = std::future::Ready<Option<Self::Node>>;
 
-    fn next(&mut self, _: T::Delta) -> Self::Next {
+    fn next(&mut self, _: T::Length) -> Self::Next {
         std::future::ready(self.me.take())
     }
 }
@@ -33,14 +33,20 @@ impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BytesDelta(usize);
 
-impl From<usize> for BytesDelta {
-    fn from(value: usize) -> Self {
-        Self(value)
+impl BytesDelta {
+    pub fn from_bytes(bytes: usize) -> Self {
+        Self(bytes)
     }
-}
 
-impl Into<usize> for BytesDelta {
-    fn into(self) -> usize {
+    pub fn to_bytes(self) -> usize {
         self.0
+    }
+
+    pub fn from_char(char: char) -> Self {
+        Self::from_bytes(char.len_utf8())
+    }
+
+    pub fn from_str(str: &str) -> Self {
+        Self::from_bytes(str.len())
     }
 }

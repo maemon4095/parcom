@@ -36,13 +36,13 @@ impl<T> RewindStream for &[T] {
 }
 
 impl<T> StreamSegment for [T] {
-    type Delta = usize;
+    type Length = usize;
 
-    fn len(&self) -> Self::Delta {
+    fn len(&self) -> Self::Length {
         <[T]>::len(self)
     }
 
-    fn split_at(&self, mid: Self::Delta) -> (&Self, &Self) {
+    fn split_at(&self, mid: Self::Length) -> (&Self, &Self) {
         <[T]>::split_at(self, mid)
     }
 }

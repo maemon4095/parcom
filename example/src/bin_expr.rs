@@ -9,6 +9,7 @@ use parcom::{
         primitive::{atom, the_char},
     },
     prelude::*,
+    primitive::BytesDelta,
 };
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
@@ -180,7 +181,7 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
         _ => return Fail(().into(), input.into()),
     };
 
-    Done(op, input.advance(head.len_utf8().into()).await)
+    Done(op, input.advance(BytesDelta::from_char(head)).await)
 }
 
 async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Miss<()>> {
@@ -215,5 +216,8 @@ async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Mi
     }
     let n = usize::from_str_radix(&buf, 10).unwrap();
 
-    Done(n, input.advance(consumed_bytes.into()).await)
+    Done(
+        n,
+        input.advance(BytesDelta::from_bytes(consumed_bytes)).await,
+    )
 }

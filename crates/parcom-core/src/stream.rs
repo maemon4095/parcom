@@ -18,14 +18,14 @@ pub trait SegmentIterator: Unpin {
     type Node: Deref<Target = Self::Segment>;
     type Next: Future<Output = Option<Self::Node>>;
 
-    fn next(&mut self, size_hint: <Self::Segment as StreamSegment>::Delta) -> Self::Next;
+    fn next(&mut self, size_hint: <Self::Segment as StreamSegment>::Length) -> Self::Next;
 }
 
 pub trait StreamSegment {
-    type Delta: Default + std::cmp::Ord;
+    type Length: Default + std::cmp::Ord;
 
-    fn len(&self) -> Self::Delta;
-    fn split_at(&self, mid: Self::Delta) -> (&Self, &Self);
+    fn len(&self) -> Self::Length;
+    fn split_at(&self, mid: Self::Length) -> (&Self, &Self);
 }
 
 pub trait Stream: Sized {
@@ -34,7 +34,7 @@ pub trait Stream: Sized {
     type Advance: Future<Output = Self>;
 
     fn segments(&self) -> Self::SegmentIter;
-    fn advance(self, delta: <Self::Segment as StreamSegment>::Delta) -> Self::Advance;
+    fn advance(self, delta: <Self::Segment as StreamSegment>::Length) -> Self::Advance;
 }
 
 pub trait BindableStream: MeasuredStream {

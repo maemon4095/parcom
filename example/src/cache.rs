@@ -6,15 +6,14 @@ use parcom::{
     error::Miss,
     parsers::{
         bin_expr::{Associativity, BinExprParser, Operator},
-        primitive::{atom, the_char},
+        primitive::{any_char, atom, the_char},
         ParserExtension,
     },
-    Either,
-    ParseResult::{self, *},
-    Parser, RewindStream, SegmentIterator, Stream,
+    Either, ParseResult, Parser, RewindStream, Stream,
 };
-use std::{fs::File, io::Write};
-use std::{ops::Deref, time::Instant};
+use std::fs::File;
+use std::io::Write;
+use std::time::Instant;
 use tempfile::tempdir;
 
 #[cfg_attr(test, test)]
@@ -157,29 +156,20 @@ async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), M
 }
 
 async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> {
-    let head = {
-        let mut segments = input.segments();
-
-        loop {
-            let Some(segment) = segments.next(Default::default()).await else {
-                return Fail(().into(), input.into());
+    any_char()
+        .and_then(|head| {
+            let op = match head {
+                '+' => Op::Add,
+                '-' => Op::Sub,
+                '*' => Op::Mul,
+                '/' => Op::Div,
+                _ => return Err(Miss(())),
             };
 
-            if let Some(c) = segment.deref().chars().next() {
-                break c;
-            }
-        }
-    };
-
-    let op = match head {
-        '+' => Op::Add,
-        '-' => Op::Sub,
-        '*' => Op::Mul,
-        '/' => Op::Div,
-        _ => return Fail(().into(), input.into()),
-    };
-
-    Done(op, input.advance(head.len_utf8().into()).await)
+            Ok(op)
+        })
+        .parse(input)
+        .await
 }
 
 async fn zero<S: Stream<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {

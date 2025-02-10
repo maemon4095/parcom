@@ -1,7 +1,9 @@
 use std::marker::PhantomData;
 
 use parcom_base::error::Miss;
-use parcom_core::{ParseResult, Parser, ParserOnce, ParserResult, SegmentIterator, Stream};
+use parcom_core::{
+    primitive::BytesDelta, ParseResult, Parser, ParserOnce, ParserResult, SegmentIterator, Stream,
+};
 
 pub fn any_char<S: Stream<Segment = str>>() -> AnyChar<S> {
     AnyChar::new()
@@ -32,7 +34,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
-            return ParseResult::Done(c, input.advance(c.len_utf8().into()).await);
+            return ParseResult::Done(c, input.advance(BytesDelta::from_char(c)).await);
         }
 
         ParseResult::Fail(().into(), input.into())

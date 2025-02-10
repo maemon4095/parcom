@@ -11,8 +11,7 @@ impl<'a> Stream for &'a str {
     }
 
     fn advance(self, delta: BytesDelta) -> Self::Advance {
-        let delta: usize = delta.into();
-
+        let delta = delta.to_bytes();
         let rest = self.get(delta..).unwrap_or("");
         std::future::ready(rest)
     }
@@ -76,7 +75,7 @@ impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
 
     fn advance(mut self, delta: BytesDelta) -> Self::Advance {
         let segment = self.base;
-        let end = segment.len().min(delta.into());
+        let end = segment.len().min(delta.to_bytes());
         self.meter = self.meter.advance(&segment[..end]);
         self.base = self.base.advance(delta).into_inner();
         std::future::ready(self)
@@ -109,13 +108,13 @@ impl<'me, M: Metrics<str>> MeasuredStream for Measured<'me, M> {
 }
 
 impl StreamSegment for str {
-    type Delta = BytesDelta;
+    type Length = BytesDelta;
 
-    fn len(&self) -> Self::Delta {
-        str::len(self).into()
+    fn len(&self) -> Self::Length {
+        BytesDelta::from_str(self)
     }
 
-    fn split_at(&self, mid: Self::Delta) -> (&Self, &Self) {
+    fn split_at(&self, mid: Self::Length) -> (&Self, &Self) {
         str::split_at(&self, mid.0)
     }
 }

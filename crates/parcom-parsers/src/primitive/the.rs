@@ -1,5 +1,7 @@
 use parcom_base::error::Miss;
-use parcom_core::{ParseResult, Parser, ParserOnce, SegmentIterator, Stream};
+use parcom_core::{
+    primitive::BytesDelta, ParseResult, Parser, ParserOnce, SegmentIterator, Stream,
+};
 
 pub fn the_char(c: char) -> TheChar {
     TheChar { c }
@@ -21,13 +23,13 @@ impl<S: Stream<Segment = str>> Parser<S> for TheChar {
     async fn parse(&self, input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(self.c.len_utf8().into()).await {
+        while let Some(segment) = segments.next(BytesDelta::from_char(self.c)).await {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
 
             if c == self.c {
-                return ParseResult::Done((), input.advance(self.c.len_utf8().into()).await);
+                return ParseResult::Done((), input.advance(BytesDelta::from_char(self.c)).await);
             }
 
             break;

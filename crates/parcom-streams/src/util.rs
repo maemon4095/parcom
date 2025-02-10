@@ -18,7 +18,7 @@ impl<'me, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'me, T> {
     type Node = &'me T;
     type Next = std::future::Ready<Option<Self::Node>>;
 
-    fn next(&mut self, _: T::Delta) -> Self::Next {
+    fn next(&mut self, _: T::Length) -> Self::Next {
         std::future::ready(self.me.take())
     }
 }
