@@ -26,6 +26,11 @@ impl<T, const N: usize> ShortVec<T, N> {
     }
 
     pub fn with_capacity(cap: usize) -> Self {
+        assert!(
+            cap <= isize::MAX as usize,
+            "`cap` must not be greater than isize::MAX"
+        );
+
         if cap > N {
             let layout = Layout::array::<T>(cap).unwrap();
             let ptr = unsafe { alloc::alloc(layout) as *mut T };

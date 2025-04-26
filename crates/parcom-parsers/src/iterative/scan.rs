@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
 
-use parcom_core::{IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult};
+use parcom_core::{
+    IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Stream,
+};
 
 pub struct Scan<S, P, St, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
 {
     parser: P,
@@ -14,6 +17,7 @@ where
 
 impl<S, P, St, F> Scan<S, P, St, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
 {
     pub fn new(parser: P, initial_state: St, f: F) -> Self {
@@ -28,6 +32,7 @@ where
 
 impl<S, P, St, F, O> IterativeParserOnce<S> for Scan<S, P, St, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
     F: Fn(&mut St, P::Output) -> O,
 {
@@ -47,6 +52,7 @@ where
 
 impl<S, P, St, F, O> IterativeParser<S> for Scan<S, P, St, F>
 where
+    S: Stream,
     P: IterativeParser<S>,
     F: Fn(&mut St, P::Output) -> O,
     St: Clone,
@@ -68,6 +74,7 @@ where
 
 pub struct IterationState<S, P, St, F>
 where
+    S: Stream,
     P: IterativeParserState<S>,
 {
     parser_state: P,
@@ -78,6 +85,7 @@ where
 
 impl<S, P, St, F, O> IterativeParserState<S> for IterationState<S, P, St, F>
 where
+    S: Stream,
     F: Fn(&mut St, P::Output) -> O,
     P: IterativeParserState<S>,
 {
@@ -92,6 +100,7 @@ where
             }
             ParseResult::Done(None, r) => ParseResult::Done(None, r),
             ParseResult::Fail(e, r) => ParseResult::Fail(e, r),
+            ParseResult::StreamError(e, r) => ParseResult::StreamError(e, r),
         }
     }
 }

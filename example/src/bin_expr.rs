@@ -34,6 +34,7 @@ pub fn main() {
                 println!("error; rest: {}", rest.unwrap());
                 return;
             },
+            _ => unreachable!(),
         };
 
         println!("result: {} = {}", display(&expr), eval(&expr));
@@ -167,6 +168,11 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
                 return Fail(().into(), input.into());
             };
 
+            let segment = match segment {
+                Ok(v) => v,
+                Err(e) => return StreamError(e, input.into()),
+            };
+
             if let Some(c) = segment.chars().next() {
                 break c;
             }
@@ -190,6 +196,10 @@ async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Mi
 
     let mut consumed_bytes = 0;
     while let Some(segment) = segments.next(Default::default()).await {
+        let segment = match segment {
+            Ok(v) => v,
+            Err(e) => return StreamError(e, input.into()),
+        };
         let segment = segment.deref();
 
         let c = segment

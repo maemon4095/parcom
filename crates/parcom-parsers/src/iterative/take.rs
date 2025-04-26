@@ -1,16 +1,17 @@
 use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState,
     ParseResult::{self, *},
+    Stream,
 };
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Take<S, P: IterativeParser<S>> {
+pub struct Take<S: Stream, P: IterativeParser<S>> {
     parser: P,
     count: usize,
     marker: PhantomData<S>,
 }
-impl<S, P: IterativeParser<S>> Take<S, P> {
+impl<S: Stream, P: IterativeParser<S>> Take<S, P> {
     pub fn new(parser: P, count: usize) -> Self {
         Self {
             parser,
@@ -20,7 +21,7 @@ impl<S, P: IterativeParser<S>> Take<S, P> {
     }
 }
 
-impl<S, P: IterativeParser<S>> IterativeParserOnce<S> for Take<S, P> {
+impl<S: Stream, P: IterativeParser<S>> IterativeParserOnce<S> for Take<S, P> {
     type Output = P::Output;
     type Error = P::Error;
     type StateOnce = IterationState<S, P::StateOnce>;
@@ -34,7 +35,7 @@ impl<S, P: IterativeParser<S>> IterativeParserOnce<S> for Take<S, P> {
     }
 }
 
-impl<S, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
+impl<S: Stream, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
     type State<'a>
         = IterationState<S, P::State<'a>>
     where
@@ -50,13 +51,13 @@ impl<S, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
 }
 
 #[derive(Debug)]
-pub struct IterationState<S, P: IterativeParserState<S>> {
+pub struct IterationState<S: Stream, P: IterativeParserState<S>> {
     state: P,
     left: usize,
     marker: PhantomData<S>,
 }
 
-impl<S, P: IterativeParserState<S>> IterativeParserState<S> for IterationState<S, P> {
+impl<S: Stream, P: IterativeParserState<S>> IterativeParserState<S> for IterationState<S, P> {
     type Output = P::Output;
     type Error = P::Error;
 
@@ -72,6 +73,7 @@ impl<S, P: IterativeParserState<S>> IterativeParserState<S> for IterationState<S
             }
             Done(None, r) => Done(None, r),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }

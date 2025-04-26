@@ -1,12 +1,15 @@
 use std::future::Future;
 
-use crate::{ParseError, ParseResult, ParserResult};
+use crate::{ParseError, ParseResult, ParserResult, Stream};
 
-pub trait Parser<S>: ParserOnce<S> {
+// peekするだけのパーサも作りたい。`any_char().peek(&input)`のような使い方をしたい。
+// streamのextensionとして作るのがよいかも？重複したパーサの実装が必要なため。
+// `any_char().parse(input.peek()).await`
+pub trait Parser<S: Stream>: ParserOnce<S> {
     fn parse(&self, input: S) -> impl Future<Output = ParserResult<S, Self>>;
 }
 
-impl<S, O, E: ParseError, Fut, T: Fn(S) -> Fut> Parser<S> for T
+impl<S: Stream, O, E: ParseError, Fut, T: Fn(S) -> Fut> Parser<S> for T
 where
     Fut: Future<Output = ParseResult<S, O, E>>,
 {
@@ -15,7 +18,7 @@ where
     }
 }
 
-impl<S, O, E: ParseError, Fut, T: FnOnce(S) -> Fut> ParserOnce<S> for T
+impl<S: Stream, O, E: ParseError, Fut, T: FnOnce(S) -> Fut> ParserOnce<S> for T
 where
     Fut: Future<Output = ParseResult<S, O, E>>,
 {
@@ -27,14 +30,14 @@ where
     }
 }
 
-pub trait ParserOnce<S> {
+pub trait ParserOnce<S: Stream> {
     type Output;
     type Error: ParseError;
 
     fn parse_once(self, input: S) -> impl Future<Output = ParserResult<S, Self>>;
 }
 
-pub trait IterativeParserState<S>: Sized {
+pub trait IterativeParserState<S: Stream>: Sized {
     type Output;
     type Error: ParseError;
 
@@ -44,7 +47,7 @@ pub trait IterativeParserState<S>: Sized {
     ) -> impl Future<Output = ParseResult<S, Option<Self::Output>, Self::Error>>;
 }
 
-pub trait IterativeParserOnce<S> {
+pub trait IterativeParserOnce<S: Stream> {
     type Output;
     type Error: ParseError;
     type StateOnce: IterativeParserState<S, Output = Self::Output, Error = Self::Error>;
@@ -52,7 +55,7 @@ pub trait IterativeParserOnce<S> {
     fn start_once(self) -> Self::StateOnce;
 }
 
-pub trait IterativeParser<S>: IterativeParserOnce<S> {
+pub trait IterativeParser<S: Stream>: IterativeParserOnce<S> {
     type State<'a>: IterativeParserState<S, Output = Self::Output, Error = Self::Error>
     where
         Self: 'a;
@@ -60,7 +63,7 @@ pub trait IterativeParser<S>: IterativeParserOnce<S> {
     fn start(&self) -> Self::State<'_>;
 }
 
-impl<S, P: IterativeParser<S>> IterativeParser<S> for &P {
+impl<S: Stream, P: IterativeParser<S>> IterativeParser<S> for &P {
     type State<'a>
         = P::State<'a>
     where
@@ -70,7 +73,7 @@ impl<S, P: IterativeParser<S>> IterativeParser<S> for &P {
     }
 }
 
-impl<'a, S, P: IterativeParser<S>> IterativeParserOnce<S> for &'a P {
+impl<'a, S: Stream, P: IterativeParser<S>> IterativeParserOnce<S> for &'a P {
     type Output = P::Output;
     type Error = P::Error;
     type StateOnce = P::State<'a>;

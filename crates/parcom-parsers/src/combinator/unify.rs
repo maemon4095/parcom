@@ -1,10 +1,11 @@
 use parcom_base::Either;
-use parcom_core::{ParseError, ParseResult::*, Parser, ParserOnce, ParserResult};
+use parcom_core::{ParseError, ParseResult::*, Parser, ParserOnce, ParserResult, Stream};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct Unify<S, T0, T1, T, P>
 where
+    S: Stream,
     P: ParserOnce<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -15,6 +16,7 @@ where
 
 impl<S, T0, T1, T, P> Unify<S, T0, T1, T, P>
 where
+    S: Stream,
     P: ParserOnce<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -29,6 +31,7 @@ where
 
 impl<S, T0, T1, T, P> ParserOnce<S> for Unify<S, T0, T1, T, P>
 where
+    S: Stream,
     P: ParserOnce<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -41,12 +44,14 @@ where
             Done(Either::First(v), r) => Done(v.into(), r),
             Done(Either::Last(v), r) => Done(v.into(), r),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
 
 impl<S, T0, T1, T, P> Parser<S> for Unify<S, T0, T1, T, P>
 where
+    S: Stream,
     P: Parser<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -55,12 +60,14 @@ where
         match self.parser.parse(input).await {
             Done(e, r) => Done(e.unify(), r),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
 
 pub struct UnifyErr<S, T0, T1, T, P>
 where
+    S: Stream,
     P: ParserOnce<S, Error = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -71,6 +78,7 @@ where
 
 impl<S, T0, T1, T, P> UnifyErr<S, T0, T1, T, P>
 where
+    S: Stream,
     P: ParserOnce<S, Error = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -85,6 +93,7 @@ where
 
 impl<S, T0, T1, T, P> ParserOnce<S> for UnifyErr<S, T0, T1, T, P>
 where
+    S: Stream,
     P: ParserOnce<S, Error = Either<T0, T1>>,
     T0: Into<T> + ParseError,
     T1: Into<T> + ParseError,
@@ -98,12 +107,14 @@ where
             Done(v, r) => Done(v, r),
             Fail(Either::First(e), r) => Fail(e.into(), r),
             Fail(Either::Last(e), r) => Fail(e.into(), r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
 
 impl<S, T0, T1, T, P> Parser<S> for UnifyErr<S, T0, T1, T, P>
 where
+    S: Stream,
     P: Parser<S, Error = Either<T0, T1>>,
     T0: Into<T> + ParseError,
     T1: Into<T> + ParseError,
@@ -113,6 +124,7 @@ where
         match self.parser.parse(input).await {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e.unify(), r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }

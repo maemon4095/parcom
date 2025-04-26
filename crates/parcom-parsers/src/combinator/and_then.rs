@@ -3,11 +3,13 @@ use std::marker::PhantomData;
 use parcom_core::{
     ParseError,
     ParseResult::{self, *},
-    Parser, ParserOnce,
+    Parser, ParserOnce, Stream,
 };
 
+#[derive(Debug)]
 pub struct AndThen<S, P, O, E, F>
 where
+    S: Stream,
     P: ParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -18,6 +20,7 @@ where
 }
 impl<S, P, O, E, F> AndThen<S, P, O, E, F>
 where
+    S: Stream,
     P: ParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -33,6 +36,7 @@ where
 
 impl<S, P, O, E, F> ParserOnce<S> for AndThen<S, P, O, E, F>
 where
+    S: Stream,
     P: ParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -47,12 +51,14 @@ where
                 Err(e) => Fail(e, r.into()),
             },
             Fail(e, r) => Fail(e.into(), r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
 
 impl<S, P, O, E, F> Parser<S> for AndThen<S, P, O, E, F>
 where
+    S: Stream,
     P: Parser<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -64,6 +70,7 @@ where
                 Err(e) => Fail(e, r.into()),
             },
             Fail(e, r) => Fail(e.into(), r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }

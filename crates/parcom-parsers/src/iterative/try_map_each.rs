@@ -1,10 +1,11 @@
 use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult,
+    IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult, Stream,
 };
 use std::marker::PhantomData;
 
 pub struct TryMapEach<S, P, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
 {
     parser: P,
@@ -14,6 +15,7 @@ where
 
 impl<S, P, F> TryMapEach<S, P, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
 {
     pub fn new<O, E>(parser: P, f: F) -> Self
@@ -31,6 +33,7 @@ where
 
 impl<S, P, O, E, F> IterativeParserOnce<S> for TryMapEach<S, P, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: From<P::Error> + ParseError,
@@ -50,6 +53,7 @@ where
 
 impl<S, P, O, E, F> IterativeParser<S> for TryMapEach<S, P, F>
 where
+    S: Stream,
     P: IterativeParser<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: From<P::Error> + ParseError,
@@ -70,6 +74,7 @@ where
 
 pub struct IterationState<S, P, F>
 where
+    S: Stream,
     P: IterativeParserState<S>,
 {
     state: P,
@@ -79,6 +84,7 @@ where
 
 impl<S, P, O, E, F> IterativeParserState<S> for IterationState<S, P, F>
 where
+    S: Stream,
     P: IterativeParserState<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: From<P::Error> + ParseError,
@@ -100,6 +106,7 @@ where
             },
             ParseResult::Done(None, r) => ParseResult::Done(None, r),
             ParseResult::Fail(e, r) => ParseResult::Fail(e.into(), r),
+            ParseResult::StreamError(e, r) => ParseResult::StreamError(e, r),
         }
     }
 }

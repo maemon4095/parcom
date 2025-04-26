@@ -1,7 +1,7 @@
 pub mod slice;
 pub mod str;
 
-use crate::{SegmentIterator, StreamSegment};
+use crate::{Never, SegmentIterator, StreamSegment};
 
 pub struct Anchor<T> {
     me: T,
@@ -23,10 +23,14 @@ pub struct Nodes<'a, T: ?Sized> {
 impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
     type Segment = T;
     type Node = &'a T;
-    type Next = std::future::Ready<Option<Self::Node>>;
+    type Error = Never;
+    type Next<'b>
+        = std::future::Ready<Option<Result<Self::Node, Self::Error>>>
+    where
+        Self: 'b;
 
-    fn next(&mut self, _: T::Length) -> Self::Next {
-        std::future::ready(self.me.take())
+    fn next(&mut self, _: <Self::Segment as StreamSegment>::Length) -> Self::Next<'_> {
+        std::future::ready(self.me.take().map(Ok))
     }
 }
 
@@ -34,6 +38,8 @@ impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
 pub struct BytesDelta(usize);
 
 impl BytesDelta {
+    pub const ZERO: Self = Self(0);
+
     pub fn from_bytes(bytes: usize) -> Self {
         Self(bytes)
     }

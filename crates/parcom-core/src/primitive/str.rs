@@ -1,8 +1,11 @@
 use super::{Anchor, BytesDelta, Nodes};
-use crate::{IntoMeasured, MeasuredStream, Meter, Metrics, RewindStream, Stream, StreamSegment};
+use crate::{
+    IntoMeasured, MeasuredStream, Meter, Metrics, Never, RewindStream, Stream, StreamSegment,
+};
 
 impl<'a> Stream for &'a str {
     type Segment = str;
+    type Error = Never;
     type SegmentIter = Nodes<'a, str>;
     type Advance = std::future::Ready<Self>;
 
@@ -66,6 +69,7 @@ where
 
 impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
     type Segment = str;
+    type Error = Never;
     type SegmentIter = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
 

@@ -1,20 +1,21 @@
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub enum ParseResult<S, O, E: ParseError> {
+pub enum ParseResult<S: Stream, O, E: ParseError> {
     Done(O, S),
     Fail(E, UnknownLocation<S>),
+    StreamError(S::Error, UnknownLocation<S>),
 }
-
 use ParseResult::*;
 
-use crate::{ParseError, UnknownLocation};
+use crate::{ParseError, Stream, UnknownLocation};
 
-impl<S, O, E: ParseError> ParseResult<S, O, E> {
+impl<S: Stream, O, E: ParseError> ParseResult<S, O, E> {
     pub fn map<T>(self, f: impl FnOnce(O) -> T) -> ParseResult<S, T, E> {
         match self {
             Done(v, r) => Done(f(v), r),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 
@@ -22,12 +23,14 @@ impl<S, O, E: ParseError> ParseResult<S, O, E> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(f(e), r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 
     pub fn unwrap(self) -> (O, S)
     where
         E: Debug,
+        S::Error: Debug,
     {
         match self {
             Done(v, r) => (v, r),
@@ -35,19 +38,10 @@ impl<S, O, E: ParseError> ParseResult<S, O, E> {
                 "called ParseResult::unwrap on an Fail value; Error: {:?}.",
                 e
             ),
-        }
-    }
-    pub fn as_ref(&self) -> ParseResult<&S, &O, &E> {
-        match self {
-            Done(v, r) => Done(v, r),
-            Fail(e, r) => Fail(e, r.as_ref()),
-        }
-    }
-
-    pub fn as_result(&self) -> Result<&O, &E> {
-        match self {
-            Done(v, _) => Ok(v),
-            Fail(e, _) => Err(e),
+            StreamError(e, _) => panic!(
+                "called ParseResult::unwrap on an StreamError value; Error: {:?}.",
+                e
+            ),
         }
     }
 }

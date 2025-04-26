@@ -12,7 +12,7 @@ use std::{
 };
 
 use node::{ArcNode, Node};
-use parcom_core::{SegmentIterator, Stream};
+use parcom_core::{SegmentIterator, Stream, StreamSegment};
 
 use crate::util::Notify;
 
@@ -50,7 +50,10 @@ struct Segments<S: StreamSource> {
 // impl ParcomSegmentIterator for Segments where S::Item: ParcomStreamNode
 
 pub trait StreamNode: Sized + Deref<Target = Self::Segment> {
-    type Segment: ?Sized;
+    type Segment: ?Sized + StreamSegment;
 
-    fn advance(self, count: usize) -> Result<Self, usize>;
+    fn advance(
+        self,
+        delta: <Self::Segment as StreamSegment>::Length,
+    ) -> Result<Self, <Self::Segment as StreamSegment>::Length>;
 }

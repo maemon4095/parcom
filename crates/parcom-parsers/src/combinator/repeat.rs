@@ -1,6 +1,6 @@
 use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult, Parser,
-    ParserOnce, RewindStream,
+    ParserOnce, RewindStream, Stream,
 };
 use std::marker::PhantomData;
 
@@ -50,6 +50,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Repeat<S, P> {
                     rest = r.rewind(anchor).await;
                     break e;
                 }
+                ParseResult::StreamError(e, r) => return ParseResult::StreamError(e, r),
             }
         };
 
@@ -84,7 +85,7 @@ impl<S: RewindStream, P: Parser<S>> IterativeParser<S> for Repeat<S, P> {
 }
 
 #[derive(Debug)]
-pub struct IterationState<S, P: Parser<S>> {
+pub struct IterationState<S: Stream, P: Parser<S>> {
     parser: P,
     marker: PhantomData<S>,
 }
@@ -104,6 +105,7 @@ impl<S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<S
                     ParseResult::Done(None, r.rewind(anchor).await)
                 }
             }
+            ParseResult::StreamError(e, r) => return ParseResult::StreamError(e, r),
         }
     }
 }

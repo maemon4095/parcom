@@ -13,14 +13,6 @@ pub trait RewindStream: Stream {
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind;
 }
 
-pub trait SegmentIterator: Unpin {
-    type Segment: ?Sized + StreamSegment;
-    type Node: Deref<Target = Self::Segment>;
-    type Next: Future<Output = Option<Self::Node>>;
-
-    fn next(&mut self, size_hint: <Self::Segment as StreamSegment>::Length) -> Self::Next;
-}
-
 pub trait StreamSegment {
     type Length: Default + std::cmp::Ord;
 
@@ -28,9 +20,22 @@ pub trait StreamSegment {
     fn split_at(&self, mid: Self::Length) -> (&Self, &Self);
 }
 
+pub trait SegmentIterator {
+    type Segment: StreamSegment + ?Sized;
+    type Node: Deref<Target = Self::Segment>;
+    type Error;
+    type Next<'a>: 'a + std::future::Future<Output = Option<Result<Self::Node, Self::Error>>>
+    where
+        Self: 'a;
+
+    fn next(&mut self, size_hint: <Self::Segment as StreamSegment>::Length) -> Self::Next<'_>;
+}
+
 pub trait Stream: Sized {
     type Segment: StreamSegment + ?Sized;
-    type SegmentIter: SegmentIterator<Segment = Self::Segment>;
+    type Error;
+
+    type SegmentIter: SegmentIterator<Segment = Self::Segment, Error = Self::Error>;
     type Advance: Future<Output = Self>;
 
     fn segments(&self) -> Self::SegmentIter;

@@ -2,10 +2,12 @@ use std::marker::PhantomData;
 
 use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Parser, ParserOnce,
+    Stream,
 };
 
 pub struct Fold<S, P, A, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -17,6 +19,7 @@ where
 
 impl<S, P, A, F> Fold<S, P, A, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -32,6 +35,7 @@ where
 
 impl<S, P, A, F> ParserOnce<S> for Fold<S, P, A, F>
 where
+    S: Stream,
     P: IterativeParserOnce<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -48,6 +52,7 @@ where
 
 impl<S, P, A, F> Parser<S> for Fold<S, P, A, F>
 where
+    S: Stream,
     P: IterativeParser<S>,
     A: Clone,
     F: Fn(A, P::Output) -> A,
@@ -62,6 +67,7 @@ where
 
 async fn parse<S, P, A, F>(mut state: P, init: A, f: F, input: S) -> ParseResult<S, A, P::Error>
 where
+    S: Stream,
     P: IterativeParserState<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -75,6 +81,7 @@ where
             }
             ParseResult::Done(None, r) => return ParseResult::Done(acc, r),
             ParseResult::Fail(e, r) => return ParseResult::Fail(e, r),
+            ParseResult::StreamError(e, r) => return ParseResult::StreamError(e, r),
         }
     }
 }

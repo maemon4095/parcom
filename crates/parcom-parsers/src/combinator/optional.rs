@@ -29,6 +29,7 @@ impl<S: RewindStream, P: ParserOnce<S>> ParserOnce<S> for Optional<S, P> {
             Done(v, r) => Done(Ok(v), r),
             Fail(e, r) if !e.should_terminate() => Done(Err(e), r.rewind(anchor).await),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
@@ -40,6 +41,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
             Done(v, r) => Done(Ok(v), r),
             Fail(e, r) if !e.should_terminate() => Done(Err(e), r.rewind(anchor).await),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
@@ -84,6 +86,7 @@ impl<S: RewindStream, P: ParserOnce<S>> IterativeParserState<S> for IterationSta
         match me.parser.parse_once(input).await {
             Done(v, r) => Done(Some(v), r),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }
@@ -108,6 +111,7 @@ impl<'a, S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationSta
         match me.parser.parse(input).await {
             Done(v, r) => Done(Some(v), r),
             Fail(e, r) => Fail(e, r),
+            StreamError(e, r) => StreamError(e, r),
         }
     }
 }

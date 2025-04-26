@@ -1,8 +1,8 @@
-use parcom_core::{IterativeParser, ParseError, RewindStream};
+use parcom_core::{IterativeParser, ParseError, RewindStream, Stream};
 
 use crate::iterative::{Collect, Fold, MapEach, MapWhile, Scan, Take, TryMapEach};
 
-pub trait IterativeParserExtension<S>: IterativeParser<S> {
+pub trait IterativeParserExtension<S: Stream>: IterativeParser<S> {
     fn collect<C: Extend<Self::Output> + Default>(self) -> Collect<S, Self, C>
     where
         S: RewindStream,
@@ -58,4 +58,4 @@ pub trait IterativeParserExtension<S>: IterativeParser<S> {
     }
 }
 
-impl<S, P: IterativeParser<S>> IterativeParserExtension<S> for P {}
+impl<S: Stream, P: IterativeParser<S>> IterativeParserExtension<S> for P {}
