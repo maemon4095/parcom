@@ -55,7 +55,7 @@ where
                 Done((e, reason), rest)
             }
             Fail(e, r) => Fail(e, r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }
@@ -92,7 +92,7 @@ where
         let (rhs, mut rest) = match self.parser_term.parse(input).await {
             Done(v, r) => (v, r),
             Fail(e, r) => return Fail(Either::Last(e), r),
-            StreamError(e, r) => return StreamError(e, r),
+            StreamErr(e, r) => return StreamErr(e, r),
         };
         let mut rhs = Expr::from(rhs);
 
@@ -113,7 +113,7 @@ where
                     rest = r.rewind(anchor).await;
                     break Err(Either::First(e));
                 }
-                StreamError(e, r) => return StreamError(e, r),
+                StreamErr(e, r) => return StreamErr(e, r),
             };
 
             let (term, r) = match self.parser_term.parse(r).await {
@@ -123,7 +123,7 @@ where
                     break Err(Either::Last(e));
                 }
                 Fail(e, r) => return Fail(Either::Last(e), r),
-                StreamError(e, r) => return StreamError(e, r),
+                StreamErr(e, r) => return StreamErr(e, r),
             };
 
             rest = r;

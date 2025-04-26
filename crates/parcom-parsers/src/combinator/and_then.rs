@@ -51,7 +51,7 @@ where
                 Err(e) => Fail(e, r.into()),
             },
             Fail(e, r) => Fail(e.into(), r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }
@@ -70,7 +70,7 @@ where
                 Err(e) => Fail(e, r.into()),
             },
             Fail(e, r) => Fail(e.into(), r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }

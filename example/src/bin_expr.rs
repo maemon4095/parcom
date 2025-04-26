@@ -170,7 +170,7 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
 
             let segment = match segment {
                 Ok(v) => v,
-                Err(e) => return StreamError(e, input.into()),
+                Err(e) => return StreamErr(e, input.into()),
             };
 
             if let Some(c) = segment.chars().next() {
@@ -198,7 +198,7 @@ async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Mi
     while let Some(segment) = segments.next(Default::default()).await {
         let segment = match segment {
             Ok(v) => v,
-            Err(e) => return StreamError(e, input.into()),
+            Err(e) => return StreamErr(e, input.into()),
         };
         let segment = segment.deref();
 

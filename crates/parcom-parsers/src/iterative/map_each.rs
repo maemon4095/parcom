@@ -73,7 +73,7 @@ impl<S: Stream, P: IterativeParserState<S>, T, F: Fn(P::Output) -> T> IterativeP
         match self.state.parse_next(input).await {
             Done(v, r) => Done(v.map(&self.map), r),
             Fail(e, r) => Fail(e, r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }

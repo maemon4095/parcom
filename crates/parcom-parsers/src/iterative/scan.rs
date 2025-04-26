@@ -100,7 +100,7 @@ where
             }
             ParseResult::Done(None, r) => ParseResult::Done(None, r),
             ParseResult::Fail(e, r) => ParseResult::Fail(e, r),
-            ParseResult::StreamError(e, r) => ParseResult::StreamError(e, r),
+            ParseResult::StreamErr(e, r) => ParseResult::StreamErr(e, r),
         }
     }
 }

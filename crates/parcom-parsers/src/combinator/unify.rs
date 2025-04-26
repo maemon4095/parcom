@@ -44,7 +44,7 @@ where
             Done(Either::First(v), r) => Done(v.into(), r),
             Done(Either::Last(v), r) => Done(v.into(), r),
             Fail(e, r) => Fail(e, r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }
@@ -60,7 +60,7 @@ where
         match self.parser.parse(input).await {
             Done(e, r) => Done(e.unify(), r),
             Fail(e, r) => Fail(e, r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }
@@ -107,7 +107,7 @@ where
             Done(v, r) => Done(v, r),
             Fail(Either::First(e), r) => Fail(e.into(), r),
             Fail(Either::Last(e), r) => Fail(e.into(), r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }
@@ -124,7 +124,7 @@ where
         match self.parser.parse(input).await {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(e.unify(), r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }

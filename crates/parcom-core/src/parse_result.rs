@@ -4,7 +4,7 @@ use std::fmt::Debug;
 pub enum ParseResult<S: Stream, O, E: ParseError> {
     Done(O, S),
     Fail(E, UnknownLocation<S>),
-    StreamError(S::Error, UnknownLocation<S>),
+    StreamErr(S::Error, UnknownLocation<S>),
 }
 use ParseResult::*;
 
@@ -15,7 +15,7 @@ impl<S: Stream, O, E: ParseError> ParseResult<S, O, E> {
         match self {
             Done(v, r) => Done(f(v), r),
             Fail(e, r) => Fail(e, r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 
@@ -23,7 +23,7 @@ impl<S: Stream, O, E: ParseError> ParseResult<S, O, E> {
         match self {
             Done(v, r) => Done(v, r),
             Fail(e, r) => Fail(f(e), r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 
@@ -38,7 +38,7 @@ impl<S: Stream, O, E: ParseError> ParseResult<S, O, E> {
                 "called ParseResult::unwrap on an Fail value; Error: {:?}.",
                 e
             ),
-            StreamError(e, _) => panic!(
+            StreamErr(e, _) => panic!(
                 "called ParseResult::unwrap on an StreamError value; Error: {:?}.",
                 e
             ),

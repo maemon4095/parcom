@@ -34,7 +34,7 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
         while let Some(segment) = segments.next(remain.len()).await {
             let segment = match segment {
                 Ok(v) => v,
-                Err(e) => return ParseResult::StreamError(e, input.into()),
+                Err(e) => return ParseResult::StreamErr(e, input.into()),
             };
             if segment.len() >= remain.len() {
                 let s = segment.split_at(remain.len()).0;

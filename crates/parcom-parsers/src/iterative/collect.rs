@@ -57,7 +57,7 @@ async fn parse<S: RewindStream, P: IterativeParserState<S>, C: Extend<P::Output>
             Fail(e, r) => {
                 return Done((collection, Some(e)), r.rewind(anchor).await);
             }
-            StreamError(e, r) => return StreamError(e, r),
+            StreamErr(e, r) => return StreamErr(e, r),
         }
     }
 }

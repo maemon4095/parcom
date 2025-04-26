@@ -26,7 +26,7 @@ impl<S: Stream<Segment = str>> Parser<S> for TheChar {
         while let Some(segment) = segments.next(BytesDelta::from_char(self.c)).await {
             let segment = match segment {
                 Ok(v) => v,
-                Err(e) => return ParseResult::StreamError(e, input.into()),
+                Err(e) => return ParseResult::StreamErr(e, input.into()),
             };
 
             let Some(c) = segment.chars().next() else {
@@ -68,7 +68,7 @@ impl<T: PartialEq, S: Stream<Segment = [T]>> Parser<S> for TheItem<T> {
         while let Some(segment) = segments.next(1).await {
             let segment = match segment {
                 Ok(v) => v,
-                Err(e) => return ParseResult::StreamError(e, input.into()),
+                Err(e) => return ParseResult::StreamErr(e, input.into()),
             };
             let Some(item) = segment.iter().next() else {
                 continue;

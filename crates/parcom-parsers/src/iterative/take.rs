@@ -73,7 +73,7 @@ impl<S: Stream, P: IterativeParserState<S>> IterativeParserState<S> for Iteratio
             }
             Done(None, r) => Done(None, r),
             Fail(e, r) => Fail(e, r),
-            StreamError(e, r) => StreamError(e, r),
+            StreamErr(e, r) => StreamErr(e, r),
         }
     }
 }

@@ -33,7 +33,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
         while let Some(segment) = segments.next(BytesDelta::ZERO).await {
             let segment = match segment {
                 Ok(v) => v,
-                Err(e) => return ParseResult::StreamError(e, input.into()),
+                Err(e) => return ParseResult::StreamErr(e, input.into()),
             };
 
             let Some(c) = segment.chars().next() else {
@@ -74,7 +74,7 @@ impl<T: Clone, S: Stream<Segment = [T]>> Parser<S> for AnyItem<T, S> {
         while let Some(segment) = segments.next(1).await {
             let segment = match segment {
                 Ok(v) => v,
-                Err(e) => return ParseResult::StreamError(e, input.into()),
+                Err(e) => return ParseResult::StreamErr(e, input.into()),
             };
             if segment.is_empty() {
                 continue;

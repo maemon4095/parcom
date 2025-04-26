@@ -50,7 +50,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Repeat<S, P> {
                     rest = r.rewind(anchor).await;
                     break e;
                 }
-                ParseResult::StreamError(e, r) => return ParseResult::StreamError(e, r),
+                ParseResult::StreamErr(e, r) => return ParseResult::StreamErr(e, r),
             }
         };
 
@@ -105,7 +105,7 @@ impl<S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<S
                     ParseResult::Done(None, r.rewind(anchor).await)
                 }
             }
-            ParseResult::StreamError(e, r) => return ParseResult::StreamError(e, r),
+            ParseResult::StreamErr(e, r) => return ParseResult::StreamErr(e, r),
         }
     }
 }

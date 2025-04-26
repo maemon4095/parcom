@@ -30,7 +30,7 @@ impl<S: RewindStream, P0: ParserOnce<S>, P1: ParserOnce<S>> ParserOnce<S> for Or
             Done(v, r) => return Done(Either::First(v), r),
             Fail(e, r) if !e.should_terminate() => (e, r),
             Fail(e, r) => return Fail(EitherBoth::First(e), r),
-            StreamError(e, r) => return StreamError(e, r),
+            StreamErr(e, r) => return StreamErr(e, r),
         };
         let input = rest.rewind(anchor).await;
 
@@ -38,7 +38,7 @@ impl<S: RewindStream, P0: ParserOnce<S>, P1: ParserOnce<S>> ParserOnce<S> for Or
             Done(v, r) => return Done(Either::Last(v), r),
             Fail(e, r) if !e.should_terminate() => (e, r),
             Fail(e, r) => return Fail(EitherBoth::Last(e), r),
-            StreamError(e, r) => return StreamError(e, r),
+            StreamErr(e, r) => return StreamErr(e, r),
         };
 
         Fail(EitherBoth::Both(err0, err1), rest)
@@ -53,7 +53,7 @@ impl<S: RewindStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Or<S, P0, P1> 
             Done(v, r) => return Done(Either::First(v), r),
             Fail(e, r) if !e.should_terminate() => (e, r),
             Fail(e, r) => return Fail(EitherBoth::First(e), r),
-            StreamError(e, r) => return StreamError(e, r),
+            StreamErr(e, r) => return StreamErr(e, r),
         };
 
         let input = rest.rewind(anchor).await;
@@ -62,7 +62,7 @@ impl<S: RewindStream, P0: Parser<S>, P1: Parser<S>> Parser<S> for Or<S, P0, P1> 
             Done(v, r) => return Done(Either::Last(v), r),
             Fail(e, r) if !e.should_terminate() => (e, r),
             Fail(e, r) => return Fail(EitherBoth::Last(e), r),
-            StreamError(e, r) => return StreamError(e, r),
+            StreamErr(e, r) => return StreamErr(e, r),
         };
 
         Fail(EitherBoth::Both(err0, err1), rest)
