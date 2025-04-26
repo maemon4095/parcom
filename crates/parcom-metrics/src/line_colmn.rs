@@ -1,5 +1,5 @@
 use crate::end_of_line::{self, EndOfLine, EndOfLineMatch};
-use parcom_core::{Meter, Metrics};
+use parcom_core::measured::{Meter, Metrics};
 use std::marker::PhantomData;
 
 #[derive(Debug)]

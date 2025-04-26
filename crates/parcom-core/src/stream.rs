@@ -1,5 +1,8 @@
-pub use crate::measured::*;
+pub mod measured;
+
 use std::{future::Future, ops::Deref};
+
+pub use measured::MeasuredStream;
 
 pub trait ParseStream: MeasuredStream + RewindStream {}
 

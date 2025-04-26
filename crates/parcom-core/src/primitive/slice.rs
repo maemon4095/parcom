@@ -1,7 +1,7 @@
 use super::{Anchor, Nodes};
 use crate::{
-    IntoMeasured, MeasuredStream, Meter, Metrics, Never, PeekableStream, RewindStream, Stream,
-    StreamSegment,
+    measured::{IntoMeasured, Meter, Metrics},
+    MeasuredStream, Never, PeekableStream, RewindStream, Stream, StreamSegment,
 };
 
 impl<'a, T> Stream for &'a [T] {

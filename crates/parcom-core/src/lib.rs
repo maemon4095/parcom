@@ -4,10 +4,10 @@ mod parser;
 mod stream;
 mod unknown;
 
-pub mod measured;
 pub mod parse_error;
 pub mod primitive;
 
+pub use measured;
 pub use never::{Never, ShouldNever, ShouldNeverExtension};
 pub use parse_error::ParseError;
 pub use parse_result::ParseResult;
