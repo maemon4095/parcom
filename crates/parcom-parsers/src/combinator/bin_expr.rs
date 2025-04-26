@@ -1,4 +1,3 @@
-use super::{Associativity, Operator};
 use parcom_base::Either;
 use parcom_core::{
     ParseError,
@@ -7,6 +6,16 @@ use parcom_core::{
 };
 use parcom_internals::ShortVec;
 use std::marker::PhantomData;
+
+pub enum Associativity {
+    Left,
+    Right,
+}
+
+pub trait Operator {
+    fn precedence(&self) -> usize;
+    fn associativity(&self) -> Associativity;
+}
 
 // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
 #[derive(Debug)]
