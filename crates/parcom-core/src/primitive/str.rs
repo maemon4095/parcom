@@ -1,6 +1,7 @@
 use super::{Anchor, BytesDelta, Nodes};
 use crate::{
-    IntoMeasured, MeasuredStream, Meter, Metrics, Never, RewindStream, Stream, StreamSegment,
+    IntoMeasured, MeasuredStream, Meter, Metrics, Never, PeekableStream, RewindStream, Stream,
+    StreamSegment,
 };
 
 impl<'a> Stream for &'a str {
@@ -45,6 +46,17 @@ impl<'me> IntoMeasured for &'me str {
 
     fn into_measured_with<M: Metrics<Self::Segment>>(self, meter: M::Meter) -> Self::Measured<M> {
         Measured { meter, base: self }
+    }
+}
+
+impl PeekableStream for &str {
+    type Peek<'a>
+        = Self
+    where
+        Self: 'a;
+
+    fn peek(&self) -> Self::Peek<'_> {
+        self
     }
 }
 

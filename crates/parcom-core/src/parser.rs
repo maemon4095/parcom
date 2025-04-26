@@ -2,9 +2,6 @@ use std::future::Future;
 
 use crate::{ParseError, ParseResult, ParserResult, Stream};
 
-// peekするだけのパーサも作りたい。`any_char().peek(&input)`のような使い方をしたい。
-// streamのextensionとして作るのがよいかも？重複したパーサの実装が必要なため。
-// `any_char().parse(input.peek()).await`
 pub trait Parser<S: Stream>: ParserOnce<S> {
     fn parse(&self, input: S) -> impl Future<Output = ParserResult<S, Self>>;
 }

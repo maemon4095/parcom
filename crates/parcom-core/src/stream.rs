@@ -46,3 +46,11 @@ pub trait BindableStream: MeasuredStream {
     fn bind<T>(self, location: Self::Metrics, item: T) -> Self;
     fn get<T>(&self, location: Self::Metrics) -> Option<&T>;
 }
+
+pub trait PeekableStream: Stream {
+    type Peek<'a>: 'a + Stream<Segment = Self::Segment, Error = Self::Error>
+    where
+        Self: 'a;
+
+    fn peek(&self) -> Self::Peek<'_>;
+}
