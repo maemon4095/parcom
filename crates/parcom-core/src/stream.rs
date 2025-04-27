@@ -1,6 +1,6 @@
 pub mod measured;
 
-use std::{future::Future, ops::Deref};
+use std::future::Future;
 
 pub use measured::MeasuredStream;
 
@@ -10,7 +10,7 @@ impl<S: MeasuredStream + RewindStream> ParseStream for S {}
 
 pub trait RewindStream: Stream {
     type Anchor;
-    type Rewind: std::future::Future<Output = Self>;
+    type Rewind: Future<Output = Self>;
 
     fn anchor(&self) -> Self::Anchor;
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind;
@@ -25,9 +25,8 @@ pub trait StreamSegment {
 
 pub trait SegmentIterator {
     type Segment: StreamSegment + ?Sized;
-    type Node: Deref<Target = Self::Segment>;
     type Error;
-    type Next<'a>: 'a + std::future::Future<Output = Option<Result<Self::Node, Self::Error>>>
+    type Next<'a>: Future<Output = Option<Result<&'a Self::Segment, Self::Error>>>
     where
         Self: 'a;
 
@@ -41,7 +40,7 @@ pub trait Stream: Sized {
     type SegmentIter: SegmentIterator<Segment = Self::Segment, Error = Self::Error>;
     type Advance: Future<Output = Self>;
 
-    fn segments(&self) -> Self::SegmentIter;
+    fn segments(&mut self) -> Self::SegmentIter;
     fn advance(self, delta: <Self::Segment as StreamSegment>::Length) -> Self::Advance;
 }
 

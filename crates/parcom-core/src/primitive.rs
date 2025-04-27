@@ -22,10 +22,9 @@ pub struct Nodes<'a, T: ?Sized> {
 
 impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
     type Segment = T;
-    type Node = &'a T;
     type Error = Never;
     type Next<'b>
-        = std::future::Ready<Option<Result<Self::Node, Self::Error>>>
+        = std::future::Ready<Option<Result<&'b Self::Segment, Self::Error>>>
     where
         Self: 'b;
 

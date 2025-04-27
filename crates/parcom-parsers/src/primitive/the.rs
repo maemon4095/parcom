@@ -20,7 +20,7 @@ impl<S: Stream<Segment = str>> ParserOnce<S> for TheChar {
 }
 
 impl<S: Stream<Segment = str>> Parser<S> for TheChar {
-    async fn parse(&self, input: S) -> parcom_core::ParserResult<S, Self> {
+    async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(BytesDelta::from_char(self.c)).await {
@@ -62,7 +62,7 @@ impl<T: PartialEq, S: Stream<Segment = [T]>> ParserOnce<S> for TheItem<T> {
 }
 
 impl<T: PartialEq, S: Stream<Segment = [T]>> Parser<S> for TheItem<T> {
-    async fn parse(&self, input: S) -> parcom_core::ParserResult<S, Self> {
+    async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(1).await {

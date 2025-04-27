@@ -1,7 +1,5 @@
 #![cfg_attr(test, cfg(test))]
 
-use std::ops::Deref;
-
 use error::Miss;
 use parcom::{
     parsers::{
@@ -159,7 +157,7 @@ async fn space<S: RewindStream<Segment = str>>(input: S) -> ParseResult<S, (), M
         .await
 }
 
-async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> {
+async fn op<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss<()>> {
     let head = {
         let mut segments = input.segments();
 
@@ -190,7 +188,7 @@ async fn op<S: Stream<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> 
     Done(op, input.advance(BytesDelta::from_char(head)).await)
 }
 
-async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Miss<()>> {
+async fn integer<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, usize, Miss<()>> {
     let mut segments = input.segments();
     let mut buf = String::new();
 
@@ -200,7 +198,6 @@ async fn integer<S: Stream<Segment = str>>(input: S) -> ParseResult<S, usize, Mi
             Ok(v) => v,
             Err(e) => return StreamErr(e, input.into()),
         };
-        let segment = segment.deref();
 
         let c = segment
             .char_indices()

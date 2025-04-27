@@ -27,7 +27,7 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> ParserOnce<S> for Atom<P> 
 }
 
 impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
-    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut remain = self.pattern.pattern();
         let mut segments = input.segments();
 

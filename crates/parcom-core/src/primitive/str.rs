@@ -10,7 +10,7 @@ impl<'a> Stream for &'a str {
     type SegmentIter = Nodes<'a, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::SegmentIter {
+    fn segments(&mut self) -> Self::SegmentIter {
         Nodes { me: Some(self) }
     }
 
@@ -85,7 +85,7 @@ impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
     type SegmentIter = Nodes<'me, str>;
     type Advance = std::future::Ready<Self>;
 
-    fn segments(&self) -> Self::SegmentIter {
+    fn segments(&mut self) -> Self::SegmentIter {
         self.base.segments()
     }
 

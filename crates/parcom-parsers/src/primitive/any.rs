@@ -27,7 +27,7 @@ impl<S: Stream<Segment = str>> ParserOnce<S> for AnyChar<S> {
 }
 
 impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
-    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(BytesDelta::ZERO).await {
@@ -42,6 +42,7 @@ impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
             return ParseResult::Done(c, input.advance(BytesDelta::from_char(c)).await);
         }
 
+        drop(segments);
         ParseResult::Fail(().into(), input.into())
     }
 }
@@ -68,7 +69,7 @@ impl<T: Clone, S: Stream<Segment = [T]>> ParserOnce<S> for AnyItem<T, S> {
 }
 
 impl<T: Clone, S: Stream<Segment = [T]>> Parser<S> for AnyItem<T, S> {
-    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+    async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(1).await {

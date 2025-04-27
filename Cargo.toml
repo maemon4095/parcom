@@ -13,6 +13,7 @@ parcom-parsers = { path = "crates/parcom-parsers" }
 parcom-streams = { path = "crates/parcom-streams" }
 parcom-metrics = { path = "crates/parcom-metrics" }
 parcom-internals = { path = "crates/parcom-internals" }
+parcom-streams-core = { path = "crates/parcom-streams-core" }
 mockalloc = "0.1.2"
 pollster = "0.3.0"
 tokio = { version = "1.41.0", default-features = false }
