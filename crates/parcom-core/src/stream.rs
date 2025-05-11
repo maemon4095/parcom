@@ -38,7 +38,7 @@ pub trait Stream: Sized {
     type Error;
 
     type SegmentIter: SegmentIterator<Segment = Self::Segment, Error = Self::Error>;
-    type Advance: Future<Output = Self>;
+    type Advance: Future<Output = Self>; // これresultにしないとまずい.
 
     fn segments(&mut self) -> Self::SegmentIter;
     fn advance(self, delta: <Self::Segment as StreamSegment>::Length) -> Self::Advance;
@@ -50,6 +50,7 @@ pub trait BindableStream: MeasuredStream {
 }
 
 pub trait PeekableStream: Stream {
+    // extの実装を与える形にするか。iteratorを内部にもてば十分のはず。
     type Peek<'a>: 'a + Stream<Segment = Self::Segment, Error = Self::Error>
     where
         Self: 'a;
