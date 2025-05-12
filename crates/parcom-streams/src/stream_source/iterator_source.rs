@@ -36,13 +36,17 @@ where
     type Segment = [T];
     type Error = Never;
 
-    type Next<'a, C: StreamControl<Self>>
+    type Next<'a, C: StreamControl<Segment = Self::Segment, Error = Self::Error>>
         = std::future::Ready<C::Response>
     where
         I: 'a,
         T: 'a;
 
-    fn next<C: StreamControl<Self>>(&mut self, control: C, _size_hint: usize) -> Self::Next<'_, C> {
+    fn next<C: StreamControl<Segment = Self::Segment, Error = Self::Error>>(
+        &mut self,
+        control: C,
+        _size_hint: usize,
+    ) -> Self::Next<'_, C> {
         let Some(node) = self.iter.next() else {
             return std::future::ready(control.finish());
         };
