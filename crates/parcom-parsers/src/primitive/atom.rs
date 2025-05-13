@@ -1,7 +1,5 @@
-use parcom_base::error::Miss;
-use parcom_core::{
-    ParseResult, Parser, ParserOnce, ParserResult, SegmentIterator, Stream, StreamSegment,
-};
+use parcom_core::{Parser, ParserOnce, ParserResult, SegmentIterator, Stream, StreamSegment};
+use parcom_util::{done, error::Miss, fail, ResultExt};
 
 pub fn atom<P: AtomPattern>(pattern: P) -> Atom<P> {
     Atom::new(pattern)
@@ -32,29 +30,26 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(remain.len()).await {
-            let segment = match segment {
-                Ok(v) => v,
-                Err(e) => return ParseResult::StreamErr(e, input.into()),
-            };
+            let segment = segment.stream_err()?;
             if segment.len() >= remain.len() {
                 let s = segment.split_at(remain.len()).0;
                 return if s == remain {
-                    ParseResult::Done((), input.advance(remain.len()).await)
+                    done((), input.advance(remain.len()).await.stream_err()?)
                 } else {
-                    ParseResult::Fail(Miss(()), input.into())
+                    fail(Miss(()), input)
                 };
             }
 
             let (p, r) = remain.split_at(segment.len());
 
             if &*segment != p {
-                return ParseResult::Fail(Miss(()), input.into());
+                return fail(Miss(()), input);
             }
 
             remain = r;
         }
 
-        return ParseResult::Fail(().into(), input.into());
+        return fail(().into(), input);
     }
 }
 

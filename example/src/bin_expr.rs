@@ -8,6 +8,7 @@ use parcom::{
     },
     prelude::*,
     primitive::BytesDelta,
+    Error,
 };
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
@@ -24,11 +25,11 @@ pub fn main() {
         let result = expr(input).await;
 
         let expr = match result {
-            Done(expr, rest) => {
+            Ok((expr, rest)) => {
                 println!("  rest: {}", rest);
                 expr
             }
-            Fail(_, rest) => unsafe {
+            Err(Error::Fail(_, rest)) => unsafe {
                 println!("error; rest: {}", rest.unwrap());
                 return;
             },
@@ -163,14 +164,10 @@ async fn op<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss<(
 
         loop {
             let Some(segment) = segments.next(Default::default()).await else {
-                return Fail(().into(), input.into());
+                return fail(().into(), input);
             };
 
-            let segment = match segment {
-                Ok(v) => v,
-                Err(e) => return StreamErr(e, input.into()),
-            };
-
+            let segment = segment.stream_err()?;
             if let Some(c) = segment.chars().next() {
                 break c;
             }
@@ -182,10 +179,16 @@ async fn op<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss<(
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return Fail(().into(), input.into()),
+        _ => return fail(().into(), input),
     };
 
-    Done(op, input.advance(BytesDelta::from_char(head)).await)
+    done(
+        op,
+        input
+            .advance(BytesDelta::from_char(head))
+            .await
+            .stream_err()?,
+    )
 }
 
 async fn integer<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, usize, Miss<()>> {
@@ -194,11 +197,7 @@ async fn integer<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, usize
 
     let mut consumed_bytes = 0;
     while let Some(segment) = segments.next(Default::default()).await {
-        let segment = match segment {
-            Ok(v) => v,
-            Err(e) => return StreamErr(e, input.into()),
-        };
-
+        let segment = segment.stream_err()?;
         let c = segment
             .char_indices()
             .take_while(|(_, c)| c.is_ascii_digit())
@@ -219,12 +218,15 @@ async fn integer<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, usize
     }
 
     if consumed_bytes == 0 {
-        return Fail(().into(), input.into());
+        return fail(().into(), input);
     }
     let n = usize::from_str_radix(&buf, 10).unwrap();
 
-    Done(
+    done(
         n,
-        input.advance(BytesDelta::from_bytes(consumed_bytes)).await,
+        input
+            .advance(BytesDelta::from_bytes(consumed_bytes))
+            .await
+            .stream_err()?,
     )
 }

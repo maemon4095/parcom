@@ -1,6 +1,7 @@
 use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult, Stream,
 };
+use parcom_util::{done, fail};
 use std::marker::PhantomData;
 
 pub struct TryMapEach<S, P, F>
@@ -94,19 +95,18 @@ where
 
     async fn parse_next(&mut self, input: S) -> ParseResult<S, Option<Self::Output>, Self::Error> {
         match self.state.parse_next(input).await {
-            ParseResult::Done(Some(v), r) => match (self.f)(v) {
-                Ok(v) => ParseResult::Done(Some(v), r),
+            Ok((Some(v), r)) => match (self.f)(v) {
+                Ok(v) => done(Some(v), r),
                 Err(e) => {
                     if e.should_terminate() {
-                        ParseResult::Fail(e, r.into())
+                        fail(e, r)
                     } else {
-                        ParseResult::Done(None, r)
+                        done(None, r)
                     }
                 }
             },
-            ParseResult::Done(None, r) => ParseResult::Done(None, r),
-            ParseResult::Fail(e, r) => ParseResult::Fail(e.into(), r),
-            ParseResult::StreamErr(e, r) => ParseResult::StreamErr(e, r),
+            Ok((None, r)) => done(None, r),
+            Err(e) => Err(e.conv_fail()),
         }
     }
 }

@@ -1,6 +1,4 @@
-use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult::*, Stream,
-};
+use parcom_core::{IterativeParser, IterativeParserOnce, IterativeParserState, Stream};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -70,10 +68,9 @@ impl<S: Stream, P: IterativeParserState<S>, T, F: Fn(P::Output) -> T> IterativeP
         &mut self,
         input: S,
     ) -> parcom_core::ParseResult<S, Option<Self::Output>, Self::Error> {
-        match self.state.parse_next(input).await {
-            Done(v, r) => Done(v.map(&self.map), r),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
-        }
+        self.state
+            .parse_next(input)
+            .await
+            .map(|(v, r)| (v.map(&self.map), r))
     }
 }

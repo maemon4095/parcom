@@ -1,5 +1,5 @@
-use parcom_base::Either;
-use parcom_core::{ParseError, ParseResult::*, Parser, ParserOnce, ParserResult, Stream};
+use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Stream};
+use parcom_util::{done, Either};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -40,11 +40,9 @@ where
     type Error = P::Error;
 
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse_once(input).await {
-            Done(Either::First(v), r) => Done(v.into(), r),
-            Done(Either::Last(v), r) => Done(v.into(), r),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+        match self.parser.parse_once(input).await? {
+            (Either::First(v), r) => done(v.into(), r),
+            (Either::Last(v), r) => done(v.into(), r),
         }
     }
 }
@@ -57,10 +55,8 @@ where
     T1: Into<T>,
 {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse(input).await {
-            Done(e, r) => Done(e.unify(), r),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+        match self.parser.parse(input).await? {
+            (e, r) => done(e.unify(), r),
         }
     }
 }
@@ -103,12 +99,12 @@ where
     type Error = T;
 
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse_once(input).await {
-            Done(v, r) => Done(v, r),
-            Fail(Either::First(e), r) => Fail(e.into(), r),
-            Fail(Either::Last(e), r) => Fail(e.into(), r),
-            StreamErr(e, r) => StreamErr(e, r),
-        }
+        self.parser.parse_once(input).await.map_err(|e| {
+            e.map_fail(|e| match e {
+                Either::First(e) => e.into(),
+                Either::Last(e) => e.into(),
+            })
+        })
     }
 }
 
@@ -121,10 +117,9 @@ where
     T: ParseError,
 {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        match self.parser.parse(input).await {
-            Done(v, r) => Done(v, r),
-            Fail(e, r) => Fail(e.unify(), r),
-            StreamErr(e, r) => StreamErr(e, r),
-        }
+        self.parser
+            .parse(input)
+            .await
+            .map_err(|e| e.map_fail(|e| e.unify()))
     }
 }

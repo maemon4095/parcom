@@ -10,7 +10,7 @@ impl<S: MeasuredStream + RewindStream> ParseStream for S {}
 
 pub trait RewindStream: Stream {
     type Anchor;
-    type Rewind: Future<Output = Self>;
+    type Rewind: Future<Output = Result<Self, Self::Error>>;
 
     fn anchor(&self) -> Self::Anchor;
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind;
@@ -38,7 +38,7 @@ pub trait Stream: Sized {
     type Error;
 
     type SegmentIter: SegmentIterator<Segment = Self::Segment, Error = Self::Error>;
-    type Advance: Future<Output = Self>; // これresultにしないとまずい.
+    type Advance: Future<Output = Result<Self, Self::Error>>;
 
     fn segments(&mut self) -> Self::SegmentIter;
     fn advance(self, delta: <Self::Segment as StreamSegment>::Length) -> Self::Advance;

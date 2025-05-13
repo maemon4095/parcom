@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 parcom-core = { workspace = true }
-parcom-base = { workspace = true }
+parcom-util = { workspace = true }
 parcom-internals = { workspace = true }
 
 [dev-dependencies]

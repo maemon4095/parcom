@@ -16,7 +16,7 @@ impl<T: Default> VecBufferWriter<T> {
         Request { offset, buf }
     }
 
-    pub fn finish(self) -> Vec<T> {
+    pub fn into_inner(self) -> Vec<T> {
         self.buf
     }
 }

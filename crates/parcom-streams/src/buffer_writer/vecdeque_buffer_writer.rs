@@ -24,7 +24,7 @@ impl<T: Default> VecDequeBufferWriter<T> {
         Request { offset, buf }
     }
 
-    pub fn finish(self) -> VecDeque<T> {
+    pub fn into_inner(self) -> VecDeque<T> {
         self.buf
     }
 }

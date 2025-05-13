@@ -4,6 +4,7 @@ use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Parser, ParserOnce,
     Stream,
 };
+use parcom_util::done;
 
 pub struct Fold<S, P, A, F>
 where
@@ -74,14 +75,12 @@ where
     let mut acc = init;
     let mut rest = input;
     loop {
-        match state.parse_next(rest).await {
-            ParseResult::Done(Some(v), r) => {
+        match state.parse_next(rest).await? {
+            (Some(v), r) => {
                 acc = f(acc, v);
                 rest = r;
             }
-            ParseResult::Done(None, r) => return ParseResult::Done(acc, r),
-            ParseResult::Fail(e, r) => return ParseResult::Fail(e, r),
-            ParseResult::StreamErr(e, r) => return ParseResult::StreamErr(e, r),
+            (None, r) => return done(acc, r),
         }
     }
 }

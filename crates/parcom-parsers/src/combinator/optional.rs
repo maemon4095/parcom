@@ -1,8 +1,8 @@
 use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState, ParseError,
-    ParseResult::{self, *},
-    Parser, ParserOnce, ParserResult, RewindStream,
+    Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, Parser,
+    ParserOnce, ParserResult, RewindStream,
 };
+use parcom_util::{done, fail, ResultExt};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -26,10 +26,12 @@ impl<S: RewindStream, P: ParserOnce<S>> ParserOnce<S> for Optional<S, P> {
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
         let anchor = input.anchor();
         match self.parser.parse_once(input).await {
-            Done(v, r) => Done(Ok(v), r),
-            Fail(e, r) if !e.should_terminate() => Done(Err(e), r.rewind(anchor).await),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+            Ok((v, r)) => done(Ok(v), r),
+            Err(Error::Fail(e, r)) if !e.should_terminate() => {
+                done(Err(e), r.rewind(anchor).await.stream_err()?)
+            }
+            Err(Error::Fail(e, r)) => fail(e, r),
+            Err(Error::Stream(e)) => Err(Error::Stream(e)),
         }
     }
 }
@@ -38,10 +40,12 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let anchor = input.anchor();
         match self.parser.parse(input).await {
-            Done(v, r) => Done(Ok(v), r),
-            Fail(e, r) if !e.should_terminate() => Done(Err(e), r.rewind(anchor).await),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+            Ok((v, r)) => done(Ok(v), r),
+            Err(Error::Fail(e, r)) if !e.should_terminate() => {
+                done(Err(e), r.rewind(anchor).await.stream_err()?)
+            }
+            Err(Error::Fail(e, r)) => fail(e, r),
+            Err(Error::Stream(e)) => Err(Error::Stream(e)),
         }
     }
 }
@@ -80,13 +84,15 @@ impl<S: RewindStream, P: ParserOnce<S>> IterativeParserState<S> for IterationSta
         input: S,
     ) -> parcom_core::ParseResult<S, Option<Self::Output>, Self::Error> {
         let Some(me) = self.me.take() else {
-            return ParseResult::Done(None, input);
+            return done(None, input);
         };
 
+        let anchor = input.anchor();
         match me.parser.parse_once(input).await {
-            Done(v, r) => Done(Some(v), r),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+            Ok((v, r)) => done(Some(v), r),
+            Err(Error::Fail(e, r)) if e.should_terminate() => Err(Error::Fail(e, r)),
+            Err(Error::Fail(_, r)) => done(None, r.rewind(anchor).await.stream_err()?),
+            Err(Error::Stream(_)) => todo!(),
         }
     }
 }
@@ -105,13 +111,15 @@ impl<'a, S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationSta
         input: S,
     ) -> parcom_core::ParseResult<S, Option<Self::Output>, Self::Error> {
         let Some(me) = self.me.take() else {
-            return Done(None, input);
+            return done(None, input);
         };
 
+        let anchor = input.anchor();
         match me.parser.parse(input).await {
-            Done(v, r) => Done(Some(v), r),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+            Ok((v, r)) => done(Some(v), r),
+            Err(Error::Fail(e, r)) if e.should_terminate() => Err(Error::Fail(e, r)),
+            Err(Error::Fail(_, r)) => done(None, r.rewind(anchor).await.stream_err()?),
+            Err(Error::Stream(_)) => todo!(),
         }
     }
 }

@@ -280,11 +280,11 @@ mod test {
         }
 
         fn cancel(self, err: Self::Error) -> Self::Response {
-            Err((self.writer.finish(), err))
+            Err((self.writer.into_inner(), err))
         }
 
         fn finish(self) -> Self::Response {
-            Ok((self.writer.finish(), true))
+            Ok((self.writer.into_inner(), true))
         }
     }
 
@@ -319,9 +319,13 @@ mod test {
                 match res {
                     Ok((v, done)) => {
                         buf = v;
-                        println!("{}", std::str::from_utf8(&buf).unwrap());
+
+                        let r = std::str::from_utf8(&buf).unwrap();
+
+                        assert!(text.starts_with(r));
 
                         if done {
+                            assert_eq!(r, text);
                             break;
                         }
                     }

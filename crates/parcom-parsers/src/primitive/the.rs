@@ -1,7 +1,5 @@
-use parcom_base::error::Miss;
-use parcom_core::{
-    primitive::BytesDelta, ParseResult, Parser, ParserOnce, SegmentIterator, Stream,
-};
+use parcom_core::{primitive::BytesDelta, Parser, ParserOnce, SegmentIterator, Stream};
+use parcom_util::{done, error::Miss, fail, ResultExt};
 
 pub fn the_char(c: char) -> TheChar {
     TheChar { c }
@@ -24,23 +22,26 @@ impl<S: Stream<Segment = str>> Parser<S> for TheChar {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(BytesDelta::from_char(self.c)).await {
-            let segment = match segment {
-                Ok(v) => v,
-                Err(e) => return ParseResult::StreamErr(e, input.into()),
-            };
+            let segment = segment.stream_err()?;
 
             let Some(c) = segment.chars().next() else {
                 continue;
             };
 
             if c == self.c {
-                return ParseResult::Done((), input.advance(BytesDelta::from_char(self.c)).await);
+                return done(
+                    (),
+                    input
+                        .advance(BytesDelta::from_char(self.c))
+                        .await
+                        .stream_err()?,
+                );
             }
 
             break;
         }
 
-        ParseResult::Fail(().into(), input.into())
+        fail(().into(), input)
     }
 }
 
@@ -66,21 +67,18 @@ impl<T: PartialEq, S: Stream<Segment = [T]>> Parser<S> for TheItem<T> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(1).await {
-            let segment = match segment {
-                Ok(v) => v,
-                Err(e) => return ParseResult::StreamErr(e, input.into()),
-            };
+            let segment = segment.stream_err()?;
             let Some(item) = segment.iter().next() else {
                 continue;
             };
 
             if item == &self.item {
-                return ParseResult::Done((), input.advance(1).await);
+                return done((), input.advance(1).await.stream_err()?);
             }
 
             break;
         }
 
-        ParseResult::Fail(().into(), input.into())
+        fail(().into(), input)
     }
 }

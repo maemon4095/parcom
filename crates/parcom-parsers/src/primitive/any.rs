@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use parcom_base::error::Miss;
 use parcom_core::{
-    primitive::BytesDelta, ParseResult, Parser, ParserOnce, ParserResult, SegmentIterator, Stream,
+    primitive::BytesDelta, Parser, ParserOnce, ParserResult, SegmentIterator, Stream,
 };
+use parcom_util::{done, error::Miss, fail, ResultExt};
 
 pub fn any_char<S: Stream<Segment = str>>() -> AnyChar<S> {
     AnyChar::new()
@@ -31,19 +31,19 @@ impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(BytesDelta::ZERO).await {
-            let segment = match segment {
-                Ok(v) => v,
-                Err(e) => return ParseResult::StreamErr(e, input.into()),
-            };
+            let segment = segment.stream_err()?;
 
             let Some(c) = segment.chars().next() else {
                 continue;
             };
-            return ParseResult::Done(c, input.advance(BytesDelta::from_char(c)).await);
+            return done(
+                c,
+                input.advance(BytesDelta::from_char(c)).await.stream_err()?,
+            );
         }
 
         drop(segments);
-        ParseResult::Fail(().into(), input.into())
+        fail(().into(), input)
     }
 }
 
@@ -73,17 +73,14 @@ impl<T: Clone, S: Stream<Segment = [T]>> Parser<S> for AnyItem<T, S> {
         let mut segments = input.segments();
 
         while let Some(segment) = segments.next(1).await {
-            let segment = match segment {
-                Ok(v) => v,
-                Err(e) => return ParseResult::StreamErr(e, input.into()),
-            };
+            let segment = segment.stream_err()?;
             if segment.is_empty() {
                 continue;
             }
 
-            return ParseResult::Done(segment[0].clone(), input.advance(1).await);
+            return done(segment[0].clone(), input.advance(1).await.stream_err()?);
         }
 
-        ParseResult::Fail(().into(), input.into())
+        fail(().into(), input)
     }
 }

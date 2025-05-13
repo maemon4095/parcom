@@ -8,20 +8,20 @@ impl<'a, T> Stream for &'a [T] {
     type Segment = [T];
     type Error = Never;
     type SegmentIter = Nodes<'a, [T]>;
-    type Advance = std::future::Ready<Self>;
+    type Advance = std::future::Ready<Result<Self, Never>>;
 
     fn segments(&mut self) -> Self::SegmentIter {
         Nodes { me: Some(self) }
     }
 
     fn advance(self, count: usize) -> Self::Advance {
-        std::future::ready(&self[count..])
+        std::future::ready(Ok(&self[count..]))
     }
 }
 
 impl<T> RewindStream for &[T] {
     type Anchor = Anchor<Self>;
-    type Rewind = std::future::Ready<Self>;
+    type Rewind = std::future::Ready<Result<Self, Never>>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self }
@@ -32,7 +32,7 @@ impl<T> RewindStream for &[T] {
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
         if !offset.is_negative() && (offset as usize) <= len {
-            std::future::ready(anchor.me)
+            std::future::ready(Ok(anchor.me))
         } else {
             panic!("the anchor is not an anchor of this stream.")
         }
@@ -93,7 +93,7 @@ impl<'me, T, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
     type Segment = [T];
     type Error = Never;
     type SegmentIter = Nodes<'me, [T]>;
-    type Advance = std::future::Ready<Self>;
+    type Advance = std::future::Ready<Result<Self, Never>>;
 
     fn segments(&mut self) -> Self::SegmentIter {
         self.base.segments()
@@ -103,8 +103,8 @@ impl<'me, T, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
         let segment = self.base;
         let end = segment.len().min(delta);
         self.meter = self.meter.advance(&segment[..end]);
-        self.base = self.base.advance(delta).into_inner();
-        std::future::ready(self)
+        self.base = self.base.advance(delta).into_inner().unwrap();
+        std::future::ready(Ok(self))
     }
 }
 
@@ -114,14 +114,14 @@ where
     M::Meter: Clone,
 {
     type Anchor = Anchor<Self>;
-    type Rewind = std::future::Ready<Self>;
+    type Rewind = std::future::Ready<Result<Self, Never>>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self.clone() }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
-        std::future::ready(anchor.me)
+        std::future::ready(Ok(anchor.me))
     }
 }
 

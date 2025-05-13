@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Stream,
 };
+use parcom_util::done;
 
 pub struct Scan<S, P, St, F>
 where
@@ -93,14 +94,12 @@ where
     type Error = P::Error;
 
     async fn parse_next(&mut self, input: S) -> ParseResult<S, Option<Self::Output>, Self::Error> {
-        match self.parser_state.parse_next(input).await {
-            ParseResult::Done(Some(v), r) => {
+        match self.parser_state.parse_next(input).await? {
+            (Some(v), r) => {
                 let o = (self.f)(&mut self.state, v);
-                ParseResult::Done(Some(o), r)
+                done(Some(o), r)
             }
-            ParseResult::Done(None, r) => ParseResult::Done(None, r),
-            ParseResult::Fail(e, r) => ParseResult::Fail(e, r),
-            ParseResult::StreamErr(e, r) => ParseResult::StreamErr(e, r),
+            (None, r) => done(None, r),
         }
     }
 }

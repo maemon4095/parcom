@@ -1,8 +1,7 @@
 use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState,
-    ParseResult::{self, *},
-    Stream,
+    IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Stream,
 };
+use parcom_util::done;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -63,17 +62,15 @@ impl<S: Stream, P: IterativeParserState<S>> IterativeParserState<S> for Iteratio
 
     async fn parse_next(&mut self, input: S) -> ParseResult<S, Option<Self::Output>, Self::Error> {
         if self.left == 0 {
-            return Done(None, input);
+            return done(None, input);
         }
 
-        match self.state.parse_next(input).await {
-            Done(Some(v), r) => {
+        match self.state.parse_next(input).await? {
+            (Some(v), r) => {
                 self.left -= 1;
-                Done(Some(v), r)
+                done(Some(v), r)
             }
-            Done(None, r) => Done(None, r),
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
+            (None, r) => done(None, r),
         }
     }
 }

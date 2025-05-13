@@ -23,12 +23,18 @@ impl<S: Stream, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> ParserOnce<S> fo
     type Error = P::Error;
 
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse_once(input).await.map(self.mapping)
+        self.parser
+            .parse_once(input)
+            .await
+            .map(|(v, r)| ((self.mapping)(v), r))
     }
 }
 impl<S: Stream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).await.map(&self.mapping)
+        self.parser
+            .parse(input)
+            .await
+            .map(|(v, r)| ((self.mapping)(v), r))
     }
 }
 
@@ -56,7 +62,10 @@ impl<S: Stream, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> Parse
     type Error = U;
 
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse_once(input).await.map_err(self.mapping)
+        self.parser
+            .parse_once(input)
+            .await
+            .map_err(|e| e.map_fail(self.mapping))
     }
 }
 
@@ -64,6 +73,9 @@ impl<S: Stream, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> Parser<S>
     for MapErr<S, P, U, F>
 {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse(input).await.map_err(&self.mapping)
+        self.parser
+            .parse(input)
+            .await
+            .map_err(|e| e.map_fail(&self.mapping))
     }
 }

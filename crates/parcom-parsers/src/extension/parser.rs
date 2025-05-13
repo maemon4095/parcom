@@ -1,6 +1,6 @@
 use crate::{util::Boxed, AndThen, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
-use parcom_base::Either;
 use parcom_core::{ParseError, Parser, ParserOnce, RewindStream, Stream};
+use parcom_util::Either;
 
 pub trait ParserExtension<S: Stream>: ParserOnce<S> {
     fn optional(self) -> Optional<S, Self>

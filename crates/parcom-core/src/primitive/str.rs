@@ -8,7 +8,7 @@ impl<'a> Stream for &'a str {
     type Segment = str;
     type Error = Never;
     type SegmentIter = Nodes<'a, str>;
-    type Advance = std::future::Ready<Self>;
+    type Advance = std::future::Ready<Result<Self, Never>>;
 
     fn segments(&mut self) -> Self::SegmentIter {
         Nodes { me: Some(self) }
@@ -17,13 +17,13 @@ impl<'a> Stream for &'a str {
     fn advance(self, delta: BytesDelta) -> Self::Advance {
         let delta = delta.to_bytes();
         let rest = self.get(delta..).unwrap_or("");
-        std::future::ready(rest)
+        std::future::ready(Ok(rest))
     }
 }
 
 impl RewindStream for &str {
     type Anchor = Anchor<Self>;
-    type Rewind = std::future::Ready<Self>;
+    type Rewind = std::future::Ready<Result<Self, Never>>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self }
@@ -34,7 +34,7 @@ impl RewindStream for &str {
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
         if !offset.is_negative() && (offset as usize) <= len {
-            std::future::ready(anchor.me)
+            std::future::ready(Ok(anchor.me))
         } else {
             panic!("the anchor is not an anchor of this stream.")
         }
@@ -83,7 +83,7 @@ impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
     type Segment = str;
     type Error = Never;
     type SegmentIter = Nodes<'me, str>;
-    type Advance = std::future::Ready<Self>;
+    type Advance = std::future::Ready<Result<Self, Never>>;
 
     fn segments(&mut self) -> Self::SegmentIter {
         self.base.segments()
@@ -93,8 +93,8 @@ impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
         let segment = self.base;
         let end = segment.len().min(delta.to_bytes());
         self.meter = self.meter.advance(&segment[..end]);
-        self.base = self.base.advance(delta).into_inner();
-        std::future::ready(self)
+        self.base = self.base.advance(delta).into_inner().unwrap();
+        std::future::ready(Ok(self))
     }
 }
 
@@ -104,14 +104,14 @@ where
     M::Meter: Clone,
 {
     type Anchor = Anchor<Self>;
-    type Rewind = std::future::Ready<Self>;
+    type Rewind = std::future::Ready<Result<Self, Never>>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self.clone() }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
-        std::future::ready(anchor.me)
+        std::future::ready(Ok(anchor.me))
     }
 }
 

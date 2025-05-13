@@ -8,7 +8,7 @@ edition = "2021"
 
 [workspace.dependencies]
 parcom-core = { path = "crates/parcom-core" }
-parcom-base = { path = "crates/parcom-base" }
+parcom-util = { path = "crates/parcom-util" }
 parcom-parsers = { path = "crates/parcom-parsers" }
 parcom-streams = { path = "crates/parcom-streams" }
 parcom-metrics = { path = "crates/parcom-metrics" }

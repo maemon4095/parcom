@@ -78,6 +78,6 @@ where
         self.state
             .parse_next(input)
             .await
-            .map(|v| v.and_then(&self.f))
+            .map(|(v, r)| (v.and_then(&self.f), r))
     }
 }

@@ -1,7 +1,8 @@
 use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult, Parser,
-    ParserOnce, RewindStream, Stream,
+    Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult,
+    Parser, ParserOnce, RewindStream, Stream,
 };
+use parcom_util::{done, fail, ResultExt};
 use std::marker::PhantomData;
 
 use super::Ref;
@@ -38,23 +39,23 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Repeat<S, P> {
         let last_err = loop {
             let anchor = rest.anchor();
             match self.parser.parse(rest).await {
-                ParseResult::Done(v, r) => {
+                Ok((v, r)) => {
                     buf.push(v);
                     rest = r;
                 }
-                ParseResult::Fail(e, r) => {
+                Err(Error::Fail(e, r)) => {
                     if e.should_terminate() {
-                        return ParseResult::Fail(e, r);
+                        return fail(e, r);
                     }
 
-                    rest = r.rewind(anchor).await;
+                    rest = r.rewind(anchor).await.stream_err()?;
                     break e;
                 }
-                ParseResult::StreamErr(e, r) => return ParseResult::StreamErr(e, r),
+                Err(e) => return Err(e),
             }
         };
 
-        ParseResult::Done((buf, last_err), rest)
+        done((buf, last_err), rest)
     }
 }
 
@@ -97,15 +98,15 @@ impl<S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<S
     async fn parse_next(&mut self, input: S) -> ParseResult<S, Option<Self::Output>, Self::Error> {
         let anchor = input.anchor();
         match self.parser.parse(input).await {
-            ParseResult::Done(v, r) => ParseResult::Done(Some(v), r),
-            ParseResult::Fail(e, r) => {
+            Ok((v, r)) => done(Some(v), r),
+            Err(Error::Fail(e, r)) => {
                 if e.should_terminate() {
-                    ParseResult::Fail(e, r)
+                    fail(e, r)
                 } else {
-                    ParseResult::Done(None, r.rewind(anchor).await)
+                    done(None, r.rewind(anchor).await.stream_err()?)
                 }
             }
-            ParseResult::StreamErr(e, r) => return ParseResult::StreamErr(e, r),
+            Err(e) => return Err(e),
         }
     }
 }

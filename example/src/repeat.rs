@@ -10,11 +10,11 @@ pub fn main() {
         let input = "texttexttextaaaa";
 
         match parser.parse(input).await {
-            Done(v, r) => {
+            Ok((v, r)) => {
                 println!("result: {:?}", v.0);
                 println!("  rest: {}", r)
             }
-            Fail(_, _) => unreachable!(),
+            Err(_) => unreachable!(),
         }
     });
 }

@@ -1,10 +1,7 @@
 use std::marker::PhantomData;
 
-use parcom_core::{
-    ParseError,
-    ParseResult::{self, *},
-    Parser, ParserOnce, Stream,
-};
+use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Stream};
+use parcom_util::{done, fail, ParseResultExt};
 
 #[derive(Debug)]
 pub struct AndThen<S, P, O, E, F>
@@ -44,14 +41,11 @@ where
     type Output = O;
     type Error = E;
 
-    async fn parse_once(self, input: S) -> parcom_core::ParserResult<S, Self> {
-        match self.parser.parse_once(input).await {
-            Done(v, r) => match (self.map)(v) {
-                Ok(v) => Done(v, r),
-                Err(e) => Fail(e, r.into()),
-            },
-            Fail(e, r) => Fail(e.into(), r),
-            StreamErr(e, r) => StreamErr(e, r),
+    async fn parse_once(self, input: S) -> ParserResult<S, Self> {
+        let (v, r) = self.parser.parse_once(input).await.conv_fail()?;
+        match (self.map)(v) {
+            Ok(v) => done(v, r),
+            Err(e) => fail(e, r),
         }
     }
 }
@@ -63,14 +57,11 @@ where
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
 {
-    async fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
-        match self.parser.parse(input).await {
-            Done(v, r) => match (self.map)(v) {
-                Ok(v) => Done(v, r),
-                Err(e) => Fail(e, r.into()),
-            },
-            Fail(e, r) => Fail(e.into(), r),
-            StreamErr(e, r) => StreamErr(e, r),
+    async fn parse(&self, input: S) -> ParserResult<S, Self> {
+        let (v, r) = self.parser.parse(input).await.conv_fail()?;
+        match (self.map)(v) {
+            Ok(v) => done(v, r),
+            Err(e) => fail(e, r),
         }
     }
 }

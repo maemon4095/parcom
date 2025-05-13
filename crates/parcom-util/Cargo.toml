@@ -1,5 +1,5 @@
 [package]
-name = "parcom-base"
+name = "parcom-util"
 version.workspace = true
 edition.workspace = true
 

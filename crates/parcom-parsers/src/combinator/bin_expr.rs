@@ -1,10 +1,6 @@
-use parcom_base::Either;
-use parcom_core::{
-    ParseError,
-    ParseResult::{self, *},
-    Parser, ParserOnce, ParserResult, RewindStream,
-};
+use parcom_core::{Error, ParseError, ParseResult, Parser, ParserOnce, ParserResult, RewindStream};
 use parcom_internals::ShortVec;
+use parcom_util::{done, fail, Either, ParseResultExt, ResultExt};
 use std::marker::PhantomData;
 
 pub enum Associativity {
@@ -54,18 +50,11 @@ where
     Expr: From<(Expr, POp::Output, Expr)> + From<PTerm::Output>,
 {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let result = self.parse_impl(input, 0).await;
-
-        match result {
-            Done((e, reason), rest) => {
-                // Ok になる場合は op をパースしたときに op.precedence() < precedence の場合のみ．
-                // 常に precedence >= 0 であるから，ここで Ok にはならない．
-                let Err(reason) = reason else { unreachable!() };
-                Done((e, reason), rest)
-            }
-            Fail(e, r) => Fail(e, r),
-            StreamErr(e, r) => StreamErr(e, r),
-        }
+        let ((e, reason), rest) = self.parse_impl(input, 0).await?;
+        // Ok になる場合は op をパースしたときに op.precedence() < precedence の場合のみ．
+        // 常に precedence >= 0 であるから，ここで Ok にはならない．
+        let Err(reason) = reason else { unreachable!() };
+        done((e, reason), rest)
     }
 }
 
@@ -98,11 +87,7 @@ where
         ),
         Either<POp::Error, PTerm::Error>,
     > {
-        let (rhs, mut rest) = match self.parser_term.parse(input).await {
-            Done(v, r) => (v, r),
-            Fail(e, r) => return Fail(Either::Last(e), r),
-            StreamErr(e, r) => return StreamErr(e, r),
-        };
+        let (rhs, mut rest) = self.parser_term.parse(input).await.map_fail(Either::Last)?;
         let mut rhs = Expr::from(rhs);
 
         // (lhs0 op0 (lhs1 op1 ... (lhsN opN rhs
@@ -112,27 +97,27 @@ where
         let reason = loop {
             let anchor = rest.anchor();
             let (op, r) = match self.parser_op.parse(rest).await {
-                Done(e, r) if e.precedence() >= precedence => (e, r),
-                Done(e, r) => {
+                Ok((e, r)) if e.precedence() >= precedence => (e, r),
+                Ok((e, r)) => {
                     rest = r;
                     break Ok((e, anchor));
                 }
-                Fail(e, r) if e.should_terminate() => return Fail(Either::First(e), r),
-                Fail(e, r) => {
-                    rest = r.rewind(anchor).await;
+                Err(Error::Fail(e, r)) if e.should_terminate() => return fail(Either::First(e), r),
+                Err(Error::Fail(e, r)) => {
+                    rest = r.rewind(anchor).await.stream_err()?;
                     break Err(Either::First(e));
                 }
-                StreamErr(e, r) => return StreamErr(e, r),
+                Err(Error::Stream(e)) => return Err(Error::Stream(e)),
             };
 
             let (term, r) = match self.parser_term.parse(r).await {
-                Done(e, r) => (Expr::from(e), r),
-                Fail(e, r) if !e.should_terminate() => {
-                    rest = r.rewind(anchor).await;
+                Ok((e, r)) => (Expr::from(e), r),
+                Err(Error::Fail(e, r)) if !e.should_terminate() => {
+                    rest = r.rewind(anchor).await.stream_err()?;
                     break Err(Either::Last(e));
                 }
-                Fail(e, r) => return Fail(Either::Last(e), r),
-                StreamErr(e, r) => return StreamErr(e, r),
+                Err(Error::Fail(e, r)) => return fail(Either::Last(e), r),
+                Err(Error::Stream(e)) => return Err(Error::Stream(e)),
             };
 
             rest = r;
@@ -161,7 +146,7 @@ where
             rhs = Expr::from((lhs, op, rhs));
         }
 
-        Done((rhs, reason), rest)
+        done((rhs, reason), rest)
     }
 }
 fn next_precedence<T: Operator>(op: &T) -> usize {
@@ -176,11 +161,8 @@ mod test {
     use super::{Associativity, BinExprParser, Operator};
     use crate::primitive::{any_char, the_char};
     use crate::{primitive::atom, ParserExtension};
-    use parcom_base::{error::Miss, Either};
-    use parcom_core::{
-        ParseResult::{self, *},
-        Parser, RewindStream, Stream,
-    };
+    use parcom_core::{ParseResult, Parser, RewindStream, Stream};
+    use parcom_util::{error::Miss, Either};
 
     #[test]
     fn successful_input_and_no_chars_left() {
@@ -193,7 +175,7 @@ mod test {
             let result = expr(input.as_str()).await;
 
             match result {
-                Done(_, r) => {
+                Ok((_, r)) => {
                     assert!(r.is_empty());
                 }
                 _ => unreachable!(),
@@ -213,7 +195,7 @@ mod test {
             let result = expr(input.as_str()).await;
 
             match result {
-                Done(_, r) => {
+                Ok((_, r)) => {
                     assert_eq!(r, " ~ @@@");
                 }
                 _ => unreachable!(),
