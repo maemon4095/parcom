@@ -7,10 +7,13 @@ use crate::{
 impl<'a> Stream for &'a str {
     type Segment = str;
     type Error = Never;
-    type SegmentIter = Nodes<'a, str>;
+    type SegmentIter<'b>
+        = Nodes<'a, str>
+    where
+        Self: 'b;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter {
+    fn segments(&mut self) -> Self::SegmentIter<'_> {
         Nodes { me: Some(self) }
     }
 
@@ -55,7 +58,7 @@ impl PeekableStream for &str {
     where
         Self: 'a;
 
-    fn peek(&self) -> Self::Peek<'_> {
+    fn peek(&mut self) -> Self::Peek<'_> {
         self
     }
 }
@@ -82,10 +85,13 @@ where
 impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
     type Segment = str;
     type Error = Never;
-    type SegmentIter = Nodes<'me, str>;
+    type SegmentIter<'b>
+        = Nodes<'me, str>
+    where
+        Self: 'b;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter {
+    fn segments(&mut self) -> Self::SegmentIter<'_> {
         self.base.segments()
     }
 

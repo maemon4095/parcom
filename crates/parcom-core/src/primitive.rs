@@ -24,12 +24,12 @@ impl<'a, T: ?Sized + StreamSegment> SegmentIterator for Nodes<'a, T> {
     type Segment = T;
     type Error = Never;
     type Next<'b>
-        = std::future::Ready<Option<Result<&'b Self::Segment, Self::Error>>>
+        = std::future::Ready<Result<Option<&'b T>, Self::Error>>
     where
         Self: 'b;
 
     fn next(&mut self, _: <Self::Segment as StreamSegment>::Length) -> Self::Next<'_> {
-        std::future::ready(self.me.take().map(Ok))
+        std::future::ready(Ok(self.me.take()))
     }
 }
 

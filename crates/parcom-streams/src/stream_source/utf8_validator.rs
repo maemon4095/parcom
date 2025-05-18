@@ -235,58 +235,8 @@ where
 mod test {
     use super::*;
     use crate::{
-        buffer_writer::vec_buffer_writer::{self, VecBufferWriter},
-        stream_source::iterator_source::IteratorSource,
+        stream_control::vec_control::VecControl, stream_source::iterator_source::IteratorSource,
     };
-
-    struct Control<T: Default, E> {
-        writer: VecBufferWriter<T>,
-        _phantom: PhantomData<fn(E) -> E>,
-    }
-    struct Request<T: Default, E> {
-        req: vec_buffer_writer::Request<T>,
-        _phantom: PhantomData<fn(E) -> E>,
-    }
-    impl<T: Default, E> BufferRequest for Request<T, E> {
-        type Control = Control<T, E>;
-
-        fn buffer(&mut self) -> &mut <Self::Control as StreamControl>::Segment {
-            self.req.buffer()
-        }
-
-        fn advance(self, written: usize) -> <Self::Control as StreamControl>::Response {
-            Ok((self.req.advance(written), false))
-        }
-
-        fn cancel(
-            self,
-            err: <Self::Control as StreamControl>::Error,
-        ) -> <Self::Control as StreamControl>::Response {
-            Err((self.req.cancel(), err))
-        }
-    }
-
-    impl<T: Default, E> StreamControl for Control<T, E> {
-        type Segment = [T];
-        type Response = Result<(Vec<T>, bool), (Vec<T>, E)>;
-        type Error = E;
-        type Request = Request<T, E>;
-
-        fn request_buffer(self, min_size: usize) -> Self::Request {
-            Request {
-                req: self.writer.request_buffer(min_size),
-                _phantom: PhantomData,
-            }
-        }
-
-        fn cancel(self, err: Self::Error) -> Self::Response {
-            Err((self.writer.into_inner(), err))
-        }
-
-        fn finish(self) -> Self::Response {
-            Ok((self.writer.into_inner(), true))
-        }
-    }
 
     #[test]
     fn test_valid() {
@@ -305,31 +255,27 @@ mod test {
             let (l, r) = bin.split_at(i);
             let src = IteratorSource::new([l, r]);
             let mut src = Utf8Validator::new(src);
-
             let mut buf = Vec::new();
 
             loop {
-                let control = Control {
-                    writer: VecBufferWriter::new(buf),
-                    _phantom: PhantomData,
-                };
+                let control = VecControl::new(buf);
 
                 let res = pollster::block_on(src.next(control, 0));
 
                 match res {
-                    Ok((v, done)) => {
+                    crate::stream_control::Response::Advance(v) => {
                         buf = v;
-
                         let r = std::str::from_utf8(&buf).unwrap();
-
                         assert!(text.starts_with(r));
-
-                        if done {
-                            assert_eq!(r, text);
-                            break;
-                        }
                     }
-                    Err(_) => unreachable!(),
+                    crate::stream_control::Response::Finish(v) => {
+                        buf = v;
+                        let r = std::str::from_utf8(&buf).unwrap();
+                        assert!(text.starts_with(r));
+                        assert_eq!(r, text);
+                        break;
+                    }
+                    _ => unreachable!(),
                 }
             }
         }

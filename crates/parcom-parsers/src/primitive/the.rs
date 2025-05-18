@@ -21,14 +21,17 @@ impl<S: Stream<Segment = str>> Parser<S> for TheChar {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(BytesDelta::from_char(self.c)).await {
-            let segment = segment.stream_err()?;
-
+        while let Some(segment) = segments
+            .next(BytesDelta::from_char(self.c))
+            .await
+            .stream_err()?
+        {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
 
             if c == self.c {
+                drop(segments);
                 return done(
                     (),
                     input
@@ -41,6 +44,7 @@ impl<S: Stream<Segment = str>> Parser<S> for TheChar {
             break;
         }
 
+        drop(segments);
         fail(().into(), input)
     }
 }
@@ -53,7 +57,7 @@ pub struct TheItem<T: PartialEq> {
     item: T,
 }
 
-impl<T: PartialEq, S: Stream<Segment = [T]>> ParserOnce<S> for TheItem<T> {
+impl<T: 'static + PartialEq, S: Stream<Segment = [T]>> ParserOnce<S> for TheItem<T> {
     type Output = ();
     type Error = Miss<()>;
 
@@ -62,23 +66,24 @@ impl<T: PartialEq, S: Stream<Segment = [T]>> ParserOnce<S> for TheItem<T> {
     }
 }
 
-impl<T: PartialEq, S: Stream<Segment = [T]>> Parser<S> for TheItem<T> {
+impl<T: 'static + PartialEq, S: Stream<Segment = [T]>> Parser<S> for TheItem<T> {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(1).await {
-            let segment = segment.stream_err()?;
+        while let Some(segment) = segments.next(1).await.stream_err()? {
             let Some(item) = segment.iter().next() else {
                 continue;
             };
 
             if item == &self.item {
+                drop(segments);
                 return done((), input.advance(1).await.stream_err()?);
             }
 
             break;
         }
 
+        drop(segments);
         fail(().into(), input)
     }
 }

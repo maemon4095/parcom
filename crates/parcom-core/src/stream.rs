@@ -16,7 +16,7 @@ pub trait RewindStream: Stream {
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind;
 }
 
-pub trait StreamSegment {
+pub trait StreamSegment: 'static {
     type Length: Default + std::cmp::Ord;
 
     fn len(&self) -> Self::Length;
@@ -26,7 +26,8 @@ pub trait StreamSegment {
 pub trait SegmentIterator {
     type Segment: StreamSegment + ?Sized;
     type Error;
-    type Next<'a>: Future<Output = Option<Result<&'a Self::Segment, Self::Error>>>
+
+    type Next<'a>: Future<Output = Result<Option<&'a Self::Segment>, Self::Error>>
     where
         Self: 'a;
 
@@ -37,10 +38,12 @@ pub trait Stream: Sized {
     type Segment: StreamSegment + ?Sized;
     type Error;
 
-    type SegmentIter: SegmentIterator<Segment = Self::Segment, Error = Self::Error>;
+    type SegmentIter<'a>: SegmentIterator<Segment = Self::Segment, Error = Self::Error>
+    where
+        Self: 'a;
     type Advance: Future<Output = Result<Self, Self::Error>>;
 
-    fn segments(&mut self) -> Self::SegmentIter;
+    fn segments(&mut self) -> Self::SegmentIter<'_>;
     fn advance(self, delta: <Self::Segment as StreamSegment>::Length) -> Self::Advance;
 }
 
@@ -50,10 +53,9 @@ pub trait BindableStream: MeasuredStream {
 }
 
 pub trait PeekableStream: Stream {
-    // extの実装を与える形にするか。iteratorを内部にもてば十分のはず。
     type Peek<'a>: 'a + Stream<Segment = Self::Segment, Error = Self::Error>
     where
         Self: 'a;
 
-    fn peek(&self) -> Self::Peek<'_>;
+    fn peek(&mut self) -> Self::Peek<'_>;
 }

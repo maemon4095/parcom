@@ -163,11 +163,11 @@ async fn op<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss<(
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next(Default::default()).await else {
+            let Some(segment) = segments.next(Default::default()).await.stream_err()? else {
+                drop(segments);
                 return fail(().into(), input);
             };
 
-            let segment = segment.stream_err()?;
             if let Some(c) = segment.chars().next() {
                 break c;
             }
@@ -196,8 +196,7 @@ async fn integer<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, usize
     let mut buf = String::new();
 
     let mut consumed_bytes = 0;
-    while let Some(segment) = segments.next(Default::default()).await {
-        let segment = segment.stream_err()?;
+    while let Some(segment) = segments.next(Default::default()).await.stream_err()? {
         let c = segment
             .char_indices()
             .take_while(|(_, c)| c.is_ascii_digit())
@@ -218,10 +217,12 @@ async fn integer<S: Stream<Segment = str>>(mut input: S) -> ParseResult<S, usize
     }
 
     if consumed_bytes == 0 {
+        drop(segments);
         return fail(().into(), input);
     }
     let n = usize::from_str_radix(&buf, 10).unwrap();
 
+    drop(segments);
     done(
         n,
         input

@@ -4,13 +4,16 @@ use crate::{
     MeasuredStream, Never, PeekableStream, RewindStream, Stream, StreamSegment,
 };
 
-impl<'a, T> Stream for &'a [T] {
+impl<'a, T: 'static> Stream for &'a [T] {
     type Segment = [T];
     type Error = Never;
-    type SegmentIter = Nodes<'a, [T]>;
+    type SegmentIter<'b>
+        = Nodes<'a, [T]>
+    where
+        Self: 'b;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter {
+    fn segments(&mut self) -> Self::SegmentIter<'_> {
         Nodes { me: Some(self) }
     }
 
@@ -19,7 +22,7 @@ impl<'a, T> Stream for &'a [T] {
     }
 }
 
-impl<T> RewindStream for &[T] {
+impl<T: 'static> RewindStream for &[T] {
     type Anchor = Anchor<Self>;
     type Rewind = std::future::Ready<Result<Self, Never>>;
 
@@ -39,7 +42,7 @@ impl<T> RewindStream for &[T] {
     }
 }
 
-impl<T> StreamSegment for [T] {
+impl<T: 'static> StreamSegment for [T] {
     type Length = usize;
 
     fn len(&self) -> Self::Length {
@@ -51,7 +54,7 @@ impl<T> StreamSegment for [T] {
     }
 }
 
-impl<'me, T> IntoMeasured for &'me [T] {
+impl<'me, T: 'static> IntoMeasured for &'me [T] {
     type Measured<M: Metrics<Self::Segment>> = Measured<'me, T, M>;
 
     fn into_measured_with<M: Metrics<Self::Segment>>(self, meter: M::Meter) -> Self::Measured<M> {
@@ -59,13 +62,13 @@ impl<'me, T> IntoMeasured for &'me [T] {
     }
 }
 
-impl<T> PeekableStream for &[T] {
+impl<T: 'static> PeekableStream for &[T] {
     type Peek<'a>
         = Self
     where
         Self: 'a;
 
-    fn peek(&self) -> Self::Peek<'_> {
+    fn peek(&mut self) -> Self::Peek<'_> {
         self
     }
 }
@@ -89,13 +92,16 @@ where
     }
 }
 
-impl<'me, T, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
+impl<'me, T: 'static, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
     type Segment = [T];
     type Error = Never;
-    type SegmentIter = Nodes<'me, [T]>;
+    type SegmentIter<'a>
+        = Nodes<'me, [T]>
+    where
+        Self: 'a;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter {
+    fn segments(&mut self) -> Self::SegmentIter<'_> {
         self.base.segments()
     }
 
@@ -108,7 +114,7 @@ impl<'me, T, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
     }
 }
 
-impl<'me, T, M> RewindStream for Measured<'me, T, M>
+impl<'me, T: 'static, M> RewindStream for Measured<'me, T, M>
 where
     M: Metrics<[T]>,
     M::Meter: Clone,
@@ -125,7 +131,7 @@ where
     }
 }
 
-impl<'me, T, M: Metrics<[T]>> MeasuredStream for Measured<'me, T, M> {
+impl<'me, T: 'static, M: Metrics<[T]>> MeasuredStream for Measured<'me, T, M> {
     type Metrics = M;
 
     fn metrics(&self) -> Self::Metrics {

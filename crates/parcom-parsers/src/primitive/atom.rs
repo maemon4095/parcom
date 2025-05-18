@@ -29,11 +29,12 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
         let mut remain = self.pattern.pattern();
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(remain.len()).await {
-            let segment = segment.stream_err()?;
+        while let Some(segment) = segments.next(remain.len()).await.stream_err()? {
             if segment.len() >= remain.len() {
                 let s = segment.split_at(remain.len()).0;
-                return if s == remain {
+                let matched = s == remain;
+                drop(segments);
+                return if matched {
                     done((), input.advance(remain.len()).await.stream_err()?)
                 } else {
                     fail(Miss(()), input)
@@ -43,12 +44,14 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
             let (p, r) = remain.split_at(segment.len());
 
             if &*segment != p {
+                drop(segments);
                 return fail(Miss(()), input);
             }
 
             remain = r;
         }
 
+        drop(segments);
         return fail(().into(), input);
     }
 }
@@ -67,7 +70,7 @@ impl<'a> AtomPattern for &'a str {
     }
 }
 
-impl<'a, T: PartialEq> AtomPattern for &'a [T] {
+impl<'a, T: 'static + PartialEq> AtomPattern for &'a [T] {
     type Segment = [T];
 
     fn pattern(&self) -> &Self::Segment {
@@ -83,7 +86,7 @@ impl AtomPattern for String {
     }
 }
 
-impl<T: PartialEq> AtomPattern for Vec<T> {
+impl<T: 'static + PartialEq> AtomPattern for Vec<T> {
     type Segment = [T];
 
     fn pattern(&self) -> &Self::Segment {
@@ -91,7 +94,7 @@ impl<T: PartialEq> AtomPattern for Vec<T> {
     }
 }
 
-impl<T: PartialEq, const N: usize> AtomPattern for [T; N] {
+impl<T: 'static + PartialEq, const N: usize> AtomPattern for [T; N] {
     type Segment = [T];
 
     fn pattern(&self) -> &Self::Segment {
