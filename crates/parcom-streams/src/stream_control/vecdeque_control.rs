@@ -4,13 +4,13 @@ use parcom_streams_core::{BufferRequest, StreamControl};
 
 use super::Response;
 
-pub struct VecDequeControl<T: Default, E> {
-    buf: VecDeque<T>,
+pub struct VecDequeControl<'a, T: Default, E> {
+    buf: &'a mut VecDeque<T>,
     _phantom: PhantomData<fn(E) -> E>,
 }
 
-impl<T: Default, E> VecDequeControl<T, E> {
-    pub fn new(buf: VecDeque<T>) -> Self {
+impl<'a, T: Default, E> VecDequeControl<'a, T, E> {
+    pub fn new(buf: &'a mut VecDeque<T>) -> Self {
         Self {
             buf,
             _phantom: PhantomData,
@@ -18,15 +18,15 @@ impl<T: Default, E> VecDequeControl<T, E> {
     }
 }
 
-impl<T: Default, E> StreamControl for VecDequeControl<T, E> {
+impl<'a, T: Default, E> StreamControl for VecDequeControl<'a, T, E> {
     type Segment = [T];
-    type Response = Response<VecDeque<T>, E>;
+    type Response = Response<(), E>;
     type Error = E;
-    type Request = Request<T, E>;
+    type Request = Request<'a, T, E>;
 
     fn request_buffer(self, min_size: usize) -> Self::Request {
         let offset = self.buf.len();
-        let mut buf = self.buf;
+        let buf = self.buf;
 
         buf.extend(std::iter::repeat_with(Default::default).take(min_size));
 
@@ -44,22 +44,22 @@ impl<T: Default, E> StreamControl for VecDequeControl<T, E> {
     }
 
     fn cancel(self, err: Self::Error) -> Self::Response {
-        Response::Cancel(self.buf, err)
+        Response::Cancel((), err)
     }
 
     fn finish(self) -> Self::Response {
-        Response::Finish(self.buf)
+        Response::Finish(())
     }
 }
 
-pub struct Request<T: Default, E> {
+pub struct Request<'a, T: Default, E> {
     offset: usize,
-    buf: VecDeque<T>,
+    buf: &'a mut VecDeque<T>,
     _phantom: PhantomData<fn(E) -> E>,
 }
 
-impl<T: Default, E> BufferRequest for Request<T, E> {
-    type Control = VecDequeControl<T, E>;
+impl<'a, T: Default, E> BufferRequest for Request<'a, T, E> {
+    type Control = VecDequeControl<'a, T, E>;
 
     fn buffer(&mut self) -> &mut [T] {
         let (left, right) = self.buf.as_mut_slices();
@@ -72,16 +72,16 @@ impl<T: Default, E> BufferRequest for Request<T, E> {
         }
     }
 
-    fn advance(mut self, written: usize) -> <Self::Control as StreamControl>::Response {
+    fn advance(self, written: usize) -> <Self::Control as StreamControl>::Response {
         self.buf.drain((self.offset + written)..);
-        Response::Advance(self.buf)
+        Response::Advance(())
     }
 
     fn cancel(
-        mut self,
+        self,
         err: <Self::Control as StreamControl>::Error,
     ) -> <Self::Control as StreamControl>::Response {
         self.buf.drain(self.offset..);
-        Response::Cancel(self.buf, err)
+        Response::Cancel((), err)
     }
 }

@@ -258,18 +258,16 @@ mod test {
             let mut buf = Vec::new();
 
             loop {
-                let control = VecControl::new(buf);
+                let control = VecControl::new(&mut buf);
 
                 let res = pollster::block_on(src.next(control, 0));
 
                 match res {
-                    crate::stream_control::Response::Advance(v) => {
-                        buf = v;
+                    crate::stream_control::Response::Advance(_) => {
                         let r = std::str::from_utf8(&buf).unwrap();
                         assert!(text.starts_with(r));
                     }
-                    crate::stream_control::Response::Finish(v) => {
-                        buf = v;
+                    crate::stream_control::Response::Finish(_) => {
                         let r = std::str::from_utf8(&buf).unwrap();
                         assert!(text.starts_with(r));
                         assert_eq!(r, text);

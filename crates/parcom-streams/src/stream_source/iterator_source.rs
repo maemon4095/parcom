@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use parcom_core::Never;
 use parcom_streams_core::{BufferRequest, StreamControl, StreamSource};
 
+#[derive(Debug)]
 pub struct IteratorSource<I, T>
 where
     I::Item: AsRef<[T]>,
@@ -55,6 +56,7 @@ where
         let mut req = control.request_buffer(seg.len());
 
         req.buffer()[..seg.len()].copy_from_slice(seg);
+
         std::future::ready(req.advance(seg.len()))
     }
 }
