@@ -1,4 +1,9 @@
-use std::{future::Future, marker::PhantomData, pin::Pin, task::Poll};
+use std::{
+    future::{Future, IntoFuture},
+    marker::PhantomData,
+    pin::Pin,
+    task::Poll,
+};
 
 use parcom_streams_core::{BufferRequest, StreamControl, StreamSource};
 
@@ -31,11 +36,11 @@ impl<S: StreamSource<Segment = [u8]>> StreamSource for Utf8Validator<S> {
         = Next<'a, S, C>
     where
         Self: 'a,
-        C: StreamControl<Segment = Self::Segment, Error = Self::Error>;
+        C: 'a + StreamControl<Segment = Self::Segment, Error = Self::Error>;
 
-    fn next<C>(&mut self, control: C, size_hint: usize) -> Self::Next<'_, C>
+    fn next<'a, C>(&'a mut self, control: C, size_hint: usize) -> Self::Next<'a, C>
     where
-        C: StreamControl<Segment = Self::Segment, Error = Self::Error>,
+        C: 'a + StreamControl<Segment = Self::Segment, Error = Self::Error>,
     {
         let control = Control::<S, C> {
             buffered: self.buffered,
@@ -44,7 +49,7 @@ impl<S: StreamSource<Segment = [u8]>> StreamSource for Utf8Validator<S> {
             _phantom: PhantomData,
         };
 
-        let fut = self.source.next(control, size_hint);
+        let fut = self.source.next(control, size_hint).into_future();
 
         Next {
             buffered: &mut self.buffered,
@@ -57,18 +62,17 @@ impl<S: StreamSource<Segment = [u8]>> StreamSource for Utf8Validator<S> {
 pub struct Next<
     'a,
     S: StreamSource<Segment = [u8]> + 'a,
-    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    C: 'a + StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
 > {
     buffered: &'a mut usize,
     rest: &'a mut [u8; 3],
-    fut: S::Next<'a, Control<S, C>>,
+    fut: <S::Next<'a, Control<S, C>> as IntoFuture>::IntoFuture,
 }
 
-impl<
-        'a,
-        S: StreamSource<Segment = [u8]>,
-        C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
-    > Future for Next<'a, S, C>
+impl<'a, S, C> Future for Next<'a, S, C>
+where
+    S: StreamSource<Segment = [u8]>,
+    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
 {
     type Output = C::Response;
 
@@ -157,7 +161,9 @@ where
     S: StreamSource<Segment = [u8]>,
     C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
 {
-    type Control = Control<S, C>;
+    type Segment = [u8];
+    type Error = S::Error;
+    type Response = Response<S, C>;
 
     fn buffer(&mut self) -> &mut [u8] {
         &mut self.req.buffer()[self.buffered..]

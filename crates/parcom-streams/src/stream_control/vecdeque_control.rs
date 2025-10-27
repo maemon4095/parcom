@@ -59,7 +59,9 @@ pub struct Request<'a, T: Default, E> {
 }
 
 impl<'a, T: Default, E> BufferRequest for Request<'a, T, E> {
-    type Control = VecDequeControl<'a, T, E>;
+    type Segment = [T];
+    type Response = Response<(), E>;
+    type Error = E;
 
     fn buffer(&mut self) -> &mut [T] {
         let (left, right) = self.buf.as_mut_slices();
@@ -72,15 +74,12 @@ impl<'a, T: Default, E> BufferRequest for Request<'a, T, E> {
         }
     }
 
-    fn advance(self, written: usize) -> <Self::Control as StreamControl>::Response {
+    fn advance(self, written: usize) -> Self::Response {
         self.buf.drain((self.offset + written)..);
         Response::Advance(())
     }
 
-    fn cancel(
-        self,
-        err: <Self::Control as StreamControl>::Error,
-    ) -> <Self::Control as StreamControl>::Response {
+    fn cancel(self, err: Self::Error) -> Self::Response {
         self.buf.drain(self.offset..);
         Response::Cancel((), err)
     }

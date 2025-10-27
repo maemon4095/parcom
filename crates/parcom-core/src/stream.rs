@@ -1,6 +1,6 @@
 pub mod measured;
 
-use std::future::Future;
+use std::future::{Future, IntoFuture};
 
 pub use measured::MeasuredStream;
 
@@ -27,11 +27,14 @@ pub trait SegmentIterator {
     type Segment: StreamSegment + ?Sized;
     type Error;
 
-    type Next<'a>: Future<Output = Result<Option<&'a Self::Segment>, Self::Error>>
+    type Next<'a>: IntoFuture<Output = Result<Option<&'a Self::Segment>, Self::Error>>
     where
         Self: 'a;
 
-    fn next(&mut self, size_hint: <Self::Segment as StreamSegment>::Length) -> Self::Next<'_>;
+    fn next<'a>(
+        &'a mut self,
+        size_hint: <Self::Segment as StreamSegment>::Length,
+    ) -> Self::Next<'a>;
 }
 
 pub trait Stream: Sized {
@@ -41,9 +44,9 @@ pub trait Stream: Sized {
     type SegmentIter<'a>: SegmentIterator<Segment = Self::Segment, Error = Self::Error>
     where
         Self: 'a;
-    type Advance: Future<Output = Result<Self, Self::Error>>;
+    type Advance: IntoFuture<Output = Result<Self, Self::Error>>;
 
-    fn segments(&mut self) -> Self::SegmentIter<'_>;
+    fn segments<'a>(&'a mut self) -> Self::SegmentIter<'a>;
     fn advance(self, delta: <Self::Segment as StreamSegment>::Length) -> Self::Advance;
 }
 
