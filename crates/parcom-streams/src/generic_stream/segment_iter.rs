@@ -1,13 +1,8 @@
-use crate::generic_stream::{HeadTailNodePair, InnerGenericStream};
-
-use super::{
-    control::{Control, Response},
-    GenericStream, IntermediateNode, Node, NodePtr,
-};
+use super::{GenericStream, InnerGenericStream, Node, NodePtr};
 use parcom_core::{SegmentIterator, StreamSegment};
 use parcom_streams_core::StreamSource;
 use pin_project::pin_project;
-use std::{cell::UnsafeCell, future::Future, pin::Pin, sync::Arc, task::Poll};
+use std::{future::Future, pin::Pin, task::Poll};
 
 pub struct SegmentIter<'a, T, S>
 where
@@ -16,8 +11,7 @@ where
 {
     stream: &'a mut InnerGenericStream<T, S>,
     current: Option<NodePtr<T>>,
-    current_offset: usize,
-    current_len: usize,
+    current_start: usize,
 }
 
 impl<'a, T, S> SegmentIter<'a, T, S>
@@ -26,31 +20,15 @@ where
     S: StreamSource<Segment = [T]>,
 {
     pub(super) fn new(stream: &'a mut GenericStream<T, S>) -> Self {
-        let (current, current_offset, current_len) = match stream.inner.pair.as_ref() {
-            Some(v) => {
-                let len = unsafe {
-                    match &*v.head_ptr.raw.get() {
-                        Node::Intermediate(node) => {
-                            if node.is_tail() {
-                                v.tail_len
-                            } else {
-                                node.buf.len()
-                            }
-                        }
-                        Node::Sentinel => 0,
-                    }
-                };
-
-                (Some(v.head_ptr.clone()), v.head_offset, len)
-            }
-            None => (None, 0, 0),
+        let (current, current_start) = match stream.inner.pair.as_ref() {
+            Some(v) => (Some(v.head_ptr.clone()), v.head_start),
+            None => (None, 0),
         };
 
         Self {
             stream: &mut stream.inner,
             current,
-            current_offset,
-            current_len,
+            current_start,
         }
     }
 }
@@ -145,39 +123,38 @@ where
                     Node::Sentinel => return Poll::Ready(Ok(None)),
                 };
 
-                if iter.current_offset < iter.current_len {
-                    // currentはイテレーションされていない。currentのbufを返す。
-                    let slice = &node.buf[iter.current_offset..iter.current_len];
-                    iter.current_offset = iter.current_len;
-                    return Poll::Ready(Ok(Some(slice)));
-                }
-                // currentはイテレーション済み。
-                debug_assert_eq!(iter.current_offset, iter.current_len);
+                if let Some(next_ptr) = node.next.clone() {
+                    // `node`はtailではない。
+                    if iter.current_start < node.buf.len() {
+                        // `node`末尾にイテレーション済みでないデータがある場合、`node`末尾のデータを返す。
+                        let segment = &node.buf[iter.current_start..];
+                        iter.current_start = 0; // 次のノードはheadではない。
+                        iter.current = Some(next_ptr);
+                        return Poll::Ready(Ok(Some(segment)));
+                    }
 
-                if let Some(next) = node.next.clone() {
-                    // 次のノードが読み込み済みである場合は、次のノードのセグメントを返す。
-                    let next_node = unsafe { &mut *next.raw.get() };
-                    let next_node = match next_node {
-                        Node::Intermediate(v) => v,
-                        Node::Sentinel => {
-                            iter.current = Some(next);
-                            return Poll::Ready(Ok(None));
-                        }
+                    // `node`のデータはすべてイテレーション済み。
+                    let next = unsafe { &*next_ptr.raw.get() };
+                    let Node::Intermediate(next) = next else {
+                        iter.current = Some(next_ptr);
+                        iter.current_start = 0;
+                        return Poll::Ready(Ok(None));
                     };
 
-                    iter.current_len = if next_node.is_tail() {
-                        let pair = iter.stream.pair.as_mut().unwrap();
-                        pair.tail_len
-                    } else {
-                        next_node.buf.len()
-                    };
-                    iter.current = Some(next);
-                    iter.current_offset = iter.current_len;
-                    return Poll::Ready(Ok(Some(&next_node.buf[..iter.current_len])));
+                    if let Some(next_next_ptr) = next.next.clone() {
+                        // `next`がtailでない場合、nextのデータを返す。
+                        iter.current = Some(next_next_ptr);
+                        iter.current_start = 0;
+                        return Poll::Ready(Ok(Some(&next.buf)));
+                    }
+
+                    // `next`はtailであるため、データの読み込みを行ってから返す。
+                    iter.current = Some(next_ptr);
+                    iter.current_start = 0;
                 };
 
-                // 読み込み済みのすべてのノードがイテレーション済み。新しく読み込む。
-                let fut = Box::pin(segment_next_load(iter, node, *size_hint));
+                // `iter.current`はtailであるため、データの読み込みを行ってから返す。
+                let fut = Box::pin(segment_next_load(iter, *size_hint));
                 state.set(SegmentIterNextState::Loading { fut });
                 cx.waker().wake_by_ref();
                 Poll::Pending
@@ -195,145 +172,93 @@ where
     T: 'static + Default,
     S: 'static + StreamSource<Segment = [T]>,
 {
-    loop {
-        let control = Control::new(&iter.stream.parameter, &mut []);
-        let res = iter.stream.source.next(control, size_hint).await;
+    iter.stream.load_initial(size_hint).await?;
+    let pair = iter.stream.pair.as_ref().unwrap();
 
-        match res {
-            Response::PreAllocated(_written) => {
-                debug_assert_eq!(_written, 0);
-                // レスポンスにデータが無いため、ループする。
-            }
-            Response::Allocated(items, written) => {
-                let node = IntermediateNode {
-                    buf: items,
-                    next: None,
-                };
-                let node_ptr = NodePtr {
-                    raw: Arc::new(UnsafeCell::new(Node::Intermediate(node))),
-                };
+    let head_ptr = pair.head_ptr.clone();
+    let head_start = pair.head_start;
+    let head = unsafe { &*head_ptr.raw.get() };
 
-                let slice = {
-                    let node = unsafe { &*node_ptr.raw.get() };
-                    let Node::Intermediate(node) = node else {
-                        unreachable!()
-                    };
-                    &node.buf[..written]
-                };
+    let Node::Intermediate(head) = head else {
+        iter.current = Some(head_ptr);
+        return Ok(None);
+    };
 
-                iter.current = Some(node_ptr.clone());
-                iter.current_offset = written;
-                iter.current_len = written;
-
-                iter.stream.pair = Some(HeadTailNodePair {
-                    head_offset: 0,
-                    tail_len: written,
-                    head_ptr: node_ptr.clone(),
-                    tail_ptr: node_ptr.clone(),
-                });
-
-                return Ok(Some(slice));
-            }
-            Response::Finish => {
-                let node_ptr = NodePtr {
-                    raw: Arc::new(UnsafeCell::new(Node::Sentinel)),
-                };
-
-                iter.current = Some(node_ptr.clone());
-                iter.current_offset = 0;
-                iter.current_len = 0;
-
-                iter.stream.pair = Some(HeadTailNodePair {
-                    head_offset: 0,
-                    tail_len: 0,
-                    head_ptr: node_ptr.clone(),
-                    tail_ptr: node_ptr.clone(),
-                });
-
-                return Ok(None);
-            }
-            Response::Error(e) => return Err(e),
-        }
+    if let Some(head_next) = head.next.clone() {
+        iter.current = Some(head_next);
+        iter.current_start = 0;
+        let head_end = head.buf.len();
+        let segment = &head.buf[head_start..head_end];
+        Ok(Some(segment))
+    } else {
+        let head_end = pair.tail_end;
+        iter.current = Some(head_ptr);
+        iter.current_start = head_end;
+        let segment = &head.buf[head_start..head_end];
+        Ok(Some(segment))
     }
 }
 
 async fn segment_next_load<'a, 'b, T, S>(
     iter: &'a mut SegmentIter<'b, T, S>,
-    node: &'a mut IntermediateNode<T>,
     size_hint: usize,
 ) -> Result<Option<&'a [T]>, <S as StreamSource>::Error>
 where
     T: 'static + Default,
     S: 'static + StreamSource<Segment = [T]>,
 {
-    let pair = iter.stream.pair.as_mut().unwrap();
+    iter.stream.load_tail(size_hint).await?;
+    let node_ptr = iter.current.clone().unwrap();
+    let Node::Intermediate(node) = (unsafe { &*node_ptr.raw.get() }) else {
+        return Ok(None);
+    };
 
-    loop {
-        let control = Control::new(&iter.stream.parameter, &mut node.buf[iter.current_len..]);
-        let res = iter.stream.source.next(control, size_hint).await;
-        match res {
-            Response::PreAllocated(writtern) => {
-                if writtern == 0 {
-                    // レスポンスにデータが無いため、ループする。
-                    continue;
-                }
-
-                iter.current_len += writtern;
-                pair.tail_len = iter.current_len;
-                let slice = &node.buf[iter.current_offset..iter.current_len];
-                iter.current_offset = iter.current_len;
-                return Ok(Some(slice));
-            }
-            Response::Allocated(items, written) => {
-                let next = IntermediateNode {
-                    buf: items,
-                    next: None,
-                };
-                let next_ptr = NodePtr {
-                    raw: Arc::new(UnsafeCell::new(Node::Intermediate(next))),
-                };
-
-                // 中間ノードのバッファを縮める。
-                node.buf.drain(iter.current_len..);
-                node.next = Some(next_ptr.clone());
-
-                pair.tail_ptr = next_ptr.clone();
-                pair.tail_len = written;
-
+    match node.next.clone() {
+        Some(next_ptr) => {
+            // `node`はtailではないため、`node.buf.len()`が`node`のセグメントの長さになる。
+            let node_end = node.buf.len();
+            if iter.current_start < node_end {
+                // `node`の末尾にデータが追加されている。
+                let segment = &node.buf[iter.current_start..node_end];
                 iter.current = Some(next_ptr);
-                iter.current_len = written;
-                iter.current_offset = written;
+                iter.current_start = 0; // `node.next`はheadにならない。
 
-                let current = iter
-                    .current
-                    .as_ref()
-                    .map(|e| unsafe { &mut *e.raw.get() })
-                    .unwrap();
-                let Node::Intermediate(current) = current else {
-                    unreachable!()
+                return Ok(Some(segment));
+            } else {
+                // `node`の末尾にデータは追加されていないため、次のノードのデータを返す。
+                let next = unsafe { &*next_ptr.raw.get() };
+                let segment = match next {
+                    Node::Intermediate(next) => {
+                        let pair = iter.stream.pair.as_ref().unwrap();
+                        let next_len = if next.next.is_none() {
+                            pair.tail_end
+                        } else {
+                            next.buf.len()
+                        };
+                        iter.current = Some(next_ptr);
+                        iter.current_start = next_len;
+
+                        // `next`はheadにならない。
+                        Some(&next.buf[..next_len])
+                    }
+                    Node::Sentinel => {
+                        iter.current = Some(next_ptr);
+                        iter.current_start = 0;
+                        None
+                    }
                 };
 
-                return Ok(Some(&current.buf[..written]));
+                Ok(segment)
             }
-            Response::Finish => {
-                let next_ptr = NodePtr {
-                    raw: Arc::new(UnsafeCell::new(Node::Sentinel)),
-                };
+        }
+        _ => {
+            // `node`はtailのままであるため、末尾にデータが追加されている。
+            let pair = iter.stream.pair.as_ref().unwrap();
+            let segment = &node.buf[iter.current_start..pair.tail_end];
 
-                // 中間ノードのバッファを縮める。
-                node.buf.drain(iter.current_len..);
-                node.next = Some(next_ptr.clone());
+            iter.current_start = pair.tail_end;
 
-                pair.tail_ptr = next_ptr.clone();
-                pair.tail_len = 0;
-
-                iter.current = Some(next_ptr);
-                iter.current_len = 0;
-                iter.current_offset = 0;
-
-                return Ok(None);
-            }
-            Response::Error(e) => return Err(e),
+            Ok(Some(segment))
         }
     }
 }

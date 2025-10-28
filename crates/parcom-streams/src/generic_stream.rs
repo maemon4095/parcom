@@ -59,13 +59,8 @@ where
     T: 'static + Default,
     S: 'static + StreamSource<Segment = [T]>,
 {
-    fn tail_ptr(&self) -> Option<NodePtr<T>> {
-        self.pair.as_ref().map(|p| p.tail_ptr.clone())
-    }
-
-    /// tailのバッファを埋めるように読み込みを行う。新しく末尾にノードが追加される場合もある。
-    ///
-    /// `Ok`の場合、末尾に追加された要素数を返す。
+    /// データを読み込みストリーム末尾に追加し、書き込まれた要素数を返す。
+    /// 戻り値が`0`の場合、データ末端まで到達しており、以降の`load`の呼び出しでデータが追加されることはない。
     async fn load(&mut self, size_hint: usize) -> Result<usize, S::Error> {
         if self.pair.is_none() {
             self.load_initial(size_hint).await
@@ -75,107 +70,50 @@ where
     }
 
     async fn load_initial(&mut self, size_hint: usize) -> Result<usize, S::Error> {
-        let mut buf = Vec::new();
-        let mut remain = size_hint;
-        let mut written = 0;
         loop {
-            let control = Control::new(&self.parameter, &mut buf[written..]);
-            let res = self.source.next(control, remain).await;
+            let control = Control::new(&self.parameter, &mut []);
+            let res = self.source.next(control, size_hint).await;
 
             match res {
-                Response::PreAllocated(w) => {
-                    written += w;
-                    remain = buf.len() - written;
-
-                    if remain == 0 {
-                        break Ok(written);
-                    }
+                Response::PreAllocated(_) => {
+                    continue;
                 }
-                Response::Allocated(tail_buf, tail_written) => {
-                    buf.drain(written..);
+                Response::Allocated(buf, written) => {
+                    if written == 0 {
+                        continue;
+                    }
 
-                    let tail = IntermediateNode {
-                        buf: tail_buf,
-                        next: None,
+                    let node = IntermediateNode { buf, next: None };
+                    let node_ptr = NodePtr {
+                        raw: Arc::new(UnsafeCell::new(Node::Intermediate(node))),
                     };
-                    let tail_ptr = NodePtr {
-                        raw: Arc::new(UnsafeCell::new(Node::Intermediate(tail))),
-                    };
-                    let head = IntermediateNode {
-                        buf,
-                        next: Some(tail_ptr.clone()),
-                    };
-                    let head_ptr = NodePtr {
-                        raw: Arc::new(UnsafeCell::new(Node::Intermediate(head))),
-                    };
-
-                    let total_written = tail_written + written;
 
                     self.pair = Some(HeadTailNodePair {
-                        head_offset: 0,
-                        tail_len: tail_written,
-                        head_ptr,
-                        tail_ptr,
+                        head_start: 0,
+                        tail_end: written,
+                        head_ptr: node_ptr.clone(),
+                        tail_ptr: node_ptr,
                     });
 
-                    break Ok(total_written);
+                    return Ok(written);
                 }
 
                 Response::Finish => {
-                    let pair = if buf.is_empty() {
-                        let node_ptr = NodePtr {
-                            raw: Arc::new(UnsafeCell::new(Node::Sentinel)),
-                        };
-                        HeadTailNodePair {
-                            head_offset: 0,
-                            tail_len: 0,
-                            head_ptr: node_ptr.clone(),
-                            tail_ptr: node_ptr,
-                        }
-                    } else {
-                        let tail_ptr = NodePtr {
-                            raw: Arc::new(UnsafeCell::new(Node::Sentinel)),
-                        };
-
-                        buf.drain(written..);
-                        let head = IntermediateNode {
-                            buf,
-                            next: Some(tail_ptr.clone()),
-                        };
-                        let head_ptr = NodePtr {
-                            raw: Arc::new(UnsafeCell::new(Node::Intermediate(head))),
-                        };
-
-                        HeadTailNodePair {
-                            head_offset: 0,
-                            tail_len: 0,
-                            head_ptr,
-                            tail_ptr,
-                        }
+                    let node_ptr = NodePtr {
+                        raw: Arc::new(UnsafeCell::new(Node::Sentinel)),
                     };
 
-                    let total_written = written;
+                    self.pair = Some(HeadTailNodePair {
+                        head_start: 0,
+                        tail_end: 0,
+                        head_ptr: node_ptr.clone(),
+                        tail_ptr: node_ptr,
+                    });
 
-                    self.pair = Some(pair);
-
-                    break Ok(total_written);
+                    return Ok(0);
                 }
                 Response::Error(e) => {
-                    if !buf.is_empty() {
-                        let node = IntermediateNode { buf, next: None };
-                        let node_ptr = NodePtr {
-                            raw: Arc::new(UnsafeCell::new(Node::Intermediate(node))),
-                        };
-
-                        self.pair = Some(HeadTailNodePair {
-                            head_offset: 0,
-                            tail_len: written,
-                            head_ptr: node_ptr.clone(),
-                            tail_ptr: node_ptr,
-                        });
-                    }
-
-                    break Err(e);
+                    return Err(e);
                 }
             }
         }
@@ -183,7 +121,9 @@ where
 
     async fn load_tail(&mut self, size_hint: usize) -> Result<usize, S::Error> {
         let HeadTailNodePair {
-            tail_len, tail_ptr, ..
+            tail_end: tail_len,
+            tail_ptr,
+            ..
         } = self.pair.as_mut().unwrap();
 
         let Node::Intermediate(tail) = (unsafe { &mut *tail_ptr.raw.get() }) else {
@@ -191,24 +131,27 @@ where
         };
 
         let initial_tail_len = *tail_len;
-        let mut current_tail_len = *tail_len;
-        let mut remain = size_hint;
         loop {
-            let control = Control::new(&self.parameter, &mut tail.buf[current_tail_len..]);
-            let res = self.source.next(control, remain).await;
+            let control = Control::new(&self.parameter, &mut tail.buf[initial_tail_len..]);
+            let res = self.source.next(control, size_hint).await;
 
             match res {
-                Response::PreAllocated(w) => {
-                    current_tail_len += w;
-                    remain = tail.buf.len() - current_tail_len;
-
-                    if remain == 0 {
-                        let total_written = current_tail_len - initial_tail_len;
-                        *tail_len = current_tail_len;
-                        break Ok(total_written);
+                Response::PreAllocated(written) => {
+                    // tailのバッファ末尾にデータが追加された。
+                    if written == 0 {
+                        continue;
                     }
+
+                    *tail_len = initial_tail_len + written;
+
+                    break Ok(written);
                 }
                 Response::Allocated(items, written) => {
+                    // tailのバッファ末尾にデータは追加されず、新しいバッファが追加された。
+                    if written == 0 {
+                        continue;
+                    }
+
                     let next = IntermediateNode {
                         buf: items,
                         next: None,
@@ -217,37 +160,112 @@ where
                         raw: Arc::new(UnsafeCell::new(Node::Intermediate(next))),
                     };
 
-                    let tail_written = current_tail_len - initial_tail_len;
-                    let total_written = tail_written + written;
-
-                    tail.buf.drain(current_tail_len..);
+                    tail.buf.drain(initial_tail_len..);
                     tail.next = Some(next_ptr.clone());
 
                     *tail_len = written;
                     *tail_ptr = next_ptr;
 
-                    break Ok(total_written);
+                    break Ok(written);
                 }
-
                 Response::Finish => {
+                    // tailのバッファ末尾にデータは追加されず、ストリームが閉じられた。
                     let next_ptr = NodePtr {
                         raw: Arc::new(UnsafeCell::new(Node::Sentinel)),
                     };
 
-                    let tail_written = current_tail_len - initial_tail_len;
-
-                    tail.buf.drain(current_tail_len..);
+                    tail.buf.drain(initial_tail_len..);
                     tail.next = Some(next_ptr.clone());
 
                     *tail_ptr = next_ptr;
 
-                    break Ok(tail_written);
+                    break Ok(0);
                 }
                 Response::Error(e) => {
-                    *tail_len = current_tail_len;
                     break Err(e);
                 }
             }
+        }
+    }
+
+    /// すでに読み込まれた分をすべて捨て、ストリームの先頭を現在の末尾まで移動する。
+    fn advance_already_loaded_all(&mut self) {
+        let Some(pair) = self.pair.as_mut() else {
+            return;
+        };
+        pair.head_ptr = pair.tail_ptr.clone();
+        pair.head_start = pair.tail_end;
+    }
+
+    /// ストリームの先頭を`delta`だけ進める。
+    ///
+    /// `delta`の値がすでに読み込まれたデータの長さよりも大きい場合、不足分が返される。
+    fn advance_already_loaded(&mut self, delta: usize) -> Result<(), usize> {
+        if delta == 0 {
+            return Ok(());
+        }
+
+        let Some(pair) = self.pair.as_mut() else {
+            return Err(delta);
+        };
+        let head_ptr = pair.head_ptr.clone();
+        let head = unsafe { &*head_ptr.raw.get() };
+        let Node::Intermediate(head) = head else {
+            return Err(delta);
+        };
+
+        let Some(head_next_ptr) = head.next.clone() else {
+            // headがtailの場合
+            let head_len = pair.tail_end - pair.head_start;
+
+            if delta <= head_len {
+                pair.head_start += delta;
+                return Ok(());
+            } else {
+                pair.head_start = pair.tail_end;
+                return Err(delta - head_len);
+            }
+        };
+
+        let head_len = head.buf.len() - pair.head_start;
+        if delta <= head_len {
+            pair.head_start += delta;
+            return Ok(());
+        }
+
+        let mut remain = delta - head_len;
+        let mut node_ptr = head_next_ptr;
+
+        loop {
+            let node = unsafe { &*node_ptr.raw.get() };
+            let Node::Intermediate(node) = node else {
+                pair.head_start = pair.tail_end;
+                pair.head_ptr = node_ptr;
+                return Err(remain);
+            };
+
+            let Some(next_ptr) = node.next.clone() else {
+                let node_len = pair.tail_end;
+                pair.head_ptr = node_ptr;
+
+                if remain <= node_len {
+                    pair.head_start = remain;
+                    return Ok(());
+                } else {
+                    pair.head_start = node_len;
+                    return Err(remain - node_len);
+                }
+            };
+
+            let node_len = node.buf.len();
+            if remain <= node_len {
+                pair.head_ptr = node_ptr;
+                pair.head_start = remain;
+                return Ok(());
+            }
+
+            remain -= node_len;
+            node_ptr = next_ptr;
         }
     }
 }
@@ -276,10 +294,10 @@ where
 
 #[derive(Debug)]
 struct HeadTailNodePair<T: 'static + Default> {
-    /// NOTE: `head`が`Node::Sentinel`である場合、`head_offset`の値を参照してはならない。
-    head_offset: usize,
-    /// NOTE: `tail`が`Node::Sentinel`である場合、`tail_len`の値を参照してはならない。
-    tail_len: usize,
+    /// NOTE: `head`が`Node::Sentinel`である場合、`head_start`の値を参照してはならない。
+    head_start: usize,
+    /// NOTE: `tail`が`Node::Sentinel`である場合、`tail_end`の値を参照してはならない。
+    tail_end: usize,
     head_ptr: NodePtr<T>,
     tail_ptr: NodePtr<T>,
 }
@@ -305,15 +323,9 @@ enum Node<T> {
 
 #[derive(Debug)]
 struct IntermediateNode<T> {
-    /// NOTE: ノードがtailである場合、`buf.len()`は書き込まれた分より長い場合がある。実際の長さはstreamの`tail_len`を参照する必要がある。 ノードがtailでない場合、`buf.len()`は書き込まれた分と一致する。
+    /// NOTE: ノードがtailである場合、`buf.len()`は書き込まれた分より長い場合がある。実際の長さはstreamの`tail_end`を参照する必要がある。 ノードがtailでない場合、`buf.len()`は書き込まれた分と一致する。
     buf: Vec<T>,
     next: Option<NodePtr<T>>,
-}
-
-impl<T> IntermediateNode<T> {
-    fn is_tail(&self) -> bool {
-        self.next.is_none()
-    }
 }
 
 #[cfg(test)]
@@ -366,79 +378,191 @@ mod test {
         }
     }
 
-    #[tokio::test]
-    async fn test_load_all() {
-        let segments = &["", "abc", "", "d", "efg"];
-        let source = DelayedSource::new(
-            IteratorSource::new(segments),
+    fn create_fragmented_serial(lengths: impl IntoIterator<Item = usize>) -> Vec<Vec<usize>> {
+        lengths
+            .into_iter()
+            .scan(0, |sum, len| {
+                let offset = *sum;
+                *sum += len;
+                let buf = std::iter::repeat_n((), len)
+                    .enumerate()
+                    .map(|(i, _)| offset + i)
+                    .collect();
+                Some(buf)
+            })
+            .collect()
+    }
+
+    fn create_source(
+        segments: &[Vec<usize>],
+    ) -> impl StreamSource<Segment = [usize], Error = parcom_core::Never> {
+        DelayedSource::new(
+            IteratorSource::new(segments.to_vec()),
             Duration::from_millis(100),
             0.5..1.0,
+        )
+    }
+
+    #[tokio::test]
+    async fn test_iterate_all() {
+        let segments = create_fragmented_serial([23, 18, 8, 0, 0, 1, 3, 2, 19, 11]);
+        let source = create_source(&segments);
+
+        let mut stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
         );
 
-        let mut stream = GenericStream::new(GenericStreamParameter::default(), source);
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
+
         let mut iter = stream.segments();
         let mut buf = Vec::new();
+
         while let Some(segment) = iter.next(0).await.unwrap() {
             buf.extend_from_slice(segment);
         }
+        assert_eq!(buf, expected);
 
-        let expected: Vec<u8> = segments
-            .iter()
-            .flat_map(|e| e.as_bytes())
-            .copied()
-            .collect();
+        let mut iter = stream.segments();
+        buf.clear();
+        while let Some(segment) = iter.next(0).await.unwrap() {
+            buf.extend_from_slice(segment);
+        }
 
         assert_eq!(buf, expected)
     }
 
     #[tokio::test]
-    async fn test_loaded_all() {
-        let segments = &["", "abc", "", "d", "efg"];
-        let source = DelayedSource::new(
-            IteratorSource::new(segments),
-            Duration::from_millis(100),
-            0.5..1.0,
+    async fn test_iterate_partial() {
+        let segments = create_fragmented_serial([23, 18, 8, 0, 0, 1, 3, 2, 19, 11]);
+        let source = create_source(&segments);
+
+        let mut stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
         );
 
-        let mut stream = GenericStream::new(GenericStreamParameter::default(), source);
-        let mut iter = stream.segments();
-        while let Some(_) = iter.next(0).await.unwrap() {}
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
 
         let mut iter = stream.segments();
         let mut buf = Vec::new();
+
+        let mut discard = 2;
+        while let Some(_) = iter.next(0).await.unwrap() {
+            discard -= 1;
+
+            if discard == 0 {
+                break;
+            }
+        }
+        assert!(expected.starts_with(&buf));
+
+        let mut iter = stream.segments();
+        buf.clear();
         while let Some(segment) = iter.next(0).await.unwrap() {
             buf.extend_from_slice(segment);
         }
 
-        let expected: Vec<u8> = segments
-            .iter()
-            .flat_map(|e| e.as_bytes())
-            .copied()
-            .collect();
-
-        assert_eq!(buf, expected);
+        assert_eq!(buf, expected)
     }
 
-    #[test]
-    fn test_loaded_partial() {}
+    #[tokio::test]
+    async fn test_advance_all_after_iterate_all() {
+        let segments = create_fragmented_serial([23, 18, 8, 0, 0, 1, 3, 2, 19, 11]);
+        let source = create_source(&segments);
 
-    #[test]
-    fn test_advance_fully_loaded_advance_all() {
-        todo!()
+        let mut stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
+        );
+
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
+
+        let mut iter = stream.segments();
+
+        while let Some(_) = iter.next(0).await.unwrap() {}
+
+        stream.advance(expected.len()).await.unwrap();
     }
 
-    #[test]
-    fn test_advance_fully_loaded_advance_partial() {
-        todo!()
+    #[tokio::test]
+    #[should_panic]
+    async fn test_advance_over_after_iterate_all() {
+        let segments = create_fragmented_serial([23, 18, 8, 0, 0, 1, 3, 2, 19, 11]);
+        let source = create_source(&segments);
+
+        let mut stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
+        );
+
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
+
+        let mut iter = stream.segments();
+
+        while let Some(_) = iter.next(0).await.unwrap() {}
+
+        stream.advance(expected.len() + 1).await.unwrap();
     }
 
-    #[test]
-    fn test_advance_partially_loaded_advance_partial() {
-        todo!()
+    #[tokio::test]
+    async fn test_advance_all_before_iteration() {
+        let segments = create_fragmented_serial([23, 18, 8, 0, 0, 1, 3, 2, 19, 11]);
+        let source = create_source(&segments);
+
+        let stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
+        );
+
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
+
+        stream.advance(expected.len()).await.unwrap();
     }
 
-    #[test]
-    fn test_advance_partially_loaded_advance_all() {
-        todo!()
+    #[tokio::test]
+    #[should_panic]
+    async fn test_advance_over_before_iteration() {
+        let segments = create_fragmented_serial([23, 18, 8, 0, 0, 1, 3, 2, 19, 11]);
+        let source = create_source(&segments);
+
+        let stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
+        );
+
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
+
+        stream.advance(expected.len() + 1).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_advance() {
+        let lengths = [23, 18, 8, 0, 0, 1, 3, 2, 19, 11];
+        let segments = create_fragmented_serial(lengths);
+        let advance_steps = [3, 1, 4, 12, 0, 9, 1, 3, 32, 20];
+        assert_eq!(advance_steps.iter().sum::<usize>(), lengths.iter().sum());
+        let source = create_source(&segments);
+
+        let mut stream = GenericStream::new(
+            GenericStreamParameter::default().with_min_capacity(16),
+            source,
+        );
+
+        let expected: Vec<usize> = segments.iter().flatten().copied().collect();
+
+        let mut offset = 0;
+        for advance_step in advance_steps {
+            offset += advance_step;
+            stream = stream.advance(advance_step).await.unwrap();
+
+            let mut iter = stream.segments();
+            let mut buf = Vec::new();
+            while let Some(segment) = iter.next(0).await.unwrap() {
+                buf.extend_from_slice(segment);
+            }
+
+            assert_eq!(buf, &expected[offset..])
+        }
     }
 }
