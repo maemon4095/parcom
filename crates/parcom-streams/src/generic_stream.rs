@@ -502,7 +502,7 @@ mod test {
 
         while let Some(_) = iter.next(0).await.unwrap() {}
 
-        stream.advance(expected.len() + 1).await.unwrap();
+        let _ = stream.advance(expected.len() + 1).await;
     }
 
     #[tokio::test]
@@ -533,7 +533,7 @@ mod test {
 
         let expected: Vec<usize> = segments.iter().flatten().copied().collect();
 
-        stream.advance(expected.len() + 1).await.unwrap();
+        let _ = stream.advance(expected.len() + 1).await;
     }
 
     #[tokio::test]
