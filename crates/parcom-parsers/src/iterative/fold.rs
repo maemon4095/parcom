@@ -2,13 +2,13 @@ use std::marker::PhantomData;
 
 use parcom_core::{
     IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Parser, ParserOnce,
-    Stream,
+    Sequence,
 };
 use parcom_util::done;
 
 pub struct Fold<S, P, A, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserOnce<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -20,7 +20,7 @@ where
 
 impl<S, P, A, F> Fold<S, P, A, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserOnce<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -36,7 +36,7 @@ where
 
 impl<S, P, A, F> ParserOnce<S> for Fold<S, P, A, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserOnce<S>,
     F: Fn(A, P::Output) -> A,
 {
@@ -53,7 +53,7 @@ where
 
 impl<S, P, A, F> Parser<S> for Fold<S, P, A, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParser<S>,
     A: Clone,
     F: Fn(A, P::Output) -> A,
@@ -68,7 +68,7 @@ where
 
 async fn parse<S, P, A, F>(mut state: P, init: A, f: F, input: S) -> ParseResult<S, A, P::Error>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserState<S>,
     F: Fn(A, P::Output) -> A,
 {

@@ -1,11 +1,11 @@
-use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Stream};
+use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Sequence};
 use parcom_util::{done, Either};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct Unify<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -16,7 +16,7 @@ where
 
 impl<S, T0, T1, T, P> Unify<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -31,7 +31,7 @@ where
 
 impl<S, T0, T1, T, P> ParserOnce<S> for Unify<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -49,7 +49,7 @@ where
 
 impl<S, T0, T1, T, P> Parser<S> for Unify<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: Parser<S, Output = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -63,7 +63,7 @@ where
 
 pub struct UnifyErr<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S, Error = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -74,7 +74,7 @@ where
 
 impl<S, T0, T1, T, P> UnifyErr<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S, Error = Either<T0, T1>>,
     T0: Into<T>,
     T1: Into<T>,
@@ -89,7 +89,7 @@ where
 
 impl<S, T0, T1, T, P> ParserOnce<S> for UnifyErr<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S, Error = Either<T0, T1>>,
     T0: Into<T> + ParseError,
     T1: Into<T> + ParseError,
@@ -110,7 +110,7 @@ where
 
 impl<S, T0, T1, T, P> Parser<S> for UnifyErr<S, T0, T1, T, P>
 where
-    S: Stream,
+    S: Sequence,
     P: Parser<S, Error = Either<T0, T1>>,
     T0: Into<T> + ParseError,
     T1: Into<T> + ParseError,

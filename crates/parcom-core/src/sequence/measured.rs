@@ -1,4 +1,4 @@
-use crate::Stream;
+use crate::Sequence;
 
 pub trait Meter<S: ?Sized> {
     type Metrics: Metrics<S, Meter = Self>;
@@ -11,13 +11,13 @@ pub trait Metrics<S: ?Sized>: Eq + Ord {
     type Meter: Meter<S, Metrics = Self>;
 }
 
-pub trait MeasuredStream: Stream {
+pub trait MeasuredSequence: Sequence {
     type Metrics: Metrics<Self::Segment>;
     fn metrics(&self) -> Self::Metrics;
 }
 
-pub trait IntoMeasured: Stream {
-    type Measured<M: Metrics<Self::Segment>>: MeasuredStream<Metrics = M>;
+pub trait IntoMeasured: Sequence {
+    type Measured<M: Metrics<Self::Segment>>: MeasuredSequence<Metrics = M>;
 
     fn into_measured<M: Metrics<Self::Segment>>(self) -> Self::Measured<M>
     where

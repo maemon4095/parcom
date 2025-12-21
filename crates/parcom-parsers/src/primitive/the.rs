@@ -1,4 +1,4 @@
-use parcom_core::{primitive::BytesDelta, Parser, ParserOnce, SegmentIterator, Stream};
+use parcom_core::{primitive::BytesDelta, Parser, ParserOnce, SegmentStream, Sequence};
 use parcom_util::{done, error::Miss, fail, ResultExt};
 
 pub fn the_char(c: char) -> TheChar {
@@ -8,7 +8,7 @@ pub struct TheChar {
     c: char,
 }
 
-impl<S: Stream<Segment = str>> ParserOnce<S> for TheChar {
+impl<S: Sequence<Segment = str>> ParserOnce<S> for TheChar {
     type Output = ();
     type Error = Miss<()>;
 
@@ -17,15 +17,11 @@ impl<S: Stream<Segment = str>> ParserOnce<S> for TheChar {
     }
 }
 
-impl<S: Stream<Segment = str>> Parser<S> for TheChar {
+impl<S: Sequence<Segment = str>> Parser<S> for TheChar {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments
-            .next(BytesDelta::from_char(self.c))
-            .await
-            .stream_err()?
-        {
+        while let Some(segment) = segments.next().await.stream_err()? {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
@@ -57,7 +53,7 @@ pub struct TheItem<T: PartialEq> {
     item: T,
 }
 
-impl<T: 'static + PartialEq, S: Stream<Segment = [T]>> ParserOnce<S> for TheItem<T> {
+impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> ParserOnce<S> for TheItem<T> {
     type Output = ();
     type Error = Miss<()>;
 
@@ -66,11 +62,11 @@ impl<T: 'static + PartialEq, S: Stream<Segment = [T]>> ParserOnce<S> for TheItem
     }
 }
 
-impl<T: 'static + PartialEq, S: Stream<Segment = [T]>> Parser<S> for TheItem<T> {
+impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> Parser<S> for TheItem<T> {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(1).await.stream_err()? {
+        while let Some(segment) = segments.next().await.stream_err()? {
             let Some(item) = segment.iter().next() else {
                 continue;
             };

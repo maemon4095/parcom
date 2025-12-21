@@ -1,17 +1,19 @@
 use parcom_core::{
     Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Parser,
-    ParserOnce, RewindStream,
+    ParserOnce, RewindSequence,
 };
 use parcom_util::{done, ResultExt};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Collect<S: RewindStream, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default> {
+pub struct Collect<S: RewindSequence, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default> {
     parser: P,
     marker: PhantomData<(S, C)>,
 }
 
-impl<S: RewindStream, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default> Collect<S, P, C> {
+impl<S: RewindSequence, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default>
+    Collect<S, P, C>
+{
     pub fn new(parser: P) -> Self {
         Self {
             parser,
@@ -19,7 +21,7 @@ impl<S: RewindStream, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default>
         }
     }
 }
-impl<S: RewindStream, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default> ParserOnce<S>
+impl<S: RewindSequence, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default> ParserOnce<S>
     for Collect<S, P, C>
 {
     type Output = (C, Option<P::Error>);
@@ -30,7 +32,7 @@ impl<S: RewindStream, P: IterativeParserOnce<S>, C: Extend<P::Output> + Default>
     }
 }
 
-impl<S: RewindStream, P: IterativeParser<S>, C: Extend<P::Output> + Default> Parser<S>
+impl<S: RewindSequence, P: IterativeParser<S>, C: Extend<P::Output> + Default> Parser<S>
     for Collect<S, P, C>
 {
     async fn parse(&self, input: S) -> parcom_core::ParseResult<S, Self::Output, Self::Error> {
@@ -38,7 +40,7 @@ impl<S: RewindStream, P: IterativeParser<S>, C: Extend<P::Output> + Default> Par
     }
 }
 
-async fn parse<S: RewindStream, P: IterativeParserState<S>, C: Extend<P::Output> + Default>(
+async fn parse<S: RewindSequence, P: IterativeParserState<S>, C: Extend<P::Output> + Default>(
     mut state: P,
     input: S,
 ) -> ParseResult<S, (C, Option<P::Error>), P::Error> {

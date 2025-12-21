@@ -1,12 +1,12 @@
-use crate::{Stream, UnknownLocation};
+use crate::{Sequence, UnknownLocation};
 
 #[derive(Debug, Clone)]
-pub enum Error<S: Stream, E: ParseError> {
+pub enum Error<S: Sequence, E: ParseError> {
     Fail(E, UnknownLocation<S>),
     Stream(S::Error),
 }
 
-impl<S: Stream, E: ParseError> Error<S, E> {
+impl<S: Sequence, E: ParseError> Error<S, E> {
     pub fn conv_fail<U: ParseError + From<E>>(self) -> Error<S, U> {
         match self {
             Error::Fail(e, r) => Error::Fail(e.into(), r),

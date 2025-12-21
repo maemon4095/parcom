@@ -1,17 +1,17 @@
 use parcom_core::{
     Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, Parser,
-    ParserOnce, ParserResult, RewindStream,
+    ParserOnce, ParserResult, RewindSequence,
 };
 use parcom_util::{done, fail, ResultExt};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Optional<S: RewindStream, P: ParserOnce<S>> {
+pub struct Optional<S: RewindSequence, P: ParserOnce<S>> {
     parser: P,
     marker: PhantomData<S>,
 }
 
-impl<T: RewindStream, P: ParserOnce<T>> Optional<T, P> {
+impl<T: RewindSequence, P: ParserOnce<T>> Optional<T, P> {
     pub fn new(parser: P) -> Self {
         Self {
             parser,
@@ -19,7 +19,7 @@ impl<T: RewindStream, P: ParserOnce<T>> Optional<T, P> {
         }
     }
 }
-impl<S: RewindStream, P: ParserOnce<S>> ParserOnce<S> for Optional<S, P> {
+impl<S: RewindSequence, P: ParserOnce<S>> ParserOnce<S> for Optional<S, P> {
     type Output = Result<P::Output, P::Error>;
     type Error = P::Error;
 
@@ -36,7 +36,7 @@ impl<S: RewindStream, P: ParserOnce<S>> ParserOnce<S> for Optional<S, P> {
     }
 }
 
-impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
+impl<S: RewindSequence, P: Parser<S>> Parser<S> for Optional<S, P> {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         let anchor = input.anchor();
         match self.parser.parse(input).await {
@@ -50,7 +50,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Optional<S, P> {
     }
 }
 
-impl<S: RewindStream, P: ParserOnce<S>> IterativeParserOnce<S> for Optional<S, P> {
+impl<S: RewindSequence, P: ParserOnce<S>> IterativeParserOnce<S> for Optional<S, P> {
     type Output = P::Output;
     type Error = P::Error;
     type StateOnce = IterationStateOnce<S, P>;
@@ -60,7 +60,7 @@ impl<S: RewindStream, P: ParserOnce<S>> IterativeParserOnce<S> for Optional<S, P
     }
 }
 
-impl<S: RewindStream, P: Parser<S>> IterativeParser<S> for Optional<S, P> {
+impl<S: RewindSequence, P: Parser<S>> IterativeParser<S> for Optional<S, P> {
     type State<'a>
         = IterationState<'a, S, P>
     where
@@ -71,11 +71,11 @@ impl<S: RewindStream, P: Parser<S>> IterativeParser<S> for Optional<S, P> {
 }
 
 #[derive(Debug)]
-pub struct IterationStateOnce<S: RewindStream, P: ParserOnce<S>> {
+pub struct IterationStateOnce<S: RewindSequence, P: ParserOnce<S>> {
     me: Option<Optional<S, P>>,
 }
 
-impl<S: RewindStream, P: ParserOnce<S>> IterativeParserState<S> for IterationStateOnce<S, P> {
+impl<S: RewindSequence, P: ParserOnce<S>> IterativeParserState<S> for IterationStateOnce<S, P> {
     type Output = P::Output;
     type Error = P::Error;
 
@@ -98,11 +98,11 @@ impl<S: RewindStream, P: ParserOnce<S>> IterativeParserState<S> for IterationSta
 }
 
 #[derive(Debug)]
-pub struct IterationState<'a, S: RewindStream, P: Parser<S>> {
+pub struct IterationState<'a, S: RewindSequence, P: Parser<S>> {
     me: Option<&'a Optional<S, P>>,
 }
 
-impl<'a, S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<'a, S, P> {
+impl<'a, S: RewindSequence, P: Parser<S>> IterativeParserState<S> for IterationState<'a, S, P> {
     type Output = P::Output;
     type Error = P::Error;
 

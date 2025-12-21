@@ -1,19 +1,19 @@
 use super::{Anchor, BytesDelta, Nodes};
 use crate::{
     measured::{IntoMeasured, Meter, Metrics},
-    MeasuredStream, Never, PeekableStream, RewindStream, Stream, StreamSegment,
+    MeasuredSequence, Never, PeekableSequence, RewindSequence, Sequence, SequenceSegment,
 };
 
-impl<'a> Stream for &'a str {
+impl<'a> Sequence for &'a str {
     type Segment = str;
     type Error = Never;
-    type SegmentIter<'b>
-        = Nodes<'a, str>
+    type Segments<'b>
+        = Nodes<'b, str>
     where
         Self: 'b;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter<'_> {
+    fn segments(&mut self) -> Self::Segments<'_> {
         Nodes { me: Some(self) }
     }
 
@@ -24,7 +24,7 @@ impl<'a> Stream for &'a str {
     }
 }
 
-impl RewindStream for &str {
+impl RewindSequence for &str {
     type Anchor = Anchor<Self>;
     type Rewind = std::future::Ready<Result<Self, Never>>;
 
@@ -52,7 +52,7 @@ impl<'me> IntoMeasured for &'me str {
     }
 }
 
-impl PeekableStream for &str {
+impl PeekableSequence for &str {
     type Peek<'a>
         = Self
     where
@@ -82,16 +82,16 @@ where
     }
 }
 
-impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
+impl<'me, M: Metrics<str>> Sequence for Measured<'me, M> {
     type Segment = str;
     type Error = Never;
-    type SegmentIter<'b>
-        = Nodes<'me, str>
+    type Segments<'b>
+        = Nodes<'b, str>
     where
         Self: 'b;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter<'_> {
+    fn segments(&mut self) -> Self::Segments<'_> {
         self.base.segments()
     }
 
@@ -104,7 +104,7 @@ impl<'me, M: Metrics<str>> Stream for Measured<'me, M> {
     }
 }
 
-impl<'me, M> RewindStream for Measured<'me, M>
+impl<'me, M> RewindSequence for Measured<'me, M>
 where
     M: Metrics<str>,
     M::Meter: Clone,
@@ -121,7 +121,7 @@ where
     }
 }
 
-impl<'me, M: Metrics<str>> MeasuredStream for Measured<'me, M> {
+impl<'me, M: Metrics<str>> MeasuredSequence for Measured<'me, M> {
     type Metrics = M;
 
     fn metrics(&self) -> Self::Metrics {
@@ -129,7 +129,7 @@ impl<'me, M: Metrics<str>> MeasuredStream for Measured<'me, M> {
     }
 }
 
-impl StreamSegment for str {
+impl SequenceSegment for str {
     type Length = BytesDelta;
 
     fn len(&self) -> Self::Length {

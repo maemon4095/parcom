@@ -1,14 +1,14 @@
-use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Stream};
+use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Sequence};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Map<S: Stream, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> {
+pub struct Map<S: Sequence, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> {
     parser: P,
     mapping: F,
     marker: PhantomData<(S, U)>,
 }
 
-impl<S: Stream, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> Map<S, P, U, F> {
+impl<S: Sequence, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> Map<S, P, U, F> {
     pub fn new(parser: P, mapping: F) -> Self {
         Self {
             parser,
@@ -18,7 +18,9 @@ impl<S: Stream, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> Map<S, P, U, F> 
     }
 }
 
-impl<S: Stream, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> ParserOnce<S> for Map<S, P, U, F> {
+impl<S: Sequence, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> ParserOnce<S>
+    for Map<S, P, U, F>
+{
     type Output = U;
     type Error = P::Error;
 
@@ -29,7 +31,7 @@ impl<S: Stream, P: ParserOnce<S>, U, F: FnOnce(P::Output) -> U> ParserOnce<S> fo
             .map(|(v, r)| ((self.mapping)(v), r))
     }
 }
-impl<S: Stream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
+impl<S: Sequence, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, U, F> {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
         self.parser
             .parse(input)
@@ -39,13 +41,13 @@ impl<S: Stream, P: Parser<S>, U, F: Fn(P::Output) -> U> Parser<S> for Map<S, P, 
 }
 
 #[derive(Debug)]
-pub struct MapErr<S: Stream, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> {
+pub struct MapErr<S: Sequence, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> {
     parser: P,
     mapping: F,
     marker: PhantomData<(S, U)>,
 }
 
-impl<S: Stream, P: ParserOnce<S>, U: ParseError, F: Fn(P::Error) -> U> MapErr<S, P, U, F> {
+impl<S: Sequence, P: ParserOnce<S>, U: ParseError, F: Fn(P::Error) -> U> MapErr<S, P, U, F> {
     pub fn new(parser: P, mapping: F) -> Self {
         Self {
             parser,
@@ -55,7 +57,7 @@ impl<S: Stream, P: ParserOnce<S>, U: ParseError, F: Fn(P::Error) -> U> MapErr<S,
     }
 }
 
-impl<S: Stream, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> ParserOnce<S>
+impl<S: Sequence, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> ParserOnce<S>
     for MapErr<S, P, U, F>
 {
     type Output = P::Output;
@@ -69,7 +71,7 @@ impl<S: Stream, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> Parse
     }
 }
 
-impl<S: Stream, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> Parser<S>
+impl<S: Sequence, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> Parser<S>
     for MapErr<S, P, U, F>
 {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {

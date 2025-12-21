@@ -1,12 +1,12 @@
-use parcom_core::{Parser, ParserOnce, Stream};
+use parcom_core::{Parser, ParserOnce, Sequence};
 use std::marker::PhantomData;
 
-pub struct Boxed<S: Stream, P: ParserOnce<S>> {
+pub struct Boxed<S: Sequence, P: ParserOnce<S>> {
     parser: P,
     marker: PhantomData<S>,
 }
 
-impl<S: Stream, P: ParserOnce<S>> Boxed<S, P> {
+impl<S: Sequence, P: ParserOnce<S>> Boxed<S, P> {
     pub fn new(parser: P) -> Self {
         Self {
             parser,
@@ -15,7 +15,7 @@ impl<S: Stream, P: ParserOnce<S>> Boxed<S, P> {
     }
 }
 
-impl<S: Stream, P: Parser<S>> Parser<S> for Boxed<S, P> {
+impl<S: Sequence, P: Parser<S>> Parser<S> for Boxed<S, P> {
     fn parse(
         &self,
         input: S,
@@ -25,7 +25,7 @@ impl<S: Stream, P: Parser<S>> Parser<S> for Boxed<S, P> {
     }
 }
 
-impl<S: Stream, P: ParserOnce<S>> ParserOnce<S> for Boxed<S, P> {
+impl<S: Sequence, P: ParserOnce<S>> ParserOnce<S> for Boxed<S, P> {
     type Output = P::Output;
     type Error = P::Error;
 

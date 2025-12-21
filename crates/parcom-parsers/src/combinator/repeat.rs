@@ -1,6 +1,6 @@
 use parcom_core::{
     Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult,
-    Parser, ParserOnce, RewindStream, Stream,
+    Parser, ParserOnce, RewindSequence, Sequence,
 };
 use parcom_util::{done, fail, ResultExt};
 use std::marker::PhantomData;
@@ -8,12 +8,12 @@ use std::marker::PhantomData;
 use super::Ref;
 
 #[derive(Debug)]
-pub struct Repeat<S: RewindStream, P: Parser<S>> {
+pub struct Repeat<S: RewindSequence, P: Parser<S>> {
     parser: P,
     marker: PhantomData<S>,
 }
 
-impl<S: RewindStream, P: Parser<S>> Repeat<S, P> {
+impl<S: RewindSequence, P: Parser<S>> Repeat<S, P> {
     pub fn new(parser: P) -> Self {
         Self {
             parser,
@@ -22,7 +22,7 @@ impl<S: RewindStream, P: Parser<S>> Repeat<S, P> {
     }
 }
 
-impl<S: RewindStream, P: Parser<S>> ParserOnce<S> for Repeat<S, P> {
+impl<S: RewindSequence, P: Parser<S>> ParserOnce<S> for Repeat<S, P> {
     type Output = (Vec<P::Output>, P::Error);
     type Error = P::Error;
 
@@ -31,7 +31,7 @@ impl<S: RewindStream, P: Parser<S>> ParserOnce<S> for Repeat<S, P> {
     }
 }
 
-impl<S: RewindStream, P: Parser<S>> Parser<S> for Repeat<S, P> {
+impl<S: RewindSequence, P: Parser<S>> Parser<S> for Repeat<S, P> {
     async fn parse(&self, input: S) -> ParseResult<S, Self::Output, Self::Error> {
         let mut buf = Vec::new();
         let mut rest = input;
@@ -59,7 +59,7 @@ impl<S: RewindStream, P: Parser<S>> Parser<S> for Repeat<S, P> {
     }
 }
 
-impl<S: RewindStream, P: Parser<S>> IterativeParserOnce<S> for Repeat<S, P> {
+impl<S: RewindSequence, P: Parser<S>> IterativeParserOnce<S> for Repeat<S, P> {
     type Output = P::Output;
     type Error = P::Error;
     type StateOnce = IterationState<S, P>;
@@ -72,7 +72,7 @@ impl<S: RewindStream, P: Parser<S>> IterativeParserOnce<S> for Repeat<S, P> {
     }
 }
 
-impl<S: RewindStream, P: Parser<S>> IterativeParser<S> for Repeat<S, P> {
+impl<S: RewindSequence, P: Parser<S>> IterativeParser<S> for Repeat<S, P> {
     type State<'a>
         = IterationState<S, Ref<'a, S, P>>
     where
@@ -86,12 +86,12 @@ impl<S: RewindStream, P: Parser<S>> IterativeParser<S> for Repeat<S, P> {
 }
 
 #[derive(Debug)]
-pub struct IterationState<S: Stream, P: Parser<S>> {
+pub struct IterationState<S: Sequence, P: Parser<S>> {
     parser: P,
     marker: PhantomData<S>,
 }
 
-impl<S: RewindStream, P: Parser<S>> IterativeParserState<S> for IterationState<S, P> {
+impl<S: RewindSequence, P: Parser<S>> IterativeParserState<S> for IterationState<S, P> {
     type Output = P::Output;
     type Error = P::Error;
 

@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
-use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Stream};
+use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Sequence};
 use parcom_util::{done, fail, ParseResultExt};
 
 #[derive(Debug)]
 pub struct AndThen<S, P, O, E, F>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -17,7 +17,7 @@ where
 }
 impl<S, P, O, E, F> AndThen<S, P, O, E, F>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -33,7 +33,7 @@ where
 
 impl<S, P, O, E, F> ParserOnce<S> for AndThen<S, P, O, E, F>
 where
-    S: Stream,
+    S: Sequence,
     P: ParserOnce<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,
@@ -52,7 +52,7 @@ where
 
 impl<S, P, O, E, F> Parser<S> for AndThen<S, P, O, E, F>
 where
-    S: Stream,
+    S: Sequence,
     P: Parser<S>,
     F: Fn(P::Output) -> Result<O, E>,
     E: ParseError + From<P::Error>,

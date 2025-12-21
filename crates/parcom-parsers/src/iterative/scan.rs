@@ -1,13 +1,13 @@
 use std::marker::PhantomData;
 
 use parcom_core::{
-    IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Stream,
+    IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Sequence,
 };
 use parcom_util::done;
 
 pub struct Scan<S, P, St, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserOnce<S>,
 {
     parser: P,
@@ -18,7 +18,7 @@ where
 
 impl<S, P, St, F> Scan<S, P, St, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserOnce<S>,
 {
     pub fn new(parser: P, initial_state: St, f: F) -> Self {
@@ -33,7 +33,7 @@ where
 
 impl<S, P, St, F, O> IterativeParserOnce<S> for Scan<S, P, St, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserOnce<S>,
     F: Fn(&mut St, P::Output) -> O,
 {
@@ -53,7 +53,7 @@ where
 
 impl<S, P, St, F, O> IterativeParser<S> for Scan<S, P, St, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParser<S>,
     F: Fn(&mut St, P::Output) -> O,
     St: Clone,
@@ -75,7 +75,7 @@ where
 
 pub struct IterationState<S, P, St, F>
 where
-    S: Stream,
+    S: Sequence,
     P: IterativeParserState<S>,
 {
     parser_state: P,
@@ -86,7 +86,7 @@ where
 
 impl<S, P, St, F, O> IterativeParserState<S> for IterationState<S, P, St, F>
 where
-    S: Stream,
+    S: Sequence,
     F: Fn(&mut St, P::Output) -> O,
     P: IterativeParserState<S>,
 {

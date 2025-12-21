@@ -7,6 +7,7 @@ edition.workspace = true
 parcom-core = { workspace = true }
 parcom-util = { workspace = true }
 parcom-internals = { workspace = true }
+pin-project = { workspace = true }
 
 [dev-dependencies]
 mockalloc = { workspace = true }

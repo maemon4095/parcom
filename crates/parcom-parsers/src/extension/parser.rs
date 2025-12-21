@@ -1,12 +1,12 @@
 use crate::{util::Boxed, AndThen, Join, Map, MapErr, Optional, Or, Ref, Repeat, Unify, UnifyErr};
-use parcom_core::{ParseError, Parser, ParserOnce, RewindStream, Stream};
+use parcom_core::{ParseError, Parser, ParserOnce, RewindSequence, Sequence};
 use parcom_util::Either;
 
-pub trait ParserExtension<S: Stream>: ParserOnce<S> {
+pub trait ParserExtension<S: Sequence>: ParserOnce<S> {
     fn optional(self) -> Optional<S, Self>
     where
         Self: Sized,
-        S: RewindStream,
+        S: RewindSequence,
     {
         Optional::new(self)
     }
@@ -14,7 +14,7 @@ pub trait ParserExtension<S: Stream>: ParserOnce<S> {
     fn or<P: ParserOnce<S>>(self, other: P) -> Or<S, Self, P>
     where
         Self: Sized,
-        S: RewindStream,
+        S: RewindSequence,
     {
         Or::new(self, other)
     }
@@ -22,7 +22,7 @@ pub trait ParserExtension<S: Stream>: ParserOnce<S> {
     fn join<P: ParserOnce<S>>(self, other: P) -> Join<S, Self, P>
     where
         Self: Sized,
-        S: RewindStream,
+        S: RewindSequence,
     {
         Join::new(self, other)
     }
@@ -68,7 +68,7 @@ pub trait ParserExtension<S: Stream>: ParserOnce<S> {
 
     fn repeat(self) -> Repeat<S, Self>
     where
-        S: RewindStream,
+        S: RewindSequence,
         Self: Sized + Parser<S>,
     {
         Repeat::new(self)
@@ -91,4 +91,4 @@ pub trait ParserExtension<S: Stream>: ParserOnce<S> {
     }
 }
 
-impl<S: Stream, P: Parser<S>> ParserExtension<S> for P {}
+impl<S: Sequence, P: Parser<S>> ParserExtension<S> for P {}

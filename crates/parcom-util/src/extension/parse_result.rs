@@ -1,7 +1,7 @@
-use parcom_core::{Error, ParseError, ParseResult, Stream};
+use parcom_core::{Error, ParseError, ParseResult, Sequence};
 
 pub trait ParseResultExt {
-    type Stream: Stream;
+    type Stream: Sequence;
     type Output;
     type Error: ParseError;
 
@@ -15,7 +15,7 @@ pub trait ParseResultExt {
     ) -> ParseResult<Self::Stream, Self::Output, U>;
 }
 
-impl<S: Stream, O, E: ParseError> ParseResultExt for Result<(O, S), Error<S, E>> {
+impl<S: Sequence, O, E: ParseError> ParseResultExt for Result<(O, S), Error<S, E>> {
     type Stream = S;
     type Output = O;
     type Error = E;

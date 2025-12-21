@@ -1,23 +1,22 @@
-use std::marker::PhantomData;
-
 use parcom_core::{
-    primitive::BytesDelta, Parser, ParserOnce, ParserResult, SegmentIterator, Stream,
+    primitive::BytesDelta, Parser, ParserOnce, ParserResult, SegmentStream, Sequence,
 };
 use parcom_util::{done, error::Miss, fail, ResultExt};
+use std::marker::PhantomData;
 
-pub fn any_char<S: Stream<Segment = str>>() -> AnyChar<S> {
+pub fn any_char<S: Sequence<Segment = str>>() -> AnyChar<S> {
     AnyChar::new()
 }
 
-pub struct AnyChar<S: Stream<Segment = str>>(PhantomData<S>);
+pub struct AnyChar<S: Sequence<Segment = str>>(PhantomData<S>);
 
-impl<S: Stream<Segment = str>> AnyChar<S> {
+impl<S: Sequence<Segment = str>> AnyChar<S> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<S: Stream<Segment = str>> ParserOnce<S> for AnyChar<S> {
+impl<S: Sequence<Segment = str>> ParserOnce<S> for AnyChar<S> {
     type Output = char;
     type Error = Miss<()>;
 
@@ -26,11 +25,10 @@ impl<S: Stream<Segment = str>> ParserOnce<S> for AnyChar<S> {
     }
 }
 
-impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
+impl<S: Sequence<Segment = str>> Parser<S> for AnyChar<S> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
-
-        while let Some(segment) = segments.next(BytesDelta::ZERO).await.stream_err()? {
+        while let Some(segment) = segments.next().await.stream_err()? {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
@@ -47,19 +45,19 @@ impl<S: Stream<Segment = str>> Parser<S> for AnyChar<S> {
     }
 }
 
-pub fn any_item<T: 'static + Clone, S: Stream<Segment = [T]>>() -> AnyItem<T, S> {
+pub fn any_item<T: 'static + Clone, S: Sequence<Segment = [T]>>() -> AnyItem<T, S> {
     AnyItem::new()
 }
 
-pub struct AnyItem<T: 'static + Clone, S: Stream<Segment = [T]>>(PhantomData<(T, S)>);
+pub struct AnyItem<T: 'static + Clone, S: Sequence<Segment = [T]>>(PhantomData<(T, S)>);
 
-impl<T: Clone, S: Stream<Segment = [T]>> AnyItem<T, S> {
+impl<T: Clone, S: Sequence<Segment = [T]>> AnyItem<T, S> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<T: 'static + Clone, S: Stream<Segment = [T]>> ParserOnce<S> for AnyItem<T, S> {
+impl<T: 'static + Clone, S: Sequence<Segment = [T]>> ParserOnce<S> for AnyItem<T, S> {
     type Output = T;
     type Error = Miss<()>;
 
@@ -68,11 +66,11 @@ impl<T: 'static + Clone, S: Stream<Segment = [T]>> ParserOnce<S> for AnyItem<T, 
     }
 }
 
-impl<T: 'static + Clone, S: Stream<Segment = [T]>> Parser<S> for AnyItem<T, S> {
+impl<T: 'static + Clone, S: Sequence<Segment = [T]>> Parser<S> for AnyItem<T, S> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(1).await.stream_err()? {
+        while let Some(segment) = segments.next().await.stream_err()? {
             if segment.is_empty() {
                 continue;
             }

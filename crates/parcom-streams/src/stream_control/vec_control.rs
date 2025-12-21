@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use parcom_streams_core::{BufferRequest, StreamControl};
+use parcom_streams_core::{BufferWriter, StreamControl};
 
 use super::Response;
 
@@ -19,16 +19,16 @@ impl<'a, T: Default, E> VecControl<'a, T, E> {
 }
 
 impl<'a, T: Default, E> StreamControl for VecControl<'a, T, E> {
-    type Segment = [T];
-    type Response = Response<(), Self::Error>;
+    type Item = T;
+    type Result = Response<(), Self::Error>;
     type Error = E;
-    type Request = Request<'a, T, E>;
+    type Writer = Request<'a, T, E>;
 
-    fn request_buffer(self, min_size: usize) -> Self::Request {
+    fn request_writer(self, min_size: usize) -> Self::Writer {
         let offset = self.buf.len();
         let buf = self.buf;
 
-        buf.extend(std::iter::repeat_with(Default::default).take(min_size));
+        buf.reserve(min_size);
 
         Request {
             offset,
@@ -37,11 +37,11 @@ impl<'a, T: Default, E> StreamControl for VecControl<'a, T, E> {
         }
     }
 
-    fn cancel(self, err: Self::Error) -> Self::Response {
+    fn cancel(self, err: Self::Error) -> Self::Result {
         Response::Cancel((), err)
     }
 
-    fn finish(self) -> Self::Response {
+    fn finish(self) -> Self::Result {
         Response::Finish(())
     }
 }
@@ -52,21 +52,36 @@ pub struct Request<'a, T: Default, E> {
     _phantom: PhantomData<E>,
 }
 
-impl<'a, T: Default, E> BufferRequest for Request<'a, T, E> {
-    type Segment = [T];
-    type Response = Response<(), E>;
+impl<'a, T: Default, E> BufferWriter for Request<'a, T, E> {
+    type Item = T;
+    type Result = Response<(), E>;
     type Error = E;
 
-    fn buffer(&mut self) -> &mut Self::Segment {
-        &mut self.buf[self.offset..]
+    fn capacity(&self) -> usize {
+        self.buf.capacity() - self.offset
     }
 
-    fn advance(self, written: usize) -> Self::Response {
-        self.buf.drain((self.offset + written)..);
+    fn len(&self) -> usize {
+        self.buf.len() - self.offset
+    }
+
+    fn as_ptr(&self) -> *const Self::Item {
+        unsafe { self.buf.as_ptr().add(self.offset) }
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut Self::Item {
+        unsafe { self.buf.as_mut_ptr().add(self.offset) }
+    }
+
+    unsafe fn set_len(&mut self, new_len: usize) {
+        self.buf.set_len(new_len + self.offset);
+    }
+
+    fn advance(self) -> Self::Result {
         Response::Advance(())
     }
 
-    fn cancel(self, err: Self::Error) -> Self::Response {
+    fn cancel(self, err: Self::Error) -> Self::Result {
         self.buf.drain(self.offset..);
         Response::Cancel((), err)
     }

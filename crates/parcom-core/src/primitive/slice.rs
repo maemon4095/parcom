@@ -1,19 +1,19 @@
 use super::{Anchor, Nodes};
 use crate::{
     measured::{IntoMeasured, Meter, Metrics},
-    MeasuredStream, Never, PeekableStream, RewindStream, Stream, StreamSegment,
+    MeasuredSequence, Never, PeekableSequence, RewindSequence, Sequence, SequenceSegment,
 };
 
-impl<'a, T: 'static> Stream for &'a [T] {
+impl<'a, T> Sequence for &'a [T] {
     type Segment = [T];
     type Error = Never;
-    type SegmentIter<'b>
-        = Nodes<'a, [T]>
+    type Segments<'b>
+        = Nodes<'b, [T]>
     where
         Self: 'b;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter<'_> {
+    fn segments(&mut self) -> Self::Segments<'_> {
         Nodes { me: Some(self) }
     }
 
@@ -22,7 +22,7 @@ impl<'a, T: 'static> Stream for &'a [T] {
     }
 }
 
-impl<T: 'static> RewindStream for &[T] {
+impl<T> RewindSequence for &[T] {
     type Anchor = Anchor<Self>;
     type Rewind = std::future::Ready<Result<Self, Never>>;
 
@@ -42,7 +42,7 @@ impl<T: 'static> RewindStream for &[T] {
     }
 }
 
-impl<T: 'static> StreamSegment for [T] {
+impl<T> SequenceSegment for [T] {
     type Length = usize;
 
     fn len(&self) -> Self::Length {
@@ -62,7 +62,7 @@ impl<'me, T: 'static> IntoMeasured for &'me [T] {
     }
 }
 
-impl<T: 'static> PeekableStream for &[T] {
+impl<T: 'static> PeekableSequence for &[T] {
     type Peek<'a>
         = Self
     where
@@ -92,16 +92,16 @@ where
     }
 }
 
-impl<'me, T: 'static, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
+impl<'me, T, M: Metrics<[T]>> Sequence for Measured<'me, T, M> {
     type Segment = [T];
     type Error = Never;
-    type SegmentIter<'a>
-        = Nodes<'me, [T]>
+    type Segments<'a>
+        = Nodes<'a, [T]>
     where
         Self: 'a;
     type Advance = std::future::Ready<Result<Self, Never>>;
 
-    fn segments(&mut self) -> Self::SegmentIter<'_> {
+    fn segments(&mut self) -> Self::Segments<'_> {
         self.base.segments()
     }
 
@@ -114,7 +114,7 @@ impl<'me, T: 'static, M: Metrics<[T]>> Stream for Measured<'me, T, M> {
     }
 }
 
-impl<'me, T: 'static, M> RewindStream for Measured<'me, T, M>
+impl<'me, T, M> RewindSequence for Measured<'me, T, M>
 where
     M: Metrics<[T]>,
     M::Meter: Clone,
@@ -131,7 +131,7 @@ where
     }
 }
 
-impl<'me, T: 'static, M: Metrics<[T]>> MeasuredStream for Measured<'me, T, M> {
+impl<'me, T, M: Metrics<[T]>> MeasuredSequence for Measured<'me, T, M> {
     type Metrics = M;
 
     fn metrics(&self) -> Self::Metrics {

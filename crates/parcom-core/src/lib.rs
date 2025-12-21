@@ -1,6 +1,6 @@
 mod never;
 mod parser;
-mod stream;
+mod sequence;
 mod unknown;
 
 pub mod parse_error;
@@ -10,7 +10,7 @@ pub use measured;
 pub use never::{Never, ShouldNever, ShouldNeverExtension};
 pub use parse_error::{Error, ParseError};
 pub use parser::*;
-pub use stream::*;
+pub use sequence::*;
 pub use unknown::UnknownLocation;
 
 pub type ParserResult<S, P> =

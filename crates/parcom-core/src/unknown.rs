@@ -1,4 +1,4 @@
-use crate::RewindStream;
+use crate::RewindSequence;
 
 #[derive(Debug, Clone)]
 pub struct UnknownLocation<S>(S);
@@ -12,7 +12,7 @@ impl<S> UnknownLocation<S> {
     }
 }
 
-impl<S: RewindStream> UnknownLocation<S> {
+impl<S: RewindSequence> UnknownLocation<S> {
     pub fn rewind(self, anchor: S::Anchor) -> S::Rewind {
         self.0.rewind(anchor)
     }

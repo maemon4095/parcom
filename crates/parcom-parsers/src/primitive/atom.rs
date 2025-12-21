@@ -1,4 +1,4 @@
-use parcom_core::{Parser, ParserOnce, ParserResult, SegmentIterator, Stream, StreamSegment};
+use parcom_core::{Parser, ParserOnce, ParserResult, SegmentStream, Sequence, SequenceSegment};
 use parcom_util::{done, error::Miss, fail, ResultExt};
 
 pub fn atom<P: AtomPattern>(pattern: P) -> Atom<P> {
@@ -15,7 +15,7 @@ impl<P: AtomPattern> Atom<P> {
     }
 }
 
-impl<P: AtomPattern, S: Stream<Segment = P::Segment>> ParserOnce<S> for Atom<P> {
+impl<P: AtomPattern, S: Sequence<Segment = P::Segment>> ParserOnce<S> for Atom<P> {
     type Output = ();
     type Error = Miss<()>;
 
@@ -24,12 +24,12 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> ParserOnce<S> for Atom<P> 
     }
 }
 
-impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
+impl<P: AtomPattern, S: Sequence<Segment = P::Segment>> Parser<S> for Atom<P> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut remain = self.pattern.pattern();
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next(remain.len()).await.stream_err()? {
+        while let Some(segment) = segments.next().await.stream_err()? {
             if segment.len() >= remain.len() {
                 let s = segment.split_at(remain.len()).0;
                 let matched = s == remain;
@@ -57,7 +57,7 @@ impl<P: AtomPattern, S: Stream<Segment = P::Segment>> Parser<S> for Atom<P> {
 }
 
 pub trait AtomPattern {
-    type Segment: ?Sized + StreamSegment + PartialEq;
+    type Segment: ?Sized + SequenceSegment + PartialEq;
 
     fn pattern(&self) -> &Self::Segment;
 }

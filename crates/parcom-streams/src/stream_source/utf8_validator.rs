@@ -5,15 +5,15 @@ use std::{
     task::Poll,
 };
 
-use parcom_streams_core::{BufferRequest, StreamControl, StreamSource};
+use parcom_streams_core::{BufferWriter, StreamControl, StreamSource};
 
-pub struct Utf8Validator<S: StreamSource<Segment = [u8]>> {
+pub struct Utf8Validator<S: StreamSource<Item = u8>> {
     buffered: usize,
     rest: [u8; 3],
     source: S,
 }
 
-impl<S: StreamSource<Segment = [u8]>> Utf8Validator<S> {
+impl<S: StreamSource<Item = u8>> Utf8Validator<S> {
     pub fn new(source: S) -> Self {
         Self {
             buffered: 0,
@@ -28,19 +28,19 @@ pub enum Utf8ValidationError<E> {
     Inner(E),
 }
 
-impl<S: StreamSource<Segment = [u8]>> StreamSource for Utf8Validator<S> {
-    type Segment = [u8];
+impl<S: StreamSource<Item = u8>> StreamSource for Utf8Validator<S> {
+    type Item = u8;
     type Error = Utf8ValidationError<S::Error>;
 
     type Next<'a, C>
         = Next<'a, S, C>
     where
         Self: 'a,
-        C: 'a + StreamControl<Segment = Self::Segment, Error = Self::Error>;
+        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>;
 
     fn next<'a, C>(&'a mut self, control: C, size_hint: usize) -> Self::Next<'a, C>
     where
-        C: 'a + StreamControl<Segment = Self::Segment, Error = Self::Error>,
+        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>,
     {
         let control = Control::<S, C> {
             buffered: self.buffered,
@@ -61,8 +61,8 @@ impl<S: StreamSource<Segment = [u8]>> StreamSource for Utf8Validator<S> {
 
 pub struct Next<
     'a,
-    S: StreamSource<Segment = [u8]> + 'a,
-    C: 'a + StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    S: StreamSource<Item = u8> + 'a,
+    C: 'a + StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 > {
     buffered: &'a mut usize,
     rest: &'a mut [u8; 3],
@@ -71,10 +71,10 @@ pub struct Next<
 
 impl<'a, S, C> Future for Next<'a, S, C>
 where
-    S: StreamSource<Segment = [u8]>,
-    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    S: StreamSource<Item = u8>,
+    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
-    type Output = C::Response;
+    type Output = C::Result;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         let this = unsafe { self.get_unchecked_mut() };
@@ -100,7 +100,7 @@ where
     }
 }
 
-struct Control<S: StreamSource<Segment = [u8]>, C: StreamControl> {
+struct Control<S: StreamSource<Item = u8>, C: StreamControl> {
     buffered: usize,
     rest: [u8; 3],
     control: C,
@@ -109,27 +109,32 @@ struct Control<S: StreamSource<Segment = [u8]>, C: StreamControl> {
 
 impl<S, C> StreamControl for Control<S, C>
 where
-    S: StreamSource<Segment = [u8]>,
-    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    S: StreamSource<Item = u8>,
+    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
-    type Segment = [u8];
+    type Item = u8;
     type Error = S::Error;
-    type Response = Response<S, C>;
-    type Request = Request<S, C>;
+    type Result = Response<S, C>;
+    type Writer = Writer<S, C>;
 
-    fn request_buffer(self, min_size: usize) -> Self::Request {
-        let mut req = self.control.request_buffer(self.buffered + min_size);
+    fn request_writer(self, min_capacity: usize) -> Self::Writer {
+        let mut req = self.control.request_writer(self.buffered + min_capacity);
+        let dst = req.as_mut_ptr();
+        let src = self.rest.as_ptr();
 
-        req.buffer()[..self.buffered].copy_from_slice(&self.rest[..self.buffered]);
+        unsafe {
+            std::ptr::copy_nonoverlapping(src, dst, self.buffered);
+            req.set_len(self.buffered);
+        }
 
-        Request {
+        Writer {
             buffered: self.buffered,
             req,
             _phantom: PhantomData,
         }
     }
 
-    fn cancel(self, err: S::Error) -> Self::Response {
+    fn cancel(self, err: S::Error) -> Self::Result {
         let res = self.control.cancel(Utf8ValidationError::Inner(err));
         Response {
             inner: InnerResponse::Err { res },
@@ -137,7 +142,7 @@ where
         }
     }
 
-    fn finish(self) -> Self::Response {
+    fn finish(self) -> Self::Result {
         let res = self.control.finish();
         Response {
             inner: InnerResponse::Finish { res },
@@ -146,35 +151,50 @@ where
     }
 }
 
-struct Request<S, C>
+struct Writer<S, C>
 where
-    S: StreamSource<Segment = [u8]>,
-    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    S: StreamSource<Item = u8>,
+    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
     buffered: usize,
-    req: C::Request,
+    req: C::Writer,
     _phantom: PhantomData<fn(S) -> S>,
 }
 
-impl<S, C> BufferRequest for Request<S, C>
+impl<S, C> BufferWriter for Writer<S, C>
 where
-    S: StreamSource<Segment = [u8]>,
-    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    S: StreamSource<Item = u8>,
+    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
-    type Segment = [u8];
+    type Item = u8;
     type Error = S::Error;
-    type Response = Response<S, C>;
+    type Result = Response<S, C>;
 
-    fn buffer(&mut self) -> &mut [u8] {
-        &mut self.req.buffer()[self.buffered..]
+    fn capacity(&self) -> usize {
+        self.req.capacity() - self.buffered
     }
 
-    fn advance(mut self, written: usize) -> Response<S, C> {
-        let total = self.buffered + written;
-        let buf = &self.req.buffer()[..total];
+    fn len(&self) -> usize {
+        self.req.len() - self.buffered
+    }
+
+    fn as_ptr(&self) -> *const Self::Item {
+        unsafe { self.req.as_ptr().add(self.buffered) }
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut Self::Item {
+        unsafe { self.req.as_mut_ptr().add(self.buffered) }
+    }
+
+    unsafe fn set_len(&mut self, len: usize) {
+        self.req.set_len(len + self.buffered);
+    }
+
+    fn advance(mut self) -> Response<S, C> {
+        let buf = self.req.as_slice();
 
         let valid_len = match std::str::from_utf8(buf) {
-            Ok(_) => total,
+            Ok(_) => buf.len(),
             Err(e) => e.valid_up_to(),
         };
 
@@ -187,10 +207,13 @@ where
             let mut rest = [0; 3];
             rest[..invalids.len()].copy_from_slice(invalids);
 
+            let buffered = invalids.len();
+            self.req.shrink_to(valid_len);
+
             InnerResponse::Advance {
-                buffered: invalids.len(),
+                buffered,
                 rest,
-                res: self.req.advance(valid_len),
+                res: self.req.advance(),
             }
         };
 
@@ -210,10 +233,10 @@ where
     }
 }
 
-struct Response<S: StreamSource<Segment = [u8]>, C: StreamControl>
+struct Response<S: StreamSource<Item = u8>, C: StreamControl>
 where
-    S: StreamSource<Segment = [u8]>,
-    C: StreamControl<Segment = [u8], Error = Utf8ValidationError<S::Error>>,
+    S: StreamSource<Item = u8>,
+    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
     inner: InnerResponse<C>,
     _phantom: PhantomData<fn(S) -> S>,
@@ -221,18 +244,18 @@ where
 
 enum InnerResponse<C: StreamControl>
 where
-    C: StreamControl<Segment = [u8]>,
+    C: StreamControl<Item = u8>,
 {
     Advance {
         buffered: usize,
         rest: [u8; 3],
-        res: C::Response,
+        res: C::Result,
     },
     Finish {
-        res: C::Response,
+        res: C::Result,
     },
     Err {
-        res: C::Response,
+        res: C::Result,
     },
 }
 
