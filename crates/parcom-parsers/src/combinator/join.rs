@@ -1,5 +1,5 @@
 use parcom_core::{Parser, ParserOnce, ParserResult, RewindSequence};
-use parcom_util::{done, Either, ParseResultExt};
+use parcom_util::{done, Either};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -28,9 +28,13 @@ impl<S: RewindSequence, P0: ParserOnce<S>, P1: ParserOnce<S>> ParserOnce<S> for 
             .parser0
             .parse_once(input)
             .await
-            .map_fail(Either::First)?;
+            .map_err(|(e, r)| (Either::First(e), r))?;
 
-        let (item1, rest) = self.parser1.parse_once(rest).await.map_fail(Either::Last)?;
+        let (item1, rest) = self
+            .parser1
+            .parse_once(rest)
+            .await
+            .map_err(|(e, r)| (Either::Last(e), r))?;
 
         done((item0, item1), rest)
     }
@@ -38,8 +42,16 @@ impl<S: RewindSequence, P0: ParserOnce<S>, P1: ParserOnce<S>> ParserOnce<S> for 
 
 impl<S: RewindSequence, P0: Parser<S>, P1: Parser<S>> Parser<S> for Join<S, P0, P1> {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let (item0, rest) = self.parser0.parse(input).await.map_fail(Either::First)?;
-        let (item1, rest) = self.parser1.parse(rest).await.map_fail(Either::Last)?;
+        let (item0, rest) = self
+            .parser0
+            .parse(input)
+            .await
+            .map_err(|(e, r)| (Either::First(e), r))?;
+        let (item1, rest) = self
+            .parser1
+            .parse(rest)
+            .await
+            .map_err(|(e, r)| (Either::Last(e), r))?;
 
         done((item0, item1), rest)
     }

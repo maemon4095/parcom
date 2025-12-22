@@ -5,15 +5,15 @@ use std::{
     task::Poll,
 };
 
-use parcom_streams_core::{BufferWriter, StreamControl, StreamSource};
+use parcom_core::{BufferWriter, SequenceControl, SequenceSource};
 
-pub struct Utf8Validator<S: StreamSource<Item = u8>> {
+pub struct Utf8Validator<S: SequenceSource<Item = u8>> {
     buffered: usize,
     rest: [u8; 3],
     source: S,
 }
 
-impl<S: StreamSource<Item = u8>> Utf8Validator<S> {
+impl<S: SequenceSource<Item = u8>> Utf8Validator<S> {
     pub fn new(source: S) -> Self {
         Self {
             buffered: 0,
@@ -28,7 +28,7 @@ pub enum Utf8ValidationError<E> {
     Inner(E),
 }
 
-impl<S: StreamSource<Item = u8>> StreamSource for Utf8Validator<S> {
+impl<S: SequenceSource<Item = u8>> SequenceSource for Utf8Validator<S> {
     type Item = u8;
     type Error = Utf8ValidationError<S::Error>;
 
@@ -36,11 +36,11 @@ impl<S: StreamSource<Item = u8>> StreamSource for Utf8Validator<S> {
         = Next<'a, S, C>
     where
         Self: 'a,
-        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>;
+        C: 'a + SequenceControl<Item = Self::Item, Error = Self::Error>;
 
     fn next<'a, C>(&'a mut self, control: C, size_hint: usize) -> Self::Next<'a, C>
     where
-        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>,
+        C: 'a + SequenceControl<Item = Self::Item, Error = Self::Error>,
     {
         let control = Control::<S, C> {
             buffered: self.buffered,
@@ -61,8 +61,8 @@ impl<S: StreamSource<Item = u8>> StreamSource for Utf8Validator<S> {
 
 pub struct Next<
     'a,
-    S: StreamSource<Item = u8> + 'a,
-    C: 'a + StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
+    S: SequenceSource<Item = u8> + 'a,
+    C: 'a + SequenceControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 > {
     buffered: &'a mut usize,
     rest: &'a mut [u8; 3],
@@ -71,8 +71,8 @@ pub struct Next<
 
 impl<'a, S, C> Future for Next<'a, S, C>
 where
-    S: StreamSource<Item = u8>,
-    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
+    S: SequenceSource<Item = u8>,
+    C: SequenceControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
     type Output = C::Result;
 
@@ -100,17 +100,17 @@ where
     }
 }
 
-struct Control<S: StreamSource<Item = u8>, C: StreamControl> {
+struct Control<S: SequenceSource<Item = u8>, C: SequenceControl> {
     buffered: usize,
     rest: [u8; 3],
     control: C,
     _phantom: PhantomData<fn(S) -> S>,
 }
 
-impl<S, C> StreamControl for Control<S, C>
+impl<S, C> SequenceControl for Control<S, C>
 where
-    S: StreamSource<Item = u8>,
-    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
+    S: SequenceSource<Item = u8>,
+    C: SequenceControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
     type Item = u8;
     type Error = S::Error;
@@ -153,8 +153,8 @@ where
 
 struct Writer<S, C>
 where
-    S: StreamSource<Item = u8>,
-    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
+    S: SequenceSource<Item = u8>,
+    C: SequenceControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
     buffered: usize,
     req: C::Writer,
@@ -163,9 +163,10 @@ where
 
 impl<S, C> BufferWriter for Writer<S, C>
 where
-    S: StreamSource<Item = u8>,
-    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
+    S: SequenceSource<Item = u8>,
+    C: SequenceControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
+    type Segment = str;
     type Item = u8;
     type Error = S::Error;
     type Result = Response<S, C>;
@@ -233,18 +234,18 @@ where
     }
 }
 
-struct Response<S: StreamSource<Item = u8>, C: StreamControl>
+struct Response<S: SequenceSource<Item = u8>, C: SequenceControl>
 where
-    S: StreamSource<Item = u8>,
-    C: StreamControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
+    S: SequenceSource<Item = u8>,
+    C: SequenceControl<Item = u8, Error = Utf8ValidationError<S::Error>>,
 {
     inner: InnerResponse<C>,
     _phantom: PhantomData<fn(S) -> S>,
 }
 
-enum InnerResponse<C: StreamControl>
+enum InnerResponse<C: SequenceControl>
 where
-    C: StreamControl<Item = u8>,
+    C: SequenceControl<Item = u8>,
 {
     Advance {
         buffered: usize,

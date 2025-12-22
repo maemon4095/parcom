@@ -1,17 +1,16 @@
 use super::{Anchor, BytesDelta, Nodes};
 use crate::{
     measured::{IntoMeasured, Meter, Metrics},
-    MeasuredSequence, Never, PeekableSequence, RewindSequence, Sequence, SequenceSegment,
+    MeasuredSequence, PeekableSequence, RewindSequence, Sequence, SequenceSegment,
 };
 
 impl<'a> Sequence for &'a str {
     type Segment = str;
-    type Error = Never;
     type Segments<'b>
         = Nodes<'b, str>
     where
         Self: 'b;
-    type Advance = std::future::Ready<Result<Self, Never>>;
+    type Advance = std::future::Ready<Self>;
 
     fn segments(&mut self) -> Self::Segments<'_> {
         Nodes { me: Some(self) }
@@ -20,13 +19,13 @@ impl<'a> Sequence for &'a str {
     fn advance(self, delta: BytesDelta) -> Self::Advance {
         let delta = delta.to_bytes();
         let rest = self.get(delta..).unwrap_or("");
-        std::future::ready(Ok(rest))
+        std::future::ready(rest)
     }
 }
 
 impl RewindSequence for &str {
     type Anchor = Anchor<Self>;
-    type Rewind = std::future::Ready<Result<Self, Never>>;
+    type Rewind = std::future::Ready<Self>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self }
@@ -37,7 +36,7 @@ impl RewindSequence for &str {
         let len = anchor.me.len();
         let offset = unsafe { self.as_ptr().offset_from(ptr) };
         if !offset.is_negative() && (offset as usize) <= len {
-            std::future::ready(Ok(anchor.me))
+            std::future::ready(anchor.me)
         } else {
             panic!("the anchor is not an anchor of this stream.")
         }
@@ -84,12 +83,11 @@ where
 
 impl<'me, M: Metrics<str>> Sequence for Measured<'me, M> {
     type Segment = str;
-    type Error = Never;
     type Segments<'b>
         = Nodes<'b, str>
     where
         Self: 'b;
-    type Advance = std::future::Ready<Result<Self, Never>>;
+    type Advance = std::future::Ready<Self>;
 
     fn segments(&mut self) -> Self::Segments<'_> {
         self.base.segments()
@@ -99,8 +97,8 @@ impl<'me, M: Metrics<str>> Sequence for Measured<'me, M> {
         let segment = self.base;
         let end = segment.len().min(delta.to_bytes());
         self.meter = self.meter.advance(&segment[..end]);
-        self.base = self.base.advance(delta).into_inner().unwrap();
-        std::future::ready(Ok(self))
+        self.base = self.base.advance(delta).into_inner();
+        std::future::ready(self)
     }
 }
 
@@ -110,14 +108,14 @@ where
     M::Meter: Clone,
 {
     type Anchor = Anchor<Self>;
-    type Rewind = std::future::Ready<Result<Self, Never>>;
+    type Rewind = std::future::Ready<Self>;
 
     fn anchor(&self) -> Self::Anchor {
         Anchor { me: self.clone() }
     }
 
     fn rewind(self, anchor: Self::Anchor) -> Self::Rewind {
-        std::future::ready(Ok(anchor.me))
+        std::future::ready(anchor.me)
     }
 }
 

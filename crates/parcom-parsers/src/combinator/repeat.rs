@@ -1,8 +1,8 @@
 use parcom_core::{
-    Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult,
-    Parser, ParserOnce, RewindSequence, Sequence,
+    IterativeParser, IterativeParserOnce, IterativeParserState, ParseError, ParseResult, Parser,
+    ParserOnce, RewindSequence, Sequence,
 };
-use parcom_util::{done, fail, ResultExt};
+use parcom_util::{done, fail};
 use std::marker::PhantomData;
 
 use super::Ref;
@@ -43,15 +43,14 @@ impl<S: RewindSequence, P: Parser<S>> Parser<S> for Repeat<S, P> {
                     buf.push(v);
                     rest = r;
                 }
-                Err(Error::Fail(e, r)) => {
+                Err((e, r)) => {
                     if e.should_terminate() {
                         return fail(e, r);
                     }
 
-                    rest = r.rewind(anchor).await.stream_err()?;
+                    rest = r.rewind(anchor).await;
                     break e;
                 }
-                Err(e) => return Err(e),
             }
         };
 
@@ -99,14 +98,13 @@ impl<S: RewindSequence, P: Parser<S>> IterativeParserState<S> for IterationState
         let anchor = input.anchor();
         match self.parser.parse(input).await {
             Ok((v, r)) => done(Some(v), r),
-            Err(Error::Fail(e, r)) => {
+            Err((e, r)) => {
                 if e.should_terminate() {
                     fail(e, r)
                 } else {
-                    done(None, r.rewind(anchor).await.stream_err()?)
+                    done(None, r.rewind(anchor).await)
                 }
             }
-            Err(e) => return Err(e),
         }
     }
 }

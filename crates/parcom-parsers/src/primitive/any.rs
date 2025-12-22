@@ -1,7 +1,7 @@
 use parcom_core::{
     primitive::BytesDelta, Parser, ParserOnce, ParserResult, SegmentStream, Sequence,
 };
-use parcom_util::{done, error::Miss, fail, ResultExt};
+use parcom_util::{done, error::Miss, fail};
 use std::marker::PhantomData;
 
 pub fn any_char<S: Sequence<Segment = str>>() -> AnyChar<S> {
@@ -28,20 +28,17 @@ impl<S: Sequence<Segment = str>> ParserOnce<S> for AnyChar<S> {
 impl<S: Sequence<Segment = str>> Parser<S> for AnyChar<S> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
-        while let Some(segment) = segments.next().await.stream_err()? {
+        while let Some(segment) = segments.next().await {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
 
             drop(segments);
-            return done(
-                c,
-                input.advance(BytesDelta::from_char(c)).await.stream_err()?,
-            );
+            return done(c, input.advance(BytesDelta::from_char(c)).await);
         }
 
         drop(segments);
-        fail(().into(), input)
+        fail((), input)
     }
 }
 
@@ -70,17 +67,17 @@ impl<T: 'static + Clone, S: Sequence<Segment = [T]>> Parser<S> for AnyItem<T, S>
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await.stream_err()? {
+        while let Some(segment) = segments.next().await {
             if segment.is_empty() {
                 continue;
             }
 
             let item = segment[0].clone();
             drop(segments);
-            return done(item, input.advance(1).await.stream_err()?);
+            return done(item, input.advance(1).await);
         }
 
         drop(segments);
-        fail(().into(), input)
+        fail((), input)
     }
 }

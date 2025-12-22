@@ -67,7 +67,7 @@ impl<S: Sequence, P: ParserOnce<S>, U: ParseError, F: FnOnce(P::Error) -> U> Par
         self.parser
             .parse_once(input)
             .await
-            .map_err(|e| e.map_fail(self.mapping))
+            .map_err(|(e, r)| ((self.mapping)(e), r))
     }
 }
 
@@ -78,6 +78,6 @@ impl<S: Sequence, P: Parser<S>, U: ParseError, F: Fn(P::Error) -> U> Parser<S>
         self.parser
             .parse(input)
             .await
-            .map_err(|e| e.map_fail(&self.mapping))
+            .map_err(|(e, r)| ((self.mapping)(e), r))
     }
 }

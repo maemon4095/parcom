@@ -1,0 +1,14 @@
+[package]
+name = "parcom-runners"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+parcom-core = { workspace = true }
+parcom-util = { workspace = true }
+parcom-internals = { workspace = true }
+pin-project = { workspace = true }
+
+[dev-dependencies]
+mockalloc = { workspace = true }
+pollster = { workspace = true }

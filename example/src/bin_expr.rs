@@ -8,7 +8,6 @@ use parcom::{
     },
     prelude::*,
     primitive::BytesDelta,
-    Error,
 };
 /// parsing binary expression example. parse and eval expression with syntax below
 /// expr = expr op expr / term
@@ -29,11 +28,10 @@ pub fn main() {
                 println!("  rest: {}", rest);
                 expr
             }
-            Err(Error::Fail(_, rest)) => unsafe {
+            Err((_, rest)) => unsafe {
                 println!("error; rest: {}", rest.unwrap());
                 return;
             },
-            _ => unreachable!(),
         };
 
         println!("result: {} = {}", display(&expr), eval(&expr));
@@ -163,9 +161,9 @@ async fn op<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await.stream_err()? else {
+            let Some(segment) = segments.next().await else {
                 drop(segments);
-                return fail(().into(), input);
+                return fail((), input);
             };
 
             if let Some(c) = segment.chars().next() {
@@ -179,16 +177,10 @@ async fn op<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss
         '-' => Op::Sub,
         '*' => Op::Mul,
         '/' => Op::Div,
-        _ => return fail(().into(), input),
+        _ => return fail((), input),
     };
 
-    done(
-        op,
-        input
-            .advance(BytesDelta::from_char(head))
-            .await
-            .stream_err()?,
-    )
+    done(op, input.advance(BytesDelta::from_char(head)).await)
 }
 
 async fn integer<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, usize, Miss<()>> {
@@ -196,7 +188,7 @@ async fn integer<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, usi
     let mut buf = String::new();
 
     let mut consumed_bytes = 0;
-    while let Some(segment) = segments.next().await.stream_err()? {
+    while let Some(segment) = segments.next().await {
         let c = segment
             .char_indices()
             .take_while(|(_, c)| c.is_ascii_digit())
@@ -218,16 +210,13 @@ async fn integer<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, usi
 
     if consumed_bytes == 0 {
         drop(segments);
-        return fail(().into(), input);
+        return fail((), input);
     }
     let n = usize::from_str_radix(&buf, 10).unwrap();
 
     drop(segments);
     done(
         n,
-        input
-            .advance(BytesDelta::from_bytes(consumed_bytes))
-            .await
-            .stream_err()?,
+        input.advance(BytesDelta::from_bytes(consumed_bytes)).await,
     )
 }

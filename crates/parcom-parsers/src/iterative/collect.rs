@@ -1,8 +1,8 @@
 use parcom_core::{
-    Error, IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Parser,
-    ParserOnce, RewindSequence,
+    IterativeParser, IterativeParserOnce, IterativeParserState, ParseResult, Parser, ParserOnce,
+    RewindSequence,
 };
-use parcom_util::{done, ResultExt};
+use parcom_util::done;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -51,16 +51,15 @@ async fn parse<S: RewindSequence, P: IterativeParserState<S>, C: Extend<P::Outpu
 
         match state.parse_next(rest).await {
             Ok((None, r)) => {
-                return done((collection, None), r.rewind(anchor).await.stream_err()?);
+                return done((collection, None), r.rewind(anchor).await);
             }
             Ok((Some(v), r)) => {
                 collection.extend(std::iter::once(v));
                 rest = r;
             }
-            Err(Error::Fail(e, r)) => {
-                return done((collection, Some(e)), r.rewind(anchor).await.stream_err()?);
+            Err((e, r)) => {
+                return done((collection, Some(e)), r.rewind(anchor).await);
             }
-            Err(e) => return Err(e),
         }
     }
 }

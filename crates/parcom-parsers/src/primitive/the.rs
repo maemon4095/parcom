@@ -1,5 +1,5 @@
 use parcom_core::{primitive::BytesDelta, Parser, ParserOnce, SegmentStream, Sequence};
-use parcom_util::{done, error::Miss, fail, ResultExt};
+use parcom_util::{done, error::Miss, fail};
 
 pub fn the_char(c: char) -> TheChar {
     TheChar { c }
@@ -21,27 +21,21 @@ impl<S: Sequence<Segment = str>> Parser<S> for TheChar {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await.stream_err()? {
+        while let Some(segment) = segments.next().await {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
 
             if c == self.c {
                 drop(segments);
-                return done(
-                    (),
-                    input
-                        .advance(BytesDelta::from_char(self.c))
-                        .await
-                        .stream_err()?,
-                );
+                return done((), input.advance(BytesDelta::from_char(self.c)).await);
             }
 
             break;
         }
 
         drop(segments);
-        fail(().into(), input)
+        fail((), input)
     }
 }
 
@@ -66,20 +60,20 @@ impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> Parser<S> for TheItem<T
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await.stream_err()? {
+        while let Some(segment) = segments.next().await {
             let Some(item) = segment.iter().next() else {
                 continue;
             };
 
             if item == &self.item {
                 drop(segments);
-                return done((), input.advance(1).await.stream_err()?);
+                return done((), input.advance(1).await);
             }
 
             break;
         }
 
         drop(segments);
-        fail(().into(), input)
+        fail((), input)
     }
 }

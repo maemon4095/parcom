@@ -106,7 +106,7 @@ where
                 }
             },
             Ok((None, r)) => done(None, r),
-            Err(e) => Err(e.conv_fail()),
+            Err((e, r)) => Err((e.into(), r)),
         }
     }
 }

@@ -2,9 +2,8 @@ use std::future::Future;
 
 pub trait SegmentStream {
     type SegmentRef;
-    type Error;
 
-    type Next<'a>: 'a + Future<Output = Result<Option<Self::SegmentRef>, Self::Error>>
+    type Next<'a>: 'a + Future<Output = Option<Self::SegmentRef>>
     where
         Self: 'a;
 

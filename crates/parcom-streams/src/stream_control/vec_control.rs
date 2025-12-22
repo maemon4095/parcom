@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use parcom_streams_core::{BufferWriter, StreamControl};
+use parcom_core::{BufferWriter, SequenceControl};
 
 use super::Response;
 
@@ -18,7 +18,7 @@ impl<'a, T: Default, E> VecControl<'a, T, E> {
     }
 }
 
-impl<'a, T: Default, E> StreamControl for VecControl<'a, T, E> {
+impl<'a, T: Default, E> SequenceControl for VecControl<'a, T, E> {
     type Item = T;
     type Result = Response<(), Self::Error>;
     type Error = E;
@@ -53,6 +53,7 @@ pub struct Request<'a, T: Default, E> {
 }
 
 impl<'a, T: Default, E> BufferWriter for Request<'a, T, E> {
+    type Segment = [T];
     type Item = T;
     type Result = Response<(), E>;
     type Error = E;

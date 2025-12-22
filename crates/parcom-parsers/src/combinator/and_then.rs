@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use parcom_core::{ParseError, Parser, ParserOnce, ParserResult, Sequence};
-use parcom_util::{done, fail, ParseResultExt};
+use parcom_util::{done, fail};
 
 #[derive(Debug)]
 pub struct AndThen<S, P, O, E, F>
@@ -42,7 +42,11 @@ where
     type Error = E;
 
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
-        let (v, r) = self.parser.parse_once(input).await.conv_fail()?;
+        let (v, r) = self
+            .parser
+            .parse_once(input)
+            .await
+            .map_err(|(e, r)| (e.into(), r))?;
         match (self.map)(v) {
             Ok(v) => done(v, r),
             Err(e) => fail(e, r),
@@ -58,7 +62,11 @@ where
     E: ParseError + From<P::Error>,
 {
     async fn parse(&self, input: S) -> ParserResult<S, Self> {
-        let (v, r) = self.parser.parse(input).await.conv_fail()?;
+        let (v, r) = self
+            .parser
+            .parse(input)
+            .await
+            .map_err(|(e, r)| (e.into(), r))?;
         match (self.map)(v) {
             Ok(v) => done(v, r),
             Err(e) => fail(e, r),

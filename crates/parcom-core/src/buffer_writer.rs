@@ -1,6 +1,10 @@
 use std::mem::MaybeUninit;
 
+use crate::SequenceSegment;
+
+// どうにかstrとかに対応できる仕組みを作りたい。
 pub trait BufferWriter {
+    type Segment: ?Sized + SequenceSegment;
     type Item;
     type Result;
     type Error;
@@ -39,7 +43,14 @@ pub trait BufferWriter {
         }
     }
 
-    fn push(&mut self, item: Self::Item) -> Result<(), Self::Item> {
+    fn push<T>(&mut self, item: T) -> Result<(), T>
+    where
+        T: WriteTo<Self::Segment, Self::Item>,
+    {
+        item.write_to(self)
+    }
+
+    fn push_item(&mut self, item: Self::Item) -> Result<(), Self::Item> {
         let written = self.len();
         if written == self.capacity() {
             return Err(item);
@@ -70,4 +81,10 @@ pub trait BufferWriter {
             self.set_len(new_len);
         }
     }
+}
+
+pub trait WriteTo<Segment: ?Sized + SequenceSegment, Item>: Sized {
+    fn write_to<W>(self, writer: &mut W) -> Result<(), Self>
+    where
+        W: ?Sized + BufferWriter<Segment = Segment, Item = Item>;
 }

@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
-use parcom_core::Never;
-use parcom_streams_core::{BufferWriter, StreamControl, StreamSource};
+use parcom_core::{BufferWriter, Never, SequenceControl, SequenceSource};
 
 #[derive(Debug)]
 pub struct IteratorSource<I, T>
@@ -28,7 +27,7 @@ where
     }
 }
 
-impl<I, T> StreamSource for IteratorSource<I, T>
+impl<I, T> SequenceSource for IteratorSource<I, T>
 where
     T: Clone,
     I::Item: AsRef<[T]>,
@@ -42,11 +41,11 @@ where
     where
         I: 'a,
         T: 'a,
-        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>;
+        C: 'a + SequenceControl<Item = Self::Item, Error = Self::Error>;
 
     fn next<'a, C>(&'a mut self, control: C, _size_hint: usize) -> Self::Next<'a, C>
     where
-        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>,
+        C: 'a + SequenceControl<Item = Self::Item, Error = Self::Error>,
     {
         let Some(node) = self.iter.next() else {
             return std::future::ready(control.finish());
@@ -56,7 +55,7 @@ where
         let mut req = control.request_writer(seg.len());
 
         for item in seg {
-            let _ = req.push(item.clone());
+            let _ = req.push_item(item.clone());
         }
 
         std::future::ready(req.advance())

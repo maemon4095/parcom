@@ -1,6 +1,6 @@
-use parcom_core::{Error, ParseError, ParseResult, Parser, ParserOnce, ParserResult, RewindSequence};
+use parcom_core::{ParseError, ParseResult, Parser, ParserOnce, ParserResult, RewindSequence};
 use parcom_internals::ShortVec;
-use parcom_util::{done, fail, Either, ParseResultExt, ResultExt};
+use parcom_util::{done, fail, Either};
 use std::marker::PhantomData;
 
 pub enum Associativity {
@@ -87,7 +87,11 @@ where
         ),
         Either<POp::Error, PTerm::Error>,
     > {
-        let (rhs, mut rest) = self.parser_term.parse(input).await.map_fail(Either::Last)?;
+        let (rhs, mut rest) = self
+            .parser_term
+            .parse(input)
+            .await
+            .map_err(|(e, r)| (Either::Last(e), r))?;
         let mut rhs = Expr::from(rhs);
 
         // (lhs0 op0 (lhs1 op1 ... (lhsN opN rhs
@@ -102,22 +106,20 @@ where
                     rest = r;
                     break Ok((e, anchor));
                 }
-                Err(Error::Fail(e, r)) if e.should_terminate() => return fail(Either::First(e), r),
-                Err(Error::Fail(e, r)) => {
-                    rest = r.rewind(anchor).await.stream_err()?;
+                Err((e, r)) if e.should_terminate() => return fail(Either::First(e), r),
+                Err((e, r)) => {
+                    rest = r.rewind(anchor).await;
                     break Err(Either::First(e));
                 }
-                Err(Error::Stream(e)) => return Err(Error::Stream(e)),
             };
 
             let (term, r) = match self.parser_term.parse(r).await {
                 Ok((e, r)) => (Expr::from(e), r),
-                Err(Error::Fail(e, r)) if !e.should_terminate() => {
-                    rest = r.rewind(anchor).await.stream_err()?;
+                Err((e, r)) if !e.should_terminate() => {
+                    rest = r.rewind(anchor).await;
                     break Err(Either::Last(e));
                 }
-                Err(Error::Fail(e, r)) => return fail(Either::Last(e), r),
-                Err(Error::Stream(e)) => return Err(Error::Stream(e)),
+                Err((e, r)) => return fail(Either::Last(e), r),
             };
 
             rest = r;

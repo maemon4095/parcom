@@ -99,12 +99,13 @@ where
     type Error = T;
 
     async fn parse_once(self, input: S) -> ParserResult<S, Self> {
-        self.parser.parse_once(input).await.map_err(|e| {
-            e.map_fail(|e| match e {
-                Either::First(e) => e.into(),
-                Either::Last(e) => e.into(),
+        self.parser
+            .parse_once(input)
+            .await
+            .map_err(|(e, r)| match e {
+                Either::First(e) => (e.into(), r),
+                Either::Last(e) => (e.into(), r),
             })
-        })
     }
 }
 
@@ -120,6 +121,6 @@ where
         self.parser
             .parse(input)
             .await
-            .map_err(|e| e.map_fail(|e| e.unify()))
+            .map_err(|(e, r)| (e.unify(), r))
     }
 }

@@ -1,32 +1,7 @@
-mod buffer_writer;
-
 use std::future::Future;
 
-pub use buffer_writer::BufferWriter;
-
-pub trait StreamSource: Sized {
-    type Item;
-    type Error;
-    type Next<'a, C>: Future<Output = C::Result>
-    where
-        Self: 'a,
-        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>;
-
-    fn next<'a, C>(&'a mut self, control: C, size_hint: usize) -> Self::Next<'a, C>
-    where
-        C: 'a + StreamControl<Item = Self::Item, Error = Self::Error>;
-}
-
-pub trait StreamControl {
-    type Item;
-    type Result;
-    type Error;
-    type Writer: BufferWriter<Item = Self::Item, Result = Self::Result, Error = Self::Error>;
-
-    fn request_writer(self, min_capacity: usize) -> Self::Writer;
-    fn cancel(self, err: Self::Error) -> Self::Result;
-    fn finish(self) -> Self::Result;
-}
+// Stream::create(Source, Driver)
+// タスクを実行を制御はできないはず。tokioのtimeなどを使っていたらtokio以外使えないため。
 
 pub trait StreamLoader {
     type Error;
