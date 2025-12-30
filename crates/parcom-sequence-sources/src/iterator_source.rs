@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use parcom_core::{BufferWriter, Never, SequenceControl, SequenceSource};
+use parcom_core::Never;
+use parcom_sequence_core::{BufferWriter, SequenceControl, SequenceSource};
 
 #[derive(Debug)]
 pub struct IteratorSource<I, T>

@@ -1,11 +1,10 @@
 [package]
 name = "parcom"
-version.workspace = true
 edition.workspace = true
+version.workspace = true
 
 [dependencies]
 parcom-core = { workspace = true }
-parcom-streams = { workspace = true }
-parcom-parsers = { workspace = true }
 parcom-metrics = { workspace = true }
+parcom-parsers = { workspace = true }
 parcom-util = { workspace = true }

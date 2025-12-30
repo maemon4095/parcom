@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use crate::SequenceSegment;
+use parcom_core::SequenceSegment;
 
 // どうにかstrとかに対応できる仕組みを作りたい。
 pub trait BufferWriter {

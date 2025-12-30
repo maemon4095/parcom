@@ -1,5 +1,5 @@
 [package]
-name = "parcom-streams-core"
+name = "parcom-sequence-core"
 version.workspace = true
 edition.workspace = true
 

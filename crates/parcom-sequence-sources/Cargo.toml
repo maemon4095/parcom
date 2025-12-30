@@ -1,0 +1,11 @@
+[package]
+name = "parcom-sequence-sources"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+parcom-core = { workspace = true }
+parcom-sequence-core = { workspace = true }
+
+[dev-dependencies]
+pollster = { workspace = true }

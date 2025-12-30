@@ -1,7 +1,9 @@
 [package]
-name = "parcom-metrics"
+name = "parcom-sequences"
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
 parcom-core = { workspace = true }
+parcom-sequence-core = { workspace = true }
+pin-project = { workspace = true }

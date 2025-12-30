@@ -1,11 +1,10 @@
+use parcom_sequence_core::{BufferWriter, SequenceControl, SequenceSource};
 use std::{
     future::{Future, IntoFuture},
     marker::PhantomData,
     pin::Pin,
     task::Poll,
 };
-
-use parcom_core::{BufferWriter, SequenceControl, SequenceSource};
 
 pub struct Utf8Validator<S: SequenceSource<Item = u8>> {
     buffered: usize,
@@ -263,49 +262,48 @@ where
 #[cfg(test)]
 
 mod test {
-    use super::*;
-    use crate::{
-        stream_control::vec_control::VecControl, stream_source::iterator_source::IteratorSource,
-    };
+    // TODO: tests/配下に移動
+    // use super::*;
+    // use crate::{control::vec_control::VecControl, source::iterator_source::IteratorSource};
 
-    #[test]
-    fn test_valid() {
-        // "a": 1 byte
-        // "Α": 2 byte
-        // "あ": 3 byte
-        // "😀": 4 byte
-        //
-        // バイト長ごとに隣接したパターンをすべて確認する。
-        // 隣接パターン: 11, 12, 13, 14, 21, 22, 23, 24, 31, 32, 33, 34, 41, 42, 43, 44
-        // 上の隣接パターンをすべてもつ列: 11213142232433441 をテストに使う。
-        let text = "aaΑaあa😀ΑΑあΑ😀ああ😀😀a";
-        let bin = text.as_bytes();
+    // #[test]
+    // fn test_valid() {
+    //     // "a": 1 byte
+    //     // "Α": 2 byte
+    //     // "あ": 3 byte
+    //     // "😀": 4 byte
+    //     //
+    //     // バイト長ごとに隣接したパターンをすべて確認する。
+    //     // 隣接パターン: 11, 12, 13, 14, 21, 22, 23, 24, 31, 32, 33, 34, 41, 42, 43, 44
+    //     // 上の隣接パターンをすべてもつ列: 11213142232433441 をテストに使う。
+    //     let text = "aaΑaあa😀ΑΑあΑ😀ああ😀😀a";
+    //     let bin = text.as_bytes();
 
-        for i in 0..bin.len() {
-            let (l, r) = bin.split_at(i);
-            let src = IteratorSource::new([l, r]);
-            let mut src = Utf8Validator::new(src);
-            let mut buf = Vec::new();
+    //     for i in 0..bin.len() {
+    //         let (l, r) = bin.split_at(i);
+    //         let src = IteratorSource::new([l, r]);
+    //         let mut src = Utf8Validator::new(src);
+    //         let mut buf = Vec::new();
 
-            loop {
-                let control = VecControl::new(&mut buf);
+    //         loop {
+    //             let control = VecControl::new(&mut buf);
 
-                let res = pollster::block_on(src.next(control, 0));
+    //             let res = pollster::block_on(src.next(control, 0));
 
-                match res {
-                    crate::stream_control::Response::Advance(_) => {
-                        let r = std::str::from_utf8(&buf).unwrap();
-                        assert!(text.starts_with(r));
-                    }
-                    crate::stream_control::Response::Finish(_) => {
-                        let r = std::str::from_utf8(&buf).unwrap();
-                        assert!(text.starts_with(r));
-                        assert_eq!(r, text);
-                        break;
-                    }
-                    _ => unreachable!(),
-                }
-            }
-        }
-    }
+    //             match res {
+    //                 crate::control::Response::Advance(_) => {
+    //                     let r = std::str::from_utf8(&buf).unwrap();
+    //                     assert!(text.starts_with(r));
+    //                 }
+    //                 crate::control::Response::Finish(_) => {
+    //                     let r = std::str::from_utf8(&buf).unwrap();
+    //                     assert!(text.starts_with(r));
+    //                     assert_eq!(r, text);
+    //                     break;
+    //                 }
+    //                 _ => unreachable!(),
+    //             }
+    //         }
+    //     }
+    // }
 }

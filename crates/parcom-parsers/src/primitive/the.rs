@@ -21,7 +21,7 @@ impl<S: Sequence<Segment = str>> Parser<S> for TheChar {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await {
+        while let Some(segment) = segments.next(BytesDelta::from_char(self.c)).await {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
@@ -60,7 +60,7 @@ impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> Parser<S> for TheItem<T
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await {
+        while let Some(segment) = segments.next(1).await {
             let Some(item) = segment.iter().next() else {
                 continue;
             };

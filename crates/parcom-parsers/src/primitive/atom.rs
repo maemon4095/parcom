@@ -29,7 +29,7 @@ impl<P: AtomPattern, S: Sequence<Segment = P::Segment>> Parser<S> for Atom<P> {
         let mut remain = self.pattern.pattern();
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await {
+        while let Some(segment) = segments.next(remain.len()).await {
             if segment.len() >= remain.len() {
                 let s = segment.split_at(remain.len()).0;
                 let matched = s == remain;

@@ -161,7 +161,7 @@ async fn op<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss
         let mut segments = input.segments();
 
         loop {
-            let Some(segment) = segments.next().await else {
+            let Some(segment) = segments.next(BytesDelta::from_bytes(0)).await else {
                 drop(segments);
                 return fail((), input);
             };
@@ -188,7 +188,7 @@ async fn integer<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, usi
     let mut buf = String::new();
 
     let mut consumed_bytes = 0;
-    while let Some(segment) = segments.next().await {
+    while let Some(segment) = segments.next(BytesDelta::ZERO).await {
         let c = segment
             .char_indices()
             .take_while(|(_, c)| c.is_ascii_digit())

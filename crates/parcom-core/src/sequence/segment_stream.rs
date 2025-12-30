@@ -1,11 +1,16 @@
 use std::future::Future;
 
-pub trait SegmentStream {
-    type SegmentRef;
+use crate::SequenceSegment;
 
-    type Next<'a>: 'a + Future<Output = Option<Self::SegmentRef>>
+pub trait SegmentStream {
+    type Segment: ?Sized + SequenceSegment;
+
+    type Next<'a>: 'a + Future<Output = Option<&'a Self::Segment>>
     where
         Self: 'a;
 
-    fn next<'a>(&'a mut self) -> Self::Next<'a>;
+    fn next<'a>(
+        &'a mut self,
+        size_hint: <Self::Segment as SequenceSegment>::Length,
+    ) -> Self::Next<'a>;
 }

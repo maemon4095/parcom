@@ -21,13 +21,13 @@ pub struct Nodes<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized + SequenceSegment> SegmentStream for Nodes<'a, T> {
-    type SegmentRef = &'a T;
+    type Segment = T;
     type Next<'b>
-        = std::future::Ready<Option<Self::SegmentRef>>
+        = std::future::Ready<Option<&'b Self::Segment>>
     where
         Self: 'b;
 
-    fn next(&mut self) -> Self::Next<'_> {
+    fn next(&mut self, _: T::Length) -> Self::Next<'_> {
         std::future::ready(self.me.take())
     }
 }

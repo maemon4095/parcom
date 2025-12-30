@@ -28,7 +28,7 @@ impl<S: Sequence<Segment = str>> ParserOnce<S> for AnyChar<S> {
 impl<S: Sequence<Segment = str>> Parser<S> for AnyChar<S> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
-        while let Some(segment) = segments.next().await {
+        while let Some(segment) = segments.next(BytesDelta::from_bytes(0)).await {
             let Some(c) = segment.chars().next() else {
                 continue;
             };
@@ -67,7 +67,7 @@ impl<T: 'static + Clone, S: Sequence<Segment = [T]>> Parser<S> for AnyItem<T, S>
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 
-        while let Some(segment) = segments.next().await {
+        while let Some(segment) = segments.next(0).await {
             if segment.is_empty() {
                 continue;
             }

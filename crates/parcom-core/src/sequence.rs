@@ -9,11 +9,9 @@ pub use measured::MeasuredSequence;
 pub use segment::SequenceSegment;
 pub use segment_stream::SegmentStream;
 
-use crate::buffer_writer::BufferWriter;
-
 pub trait Sequence: Sized {
     type Segment: SequenceSegment + ?Sized;
-    type Segments<'a>: SegmentStream<SegmentRef = &'a Self::Segment>
+    type Segments<'a>: SegmentStream<Segment = Self::Segment>
     where
         Self: 'a;
     type Advance: IntoFuture<Output = Self>;
@@ -45,28 +43,4 @@ pub trait PeekableSequence: Sequence {
         Self: 'a;
 
     fn peek(&mut self) -> Self::Peek<'_>;
-}
-
-pub trait SequenceSource: Sized {
-    type Item;
-    type Error;
-    type Next<'a, C>: Future<Output = C::Result>
-    where
-        Self: 'a,
-        C: 'a + SequenceControl<Item = Self::Item, Error = Self::Error>;
-
-    fn next<'a, C>(&'a mut self, control: C, size_hint: usize) -> Self::Next<'a, C>
-    where
-        C: 'a + SequenceControl<Item = Self::Item, Error = Self::Error>;
-}
-
-pub trait SequenceControl {
-    type Item;
-    type Result;
-    type Error;
-    type Writer: BufferWriter<Item = Self::Item, Result = Self::Result, Error = Self::Error>;
-
-    fn request_writer(self, min_capacity: usize) -> Self::Writer;
-    fn cancel(self, err: Self::Error) -> Self::Result;
-    fn finish(self) -> Self::Result;
 }
