@@ -1,10 +1,7 @@
 use std::mem::MaybeUninit;
 
-use parcom_core::SequenceSegment;
-
-// どうにかstrとかに対応できる仕組みを作りたい。
 pub trait BufferWriter {
-    type Segment: ?Sized + SequenceSegment;
+    type Segment: ?Sized;
     type Item;
     type Result;
     type Error;
@@ -83,7 +80,7 @@ pub trait BufferWriter {
     }
 }
 
-pub trait WriteTo<Segment: ?Sized + SequenceSegment, Item>: Sized {
+pub trait WriteTo<Segment: ?Sized, Item>: Sized {
     fn write_to<W>(self, writer: &mut W) -> Result<(), Self>
     where
         W: ?Sized + BufferWriter<Segment = Segment, Item = Item>;
