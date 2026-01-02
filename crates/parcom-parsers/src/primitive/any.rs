@@ -16,7 +16,7 @@ impl<S: Sequence<Segment = str>> AnyChar<S> {
     }
 }
 
-impl<S: Sequence<Segment = str>> ParserOnce<S> for AnyChar<S> {
+impl<S: Sequence<Segment = str, Length = BytesDelta>> ParserOnce<S> for AnyChar<S> {
     type Output = char;
     type Error = Miss<()>;
 
@@ -25,7 +25,7 @@ impl<S: Sequence<Segment = str>> ParserOnce<S> for AnyChar<S> {
     }
 }
 
-impl<S: Sequence<Segment = str>> Parser<S> for AnyChar<S> {
+impl<S: Sequence<Segment = str, Length = BytesDelta>> Parser<S> for AnyChar<S> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
         while let Some(segment) = segments.next(BytesDelta::from_bytes(0)).await {
@@ -54,7 +54,9 @@ impl<T: Clone, S: Sequence<Segment = [T]>> AnyItem<T, S> {
     }
 }
 
-impl<T: 'static + Clone, S: Sequence<Segment = [T]>> ParserOnce<S> for AnyItem<T, S> {
+impl<T: 'static + Clone, S: Sequence<Segment = [T], Length = usize>> ParserOnce<S>
+    for AnyItem<T, S>
+{
     type Output = T;
     type Error = Miss<()>;
 
@@ -63,7 +65,7 @@ impl<T: 'static + Clone, S: Sequence<Segment = [T]>> ParserOnce<S> for AnyItem<T
     }
 }
 
-impl<T: 'static + Clone, S: Sequence<Segment = [T]>> Parser<S> for AnyItem<T, S> {
+impl<T: 'static + Clone, S: Sequence<Segment = [T], Length = usize>> Parser<S> for AnyItem<T, S> {
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut segments = input.segments();
 

@@ -47,7 +47,7 @@ where
         self,
         input: S,
     ) -> impl std::future::Future<Output = parcom_core::ParserResult<S, Self>> {
-        parse(self.parser.start_once(), self.init, self.f, input)
+        parse(self.parser.parse_iterative_once(), self.init, self.f, input)
     }
 }
 
@@ -62,7 +62,12 @@ where
         &self,
         input: S,
     ) -> impl std::future::Future<Output = parcom_core::ParserResult<S, Self>> {
-        parse(self.parser.start(), self.init.clone(), &self.f, input)
+        parse(
+            self.parser.parse_iterative(),
+            self.init.clone(),
+            &self.f,
+            input,
+        )
     }
 }
 

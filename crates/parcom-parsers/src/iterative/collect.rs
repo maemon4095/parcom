@@ -28,7 +28,7 @@ impl<S: RewindSequence, P: IterativeParserOnce<S>, C: Extend<P::Output> + Defaul
     type Error = P::Error;
 
     async fn parse_once(self, input: S) -> parcom_core::ParserResult<S, Self> {
-        parse(self.parser.start_once(), input).await
+        parse(self.parser.parse_iterative_once(), input).await
     }
 }
 
@@ -36,7 +36,7 @@ impl<S: RewindSequence, P: IterativeParser<S>, C: Extend<P::Output> + Default> P
     for Collect<S, P, C>
 {
     async fn parse(&self, input: S) -> parcom_core::ParseResult<S, Self::Output, Self::Error> {
-        parse(self.parser.start(), input).await
+        parse(self.parser.parse_iterative(), input).await
     }
 }
 

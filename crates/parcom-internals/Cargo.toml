@@ -3,5 +3,10 @@ name = "parcom-internals"
 edition.workspace = true
 version.workspace = true
 
+[dependencies]
+slab.workspace = true
+pin-project.workspace = true
+
 [dev-dependencies]
+pollster.workspace = true
 mockalloc.workspace = true

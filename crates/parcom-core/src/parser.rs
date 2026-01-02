@@ -49,7 +49,7 @@ pub trait IterativeParserOnce<S: Sequence> {
     type Error: ParseError;
     type StateOnce: IterativeParserState<S, Output = Self::Output, Error = Self::Error>;
 
-    fn start_once(self) -> Self::StateOnce;
+    fn parse_iterative_once(self) -> Self::StateOnce;
 }
 
 pub trait IterativeParser<S: Sequence>: IterativeParserOnce<S> {
@@ -57,7 +57,7 @@ pub trait IterativeParser<S: Sequence>: IterativeParserOnce<S> {
     where
         Self: 'a;
 
-    fn start(&self) -> Self::State<'_>;
+    fn parse_iterative(&self) -> Self::State<'_>;
 }
 
 impl<S: Sequence, P: IterativeParser<S>> IterativeParser<S> for &P {
@@ -65,8 +65,8 @@ impl<S: Sequence, P: IterativeParser<S>> IterativeParser<S> for &P {
         = P::State<'a>
     where
         Self: 'a;
-    fn start(&self) -> Self::State<'_> {
-        P::start(self)
+    fn parse_iterative(&self) -> Self::State<'_> {
+        P::parse_iterative(self)
     }
 }
 
@@ -75,7 +75,7 @@ impl<'a, S: Sequence, P: IterativeParser<S>> IterativeParserOnce<S> for &'a P {
     type Error = P::Error;
     type StateOnce = P::State<'a>;
 
-    fn start_once(self) -> Self::StateOnce {
-        P::start(&self)
+    fn parse_iterative_once(self) -> Self::StateOnce {
+        P::parse_iterative(&self)
     }
 }

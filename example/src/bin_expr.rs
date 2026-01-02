@@ -41,7 +41,9 @@ pub fn main() {
 }
 
 /// expr = expr op expr / term
-async fn expr<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, Expr, Miss<()>> {
+async fn expr<S: RewindSequence<Segment = str, Length = BytesDelta>>(
+    input: S,
+) -> ParseResult<S, Expr, Miss<()>> {
     BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
         .map(|(e, _)| e)
         .map_err(|_| ().into())
@@ -51,7 +53,9 @@ async fn expr<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, Expr
 }
 
 /// term = integer / (expr)
-async fn term<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, Term, Miss<()>> {
+async fn term<S: RewindSequence<Segment = str, Length = BytesDelta>>(
+    input: S,
+) -> ParseResult<S, Term, Miss<()>> {
     integer
         .or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
         .map(|e| match e {
@@ -148,7 +152,9 @@ impl Operator for Op {
     }
 }
 
-async fn space<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
+async fn space<S: RewindSequence<Segment = str, Length = BytesDelta>>(
+    input: S,
+) -> ParseResult<S, (), Miss<()>> {
     the_char(' ')
         .repeat()
         .and_then(|(v, _)| if v.is_empty() { Err(Miss(())) } else { Ok(()) })
@@ -156,7 +162,9 @@ async fn space<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, (),
         .await
 }
 
-async fn op<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss<()>> {
+async fn op<S: Sequence<Segment = str, Length = BytesDelta>>(
+    mut input: S,
+) -> ParseResult<S, Op, Miss<()>> {
     let head = {
         let mut segments = input.segments();
 
@@ -183,7 +191,9 @@ async fn op<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, Op, Miss
     done(op, input.advance(BytesDelta::from_char(head)).await)
 }
 
-async fn integer<S: Sequence<Segment = str>>(mut input: S) -> ParseResult<S, usize, Miss<()>> {
+async fn integer<S: Sequence<Segment = str, Length = BytesDelta>>(
+    mut input: S,
+) -> ParseResult<S, usize, Miss<()>> {
     let mut segments = input.segments();
     let mut buf = String::new();
 

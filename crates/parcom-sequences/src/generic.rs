@@ -4,7 +4,7 @@ mod loader;
 
 use crate::BufferStrategy;
 
-use parcom_sequence_core::{SequenceBuilder, SequenceSource};
+use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use std::sync::{Arc, OnceLock};
 
 pub use buffer::{GenericSequenceBuffer, Iter};
@@ -20,6 +20,8 @@ pub struct GenericSequenceBuilder<B: BufferStrategy> {
 }
 
 impl<B: BufferStrategy, S: SequenceSource> SequenceBuilder<S> for GenericSequenceBuilder<B> {
+    type Length = <GenericSequenceBuffer<S::Item> as SequenceBuffer>::Length;
+    type Segment = <GenericSequenceBuffer<S::Item> as SequenceBuffer>::Segment;
     type Buffer = GenericSequenceBuffer<S::Item>;
     type Loader = GenericSequenceLoader<S::Item, S, B>;
 

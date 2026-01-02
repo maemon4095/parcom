@@ -6,8 +6,10 @@ use std::future::Future;
 pub use buffer_writer::BufferWriter;
 pub use load_info::LoadInfo;
 
-pub trait SequenceBuilder<S: SequenceSource> {
-    type Buffer: SequenceBuffer;
+pub trait SequenceBuilder<S> {
+    type Length;
+    type Segment: ?Sized;
+    type Buffer: SequenceBuffer<Segment = Self::Segment, Length = Self::Length>;
     type Loader: SequenceLoader;
 
     fn build(&self, source: S) -> (Self::Buffer, Self::Loader);
@@ -26,12 +28,13 @@ pub trait SequenceLoader {
 pub trait SequenceBuffer: Sized {
     type Length;
     type Segment: ?Sized;
+    /// NOTE: 一度Noneを返したあとでも、nextを呼ばれる場合がある。
     type Iter<'a>: Iterator<Item = &'a Self::Segment>
     where
         Self: 'a;
 
     fn advance(&mut self, length: Self::Length) -> Self::Length;
-    /// 一度Noneを返したあとでも、nextを呼ばれる場合がある。
+
     fn segments(&self) -> Self::Iter<'_>;
 }
 

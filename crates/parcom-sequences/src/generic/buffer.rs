@@ -1,3 +1,4 @@
+use parcom_core::SequenceSegment;
 use parcom_sequence_core::SequenceBuffer;
 use std::sync::{Arc, OnceLock};
 
@@ -18,14 +19,17 @@ impl<T> GenericSequenceBuffer<T> {
 }
 
 impl<T> SequenceBuffer for GenericSequenceBuffer<T> {
-    type Length = usize;
+    type Length = <[T] as SequenceSegment>::Length;
     type Segment = [T];
     type Iter<'a>
         = Iter<'a, T>
     where
         Self: 'a;
 
-    fn advance(&mut self, length: Self::Length) -> Self::Length {
+    fn advance(
+        &mut self,
+        length: <Self::Segment as SequenceSegment>::Length,
+    ) -> <Self::Segment as SequenceSegment>::Length {
         let mut remain = length;
         let mut offset = self.head_offset;
         let mut node = &self.head_node;

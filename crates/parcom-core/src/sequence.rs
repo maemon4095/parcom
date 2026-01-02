@@ -10,14 +10,15 @@ pub use segment::SequenceSegment;
 pub use segment_stream::SegmentStream;
 
 pub trait Sequence: Sized {
-    type Segment: SequenceSegment + ?Sized;
-    type Segments<'a>: SegmentStream<Segment = Self::Segment>
+    type Length;
+    type Segment: ?Sized;
+    type Segments<'a>: SegmentStream<Segment = Self::Segment, Length = Self::Length>
     where
         Self: 'a;
     type Advance: IntoFuture<Output = Self>;
 
     fn segments<'a>(&'a mut self) -> Self::Segments<'a>;
-    fn advance(self, delta: <Self::Segment as SequenceSegment>::Length) -> Self::Advance;
+    fn advance(self, delta: Self::Length) -> Self::Advance;
 }
 
 pub trait ParseSequence: MeasuredSequence + RewindSequence {}
@@ -38,7 +39,7 @@ pub trait BindableSequence: MeasuredSequence {
 }
 
 pub trait PeekableSequence: Sequence {
-    type Peek<'a>: 'a + Sequence<Segment = Self::Segment>
+    type Peek<'a>: 'a + Sequence<Segment = Self::Segment, Length = Self::Length>
     where
         Self: 'a;
 

@@ -49,7 +49,7 @@ impl<S: RewindSequence, P: ParserOnce<S>> IterativeParserOnce<S> for Optional<S,
     type Error = P::Error;
     type StateOnce = IterationStateOnce<S, P>;
 
-    fn start_once(self) -> Self::StateOnce {
+    fn parse_iterative_once(self) -> Self::StateOnce {
         IterationStateOnce { me: Some(self) }
     }
 }
@@ -59,7 +59,7 @@ impl<S: RewindSequence, P: Parser<S>> IterativeParser<S> for Optional<S, P> {
         = IterationState<'a, S, P>
     where
         Self: 'a;
-    fn start(&self) -> Self::State<'_> {
+    fn parse_iterative(&self) -> Self::State<'_> {
         IterationState { me: Some(self) }
     }
 }

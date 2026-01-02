@@ -15,7 +15,11 @@ impl<P: AtomPattern> Atom<P> {
     }
 }
 
-impl<P: AtomPattern, S: Sequence<Segment = P::Segment>> ParserOnce<S> for Atom<P> {
+impl<P, S> ParserOnce<S> for Atom<P>
+where
+    P: AtomPattern,
+    S: Sequence<Segment = P::Segment, Length = <P::Segment as SequenceSegment>::Length>,
+{
     type Output = ();
     type Error = Miss<()>;
 
@@ -24,7 +28,11 @@ impl<P: AtomPattern, S: Sequence<Segment = P::Segment>> ParserOnce<S> for Atom<P
     }
 }
 
-impl<P: AtomPattern, S: Sequence<Segment = P::Segment>> Parser<S> for Atom<P> {
+impl<P, S> Parser<S> for Atom<P>
+where
+    P: AtomPattern,
+    S: Sequence<Segment = P::Segment, Length = <P::Segment as SequenceSegment>::Length>,
+{
     async fn parse(&self, mut input: S) -> ParserResult<S, Self> {
         let mut remain = self.pattern.pattern();
         let mut segments = input.segments();

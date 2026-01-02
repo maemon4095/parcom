@@ -5,6 +5,7 @@ use crate::{
 };
 
 impl<'a> Sequence for &'a str {
+    type Length = <str as SequenceSegment>::Length;
     type Segment = str;
     type Segments<'b>
         = Nodes<'b, str>
@@ -82,6 +83,7 @@ where
 }
 
 impl<'me, M: Metrics<str>> Sequence for Measured<'me, M> {
+    type Length = <str as SequenceSegment>::Length;
     type Segment = str;
     type Segments<'b>
         = Nodes<'b, str>

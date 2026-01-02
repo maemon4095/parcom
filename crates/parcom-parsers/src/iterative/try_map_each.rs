@@ -43,9 +43,9 @@ where
     type Error = E;
     type StateOnce = IterationState<S, P::StateOnce, F>;
 
-    fn start_once(self) -> Self::StateOnce {
+    fn parse_iterative_once(self) -> Self::StateOnce {
         IterationState {
-            state: self.parser.start_once(),
+            state: self.parser.parse_iterative_once(),
             f: self.f,
             marker: PhantomData,
         }
@@ -64,9 +64,9 @@ where
     where
         Self: 'a;
 
-    fn start(&self) -> Self::State<'_> {
+    fn parse_iterative(&self) -> Self::State<'_> {
         IterationState {
-            state: self.parser.start(),
+            state: self.parser.parse_iterative(),
             f: &self.f,
             marker: PhantomData,
         }

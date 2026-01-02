@@ -25,10 +25,10 @@ impl<S: Sequence, P: IterativeParserOnce<S>, T, F: Fn(P::Output) -> T> Iterative
     type Error = P::Error;
     type StateOnce = IterationState<S, P::StateOnce, T, F>;
 
-    fn start_once(self) -> Self::StateOnce {
+    fn parse_iterative_once(self) -> Self::StateOnce {
         IterationState {
             map: self.map,
-            state: self.parser.start_once(),
+            state: self.parser.parse_iterative_once(),
             marker: PhantomData,
         }
     }
@@ -42,10 +42,10 @@ impl<S: Sequence, P: IterativeParser<S>, T, F: Fn(P::Output) -> T> IterativePars
     where
         Self: 'a;
 
-    fn start(&self) -> Self::State<'_> {
+    fn parse_iterative(&self) -> Self::State<'_> {
         IterationState {
             map: &self.map,
-            state: self.parser.start(),
+            state: self.parser.parse_iterative(),
             marker: PhantomData,
         }
     }

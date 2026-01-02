@@ -25,9 +25,9 @@ impl<S: Sequence, P: IterativeParser<S>> IterativeParserOnce<S> for Take<S, P> {
     type Error = P::Error;
     type StateOnce = IterationState<S, P::StateOnce>;
 
-    fn start_once(self) -> Self::StateOnce {
+    fn parse_iterative_once(self) -> Self::StateOnce {
         IterationState {
-            state: self.parser.start_once(),
+            state: self.parser.parse_iterative_once(),
             left: self.count,
             marker: PhantomData,
         }
@@ -40,9 +40,9 @@ impl<S: Sequence, P: IterativeParser<S>> IterativeParser<S> for Take<S, P> {
     where
         Self: 'a;
 
-    fn start(&self) -> Self::State<'_> {
+    fn parse_iterative(&self) -> Self::State<'_> {
         IterationState {
-            state: self.parser.start(),
+            state: self.parser.parse_iterative(),
             left: self.count,
             marker: PhantomData,
         }

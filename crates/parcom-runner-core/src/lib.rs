@@ -1,32 +1,28 @@
 use parcom_core::{IterativeParserOnce, ParserOnce, Sequence};
-use parcom_sequence_core::SequenceSource;
+use parcom_sequence_core::{SequenceLoader, SequenceSource};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 pub trait ParseRunner<S: SequenceSource> {
+    type Error<E>;
     type Sequence: Sequence;
-    type Parse<P>: Future<Output = Result<P::Output, RunnerError<P::Error, S::Error>>>
-    where
-        P: ParserOnce<Self::Sequence>,
-        S: SequenceSource;
-
-    type IterationSession<P>: IterativeParseSession<
+    type Parse<P: ParserOnce<Self::Sequence>>: Future<
+        Output = Result<P::Output, Self::Error<P::Error>>,
+    >;
+    type ParseIterative<P: IterativeParserOnce<Self::Sequence>>: IterativeParseSession<
         Output = P::Output,
-        Error = RunnerError<P::Error, S::Error>,
-    >
-    where
-        P: IterativeParserOnce<Self::Sequence>,
-        S: SequenceSource;
+        Error = Self::Error<P::Error>,
+    >;
 
     fn parse<P>(&self, parser: P, source: S) -> Self::Parse<P>
     where
+        S: SequenceSource,
         P: ParserOnce<Self::Sequence>;
 
-    fn start_parse<P>(&self, parser: P, source: S) -> Self::IterationSession<P>
+    fn parse_iterative<P>(&self, parser: P, source: S) -> Self::ParseIterative<P>
     where
-        P: IterativeParserOnce<Self::Sequence>,
-        S: SequenceSource;
+        P: IterativeParserOnce<Self::Sequence>;
 }
 
 pub enum RunnerError<P, S> {
@@ -42,4 +38,19 @@ pub trait IterativeParseSession {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Option<Self::Output>, Self::Error>>;
+}
+
+pub trait SequenceLoaderRuntime<L: SequenceLoader> {
+    type Session;
+
+    fn spawn(&self, loader: L) -> Self::Session;
+}
+
+pub trait SequenceLoaderRuntimeSession {
+    type WaitForAppend<'a>: Future<Output = ()>
+    where
+        Self: 'a;
+
+    fn notify_consumed(&self, len: usize);
+    fn wait_for_append(&self) -> Self::WaitForAppend<'_>;
 }

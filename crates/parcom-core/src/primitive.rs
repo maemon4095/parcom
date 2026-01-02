@@ -21,6 +21,7 @@ pub struct Nodes<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized + SequenceSegment> SegmentStream for Nodes<'a, T> {
+    type Length = T::Length;
     type Segment = T;
     type Next<'b>
         = std::future::Ready<Option<&'b Self::Segment>>

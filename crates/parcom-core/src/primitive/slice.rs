@@ -5,6 +5,7 @@ use crate::{
 };
 
 impl<'a, T> Sequence for &'a [T] {
+    type Length = <[T] as SequenceSegment>::Length;
     type Segment = [T];
     type Segments<'b>
         = Nodes<'b, [T]>
@@ -92,6 +93,7 @@ where
 }
 
 impl<'me, T, M: Metrics<[T]>> Sequence for Measured<'me, T, M> {
+    type Length = <[T] as SequenceSegment>::Length;
     type Segment = [T];
     type Segments<'a>
         = Nodes<'a, [T]>

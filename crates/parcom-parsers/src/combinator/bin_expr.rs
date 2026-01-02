@@ -163,6 +163,7 @@ mod test {
     use super::{Associativity, BinExprParser, Operator};
     use crate::primitive::{any_char, the_char};
     use crate::{primitive::atom, ParserExtension};
+    use parcom_core::primitive::BytesDelta;
     use parcom_core::{ParseResult, Parser, RewindSequence, Sequence};
     use parcom_util::{error::Miss, Either};
 
@@ -206,7 +207,9 @@ mod test {
     }
 
     /// expr = expr op expr / term
-    async fn expr<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, Expr, Miss<()>> {
+    async fn expr<S: RewindSequence<Segment = str, Length = BytesDelta>>(
+        input: S,
+    ) -> ParseResult<S, Expr, Miss<()>> {
         BinExprParser::new(term, space.join(op).join(space).map(|((_, op), _)| op))
             .map(|(e, _)| e)
             .map_err(|_| ().into())
@@ -216,7 +219,9 @@ mod test {
     }
 
     /// term = 0 / (expr)
-    async fn term<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, Term, Miss<()>> {
+    async fn term<S: RewindSequence<Segment = str, Length = BytesDelta>>(
+        input: S,
+    ) -> ParseResult<S, Term, Miss<()>> {
         zero.or(atom("(").join(expr).join(atom(")")).map(|((_, e), _)| e))
             .map(|e| match e {
                 Either::First(_) => Term::Zero,
@@ -281,7 +286,9 @@ mod test {
         }
     }
 
-    async fn space<S: RewindSequence<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
+    async fn space<S: RewindSequence<Segment = str, Length = BytesDelta>>(
+        input: S,
+    ) -> ParseResult<S, (), Miss<()>> {
         the_char(' ')
             .repeat()
             .and_then(|e| {
@@ -295,7 +302,9 @@ mod test {
             .await
     }
 
-    async fn op<S: Sequence<Segment = str>>(input: S) -> ParseResult<S, Op, Miss<()>> {
+    async fn op<S: Sequence<Segment = str, Length = BytesDelta>>(
+        input: S,
+    ) -> ParseResult<S, Op, Miss<()>> {
         any_char()
             .and_then(|head| {
                 let op = match head {
@@ -313,7 +322,9 @@ mod test {
             .await
     }
 
-    async fn zero<S: Sequence<Segment = str>>(input: S) -> ParseResult<S, (), Miss<()>> {
+    async fn zero<S: Sequence<Segment = str, Length = BytesDelta>>(
+        input: S,
+    ) -> ParseResult<S, (), Miss<()>> {
         atom("0").parse(input).await
     }
 }

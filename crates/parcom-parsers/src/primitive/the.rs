@@ -8,7 +8,7 @@ pub struct TheChar {
     c: char,
 }
 
-impl<S: Sequence<Segment = str>> ParserOnce<S> for TheChar {
+impl<S: Sequence<Segment = str, Length = BytesDelta>> ParserOnce<S> for TheChar {
     type Output = ();
     type Error = Miss<()>;
 
@@ -17,7 +17,7 @@ impl<S: Sequence<Segment = str>> ParserOnce<S> for TheChar {
     }
 }
 
-impl<S: Sequence<Segment = str>> Parser<S> for TheChar {
+impl<S: Sequence<Segment = str, Length = BytesDelta>> Parser<S> for TheChar {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
@@ -47,7 +47,9 @@ pub struct TheItem<T: PartialEq> {
     item: T,
 }
 
-impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> ParserOnce<S> for TheItem<T> {
+impl<T: 'static + PartialEq, S: Sequence<Segment = [T], Length = usize>> ParserOnce<S>
+    for TheItem<T>
+{
     type Output = ();
     type Error = Miss<()>;
 
@@ -56,7 +58,7 @@ impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> ParserOnce<S> for TheIt
     }
 }
 
-impl<T: 'static + PartialEq, S: Sequence<Segment = [T]>> Parser<S> for TheItem<T> {
+impl<T: 'static + PartialEq, S: Sequence<Segment = [T], Length = usize>> Parser<S> for TheItem<T> {
     async fn parse(&self, mut input: S) -> parcom_core::ParserResult<S, Self> {
         let mut segments = input.segments();
 
