@@ -1,6 +1,7 @@
 use super::control::{Control, Response};
 use super::Node;
 use crate::BufferStrategy;
+use parcom_core::SequenceSegment;
 use parcom_sequence_core::SequenceLoader;
 use parcom_sequence_core::{LoadInfo, SequenceSource};
 use pin_project::pin_project;
@@ -83,6 +84,8 @@ where
     S: SequenceSource<Item = T>,
     B: BufferStrategy,
 {
+    type Length = <[T] as SequenceSegment>::Length;
+    type Segment = [T];
     type Error = S::Error;
     type Load<'a>
         = Load<'a, T, S, B>

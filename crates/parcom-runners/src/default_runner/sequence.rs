@@ -3,47 +3,61 @@ mod segments;
 
 use parcom_core::Sequence;
 use parcom_internals::future::notify::Notify;
+use parcom_runner_core::SequenceLoaderRuntime;
 use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub use advance::DefaultSequenceAdvance;
 pub use segments::{DefaultSegments, DefaultSegmentsNext};
 
-pub struct DefaultSequence<S: SequenceSource, B: SequenceBuilder<S>> {
-    inner: Box<DefaultSequenceInner<S, B>>,
+pub struct DefaultSequence<S, B, R>
+where
+    S: SequenceSource,
+    B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
+{
+    inner: Box<DefaultSequenceInner<S, B, R>>,
 }
 
-impl<S: SequenceSource, B: SequenceBuilder<S>> DefaultSequence<S, B> {
-    pub fn new(buffer: B::Buffer, done_flag: Arc<AtomicBool>, append_signal: Arc<Notify>) -> Self {
+impl<S, B, R> DefaultSequence<S, B, R>
+where
+    S: SequenceSource,
+    B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
+{
+    pub fn new(buffer: B::Buffer, session: R::Session) -> Self {
         Self {
-            inner: Box::new(DefaultSequenceInner {
-                buffer,
-                done_flag,
-                append_signal,
-            }),
+            inner: Box::new(DefaultSequenceInner { buffer, session }),
         }
     }
 }
 
-struct DefaultSequenceInner<S: SequenceSource, B: SequenceBuilder<S>> {
+struct DefaultSequenceInner<S, B, R>
+where
+    S: SequenceSource,
+    B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
+{
     buffer: B::Buffer,
-    done_flag: Arc<AtomicBool>,
-    append_signal: Arc<Notify>,
+    session: R::Session,
 }
 
-impl<S: SequenceSource, B: SequenceBuilder<S>> Sequence for DefaultSequence<S, B>
+impl<S, B, R> Sequence for DefaultSequence<S, B, R>
 where
-    <<B as SequenceBuilder<S>>::Buffer as SequenceBuffer>::Length: Default + PartialEq,
+    S: SequenceSource,
+    B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
+    B::Length: Default + PartialEq,
 {
     type Length = <B::Buffer as SequenceBuffer>::Length;
     type Segment = <B::Buffer as SequenceBuffer>::Segment;
 
     type Segments<'a>
-        = DefaultSegments<'a, S, B>
+        = DefaultSegments<'a, S, B, R>
     where
         Self: 'a;
 
-    type Advance = DefaultSequenceAdvance<S, B>;
+    type Advance = DefaultSequenceAdvance<S, B, R>;
 
     fn segments<'a>(&'a mut self) -> Self::Segments<'a> {
         DefaultSegments::new(self)

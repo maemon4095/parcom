@@ -30,6 +30,8 @@ pub enum RunnerError<P, S> {
     Source(S),
 }
 
+// やはりこのあたりは複雑になりすぎている。具象型のchannelのようなものを介して、bufferのやり取りを行えないか。
+// loaderもsourceを取り込んだ形にしないほうがよいか?
 pub trait IterativeParseSession {
     type Output;
     type Error;
@@ -41,16 +43,16 @@ pub trait IterativeParseSession {
 }
 
 pub trait SequenceLoaderRuntime<L: SequenceLoader> {
-    type Session;
+    type Session: 'static + SequenceLoaderRuntimeSession<L>;
 
     fn spawn(&self, loader: L) -> Self::Session;
 }
 
-pub trait SequenceLoaderRuntimeSession {
+pub trait SequenceLoaderRuntimeSession<L: SequenceLoader> {
     type WaitForAppend<'a>: Future<Output = ()>
     where
         Self: 'a;
 
-    fn notify_consumed(&self, len: usize);
+    fn notify_consumed(&self, len: L::Length);
     fn wait_for_append(&self) -> Self::WaitForAppend<'_>;
 }

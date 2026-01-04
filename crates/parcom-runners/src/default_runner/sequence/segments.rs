@@ -4,6 +4,7 @@ use parcom_internals::future::{
     notify::{self, Notify},
     option_future::OptionFuture,
 };
+use parcom_runner_core::{SequenceLoaderRuntime, SequenceLoaderRuntimeSession};
 use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use pin_project::pin_project;
 use std::{
@@ -15,45 +16,45 @@ use std::{
     task::Poll,
 };
 
-pub struct DefaultSegments<'a, S, B>
+pub struct DefaultSegments<'a, S, B, R>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
     B::Buffer: 'a,
 {
-    append_signal: &'a Arc<Notify>,
-    done_flag: &'a Arc<AtomicBool>,
+    session: &'a R::Session,
     iter: <B::Buffer as SequenceBuffer>::Iter<'a>,
 }
 
-impl<'a, S, B> DefaultSegments<'a, S, B>
+impl<'a, S, B, R> DefaultSegments<'a, S, B, R>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
 {
-    pub(super) fn new(sequence: &'a DefaultSequence<S, B>) -> Self {
+    pub(super) fn new(sequence: &'a DefaultSequence<S, B, R>) -> Self {
         let iter = sequence.inner.buffer.segments();
-        let append_signal = &sequence.inner.append_signal;
-        let done_flag = &sequence.inner.done_flag;
+
         Self {
             iter,
-            done_flag,
-            append_signal,
+            session: &sequence.inner.session,
         }
     }
 }
 
-impl<'a, S, B> SegmentStream for DefaultSegments<'a, S, B>
+impl<'a, S, B, R> SegmentStream for DefaultSegments<'a, S, B, R>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
     B::Segment: 'a,
 {
     type Length = <B::Buffer as SequenceBuffer>::Length;
     type Segment = <B::Buffer as SequenceBuffer>::Segment;
 
     type Next<'b>
-        = DefaultSegmentsNext<'a, 'b, S, B>
+        = DefaultSegmentsNext<'a, 'b, S, B, R>
     where
         Self: 'b;
 
@@ -66,20 +67,23 @@ where
 }
 
 #[pin_project]
-pub struct DefaultSegmentsNext<'a, 'b, S, B>
+pub struct DefaultSegmentsNext<'a, 'b, S, B, R>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
+    R::Session: 'b
 {
     #[pin]
-    fut: OptionFuture<notify::Wait<'a>>,
-    host: &'b mut DefaultSegments<'a, S, B>,
+    fut: OptionFuture<<<R as SequenceLoaderRuntime<<B as SequenceBuilder<S>>::Loader>>::Session as SequenceLoaderRuntimeSession<<B as SequenceBuilder<S>>::Loader>>::WaitForAppend<'b>>,
+    host: &'b mut DefaultSegments<'a, S, B, R>,
 }
 
-impl<'a, 'b, S, B> Future for DefaultSegmentsNext<'a, 'b, S, B>
+impl<'a, 'b, S, B, R> Future for DefaultSegmentsNext<'a, 'b, S, B, R>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
     B::Segment: 'a,
 {
     type Output = Option<&'b <B::Buffer as SequenceBuffer>::Segment>;
@@ -92,11 +96,11 @@ where
             return Poll::Ready(Some(seg));
         }
 
-        if this.host.done_flag.load(Ordering::SeqCst) {
-            return Poll::Ready(None);
-        }
+        // if this.host.done_flag.load(Ordering::SeqCst) {
+        //     return Poll::Ready(None);
+        // }
 
-        let fut = this.host.append_signal.wait();
+        let fut = this.host.session.wait_for_append();
 
         // `this.host.iter.next()`が`None`を返したあと、`this.host.append_signal.wait()`を呼ぶ前に次のセグメントが追加された場合のため、セグメントをチェックする。
         if let Some(seg) = this.host.iter.next() {

@@ -1,24 +1,32 @@
 use super::{DefaultSequence, DefaultSequenceInner};
 use parcom_internals::future::{notify::Wait, option_future::OptionFuture};
+use parcom_runner_core::{SequenceLoaderRuntime, SequenceLoaderRuntimeSession};
 use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use pin_project::pin_project;
 use std::sync::atomic::Ordering;
 use std::{future::Future, sync::Arc, task::Poll};
-
 #[pin_project]
-pub struct DefaultSequenceAdvance<S: SequenceSource, B: SequenceBuilder<S>> {
+pub struct DefaultSequenceAdvance<
+    S: SequenceSource,
+    B: SequenceBuilder<S>,
+    R: SequenceLoaderRuntime<B::Loader>,
+> {
     // DO NOT CHANGE THE FIELD ORDER
     // `fut` must be dropped before `sequence` be dropped.
     #[pin]
-    fut: OptionFuture<Wait<'static>>,
+    fut: OptionFuture<
+        <R::Session as SequenceLoaderRuntimeSession<B::Loader>>::WaitForAppend<'static>,
+    >,
 
-    sequence: Option<Box<DefaultSequenceInner<S, B>>>,
+    sequence: Option<Box<DefaultSequenceInner<S, B, R>>>,
     remain: <B::Buffer as SequenceBuffer>::Length,
 }
 
-impl<S: SequenceSource, B: SequenceBuilder<S>> DefaultSequenceAdvance<S, B> {
+impl<S: SequenceSource, B: SequenceBuilder<S>, R: SequenceLoaderRuntime<B::Loader>>
+    DefaultSequenceAdvance<S, B, R>
+{
     pub(super) fn new(
-        sequence: DefaultSequence<S, B>,
+        sequence: DefaultSequence<S, B, R>,
         delta: <B::Buffer as SequenceBuffer>::Length,
     ) -> Self {
         Self {
@@ -29,11 +37,12 @@ impl<S: SequenceSource, B: SequenceBuilder<S>> DefaultSequenceAdvance<S, B> {
     }
 }
 
-impl<S: SequenceSource, B: SequenceBuilder<S>> Future for DefaultSequenceAdvance<S, B>
+impl<S: SequenceSource, B: SequenceBuilder<S>, R: SequenceLoaderRuntime<B::Loader>> Future
+    for DefaultSequenceAdvance<S, B, R>
 where
     B::Length: Default + PartialEq,
 {
-    type Output = DefaultSequence<S, B>;
+    type Output = DefaultSequence<S, B, R>;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -41,14 +50,8 @@ where
         std::task::ready!(this.fut.as_mut().poll(cx));
 
         // SAFETY: `DefaultSequenceInner`のインスタンスは`self`と同じ期間生存し、フィールド順により`fut`のほうが先にdropされるため、dangling参照が発生することはない。
-        let fut: Wait<'static> = unsafe {
-            // 単純にNotifyのWaitを使う形では、非同期でよみこみを行う方法のみに対応することになってしまう。
-            // 同期読み込みに対応するため、Runtimeを受け取る形にしたい。
-
-            let ptr = Arc::as_ptr(&sequence.append_signal);
-            let append_signal_ref: &'static _ = &*ptr;
-            append_signal_ref.wait()
-        };
+        let fut: <R::Session as SequenceLoaderRuntimeSession<B::Loader>>::WaitForAppend<'static> =
+            unsafe { sequence.session.wait_for_append() };
         this.fut.set(OptionFuture::some(fut));
 
         let remain = std::mem::replace(this.remain, Default::default());

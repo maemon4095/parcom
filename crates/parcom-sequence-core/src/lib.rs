@@ -10,12 +10,14 @@ pub trait SequenceBuilder<S> {
     type Length;
     type Segment: ?Sized;
     type Buffer: SequenceBuffer<Segment = Self::Segment, Length = Self::Length>;
-    type Loader: SequenceLoader;
+    type Loader: SequenceLoader<Segment = Self::Segment, Length = Self::Length>;
 
     fn build(&self, source: S) -> (Self::Buffer, Self::Loader);
 }
 
 pub trait SequenceLoader {
+    type Length;
+    type Segment: ?Sized;
     type Error;
     type Load<'a>: Future<Output = Result<LoadInfo, Self::Error>>
     where
