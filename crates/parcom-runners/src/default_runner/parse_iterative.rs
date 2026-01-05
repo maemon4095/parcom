@@ -4,23 +4,21 @@ use parcom_runner_core::{IterativeParseSession, RunnerError, SequenceLoaderRunti
 use parcom_sequence_core::{SequenceBuilder, SequenceSource};
 use std::{marker::PhantomData, task::Poll};
 
-pub struct ParseIterative<P, S, B, R>
+pub struct ParseIterative<P, S, B>
 where
-    P: IterativeParserOnce<DefaultSequence<S, B, R>>,
+    P: IterativeParserOnce<DefaultSequence<S, B>>,
     S: SequenceSource,
     B: SequenceBuilder<S>,
-    R: SequenceLoaderRuntime<B::Loader>,
     B::Length: Default + PartialEq,
 {
-    _phantom: PhantomData<(P, S, B, R)>,
+    _phantom: PhantomData<(P, S, B)>,
 }
 
-impl<P, S, B, R> IterativeParseSession for ParseIterative<P, S, B, R>
+impl<P, S, B> IterativeParseSession for ParseIterative<P, S, B>
 where
-    P: IterativeParserOnce<DefaultSequence<S, B, R>>,
+    P: IterativeParserOnce<DefaultSequence<S, B>>,
     S: SequenceSource,
     B: SequenceBuilder<S>,
-    R: SequenceLoaderRuntime<B::Loader>,
     B::Length: Default + PartialEq,
 {
     type Output = P::Output;

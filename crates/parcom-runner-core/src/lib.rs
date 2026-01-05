@@ -32,6 +32,8 @@ pub enum RunnerError<P, S> {
 
 // やはりこのあたりは複雑になりすぎている。具象型のchannelのようなものを介して、bufferのやり取りを行えないか。
 // loaderもsourceを取り込んだ形にしないほうがよいか?
+// ondemand読み込みとconcurrent読み込みを両方扱えるようにしてもondemandはRcでくるむ必要があり、無駄になる。
+// そのためondemandとconcurrentを分けて実装する。そうすれば単純な実装が可能になる。
 pub trait IterativeParseSession {
     type Output;
     type Error;

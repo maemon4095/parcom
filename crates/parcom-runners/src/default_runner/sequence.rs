@@ -10,54 +10,55 @@ use std::sync::{atomic::AtomicBool, Arc};
 pub use advance::DefaultSequenceAdvance;
 pub use segments::{DefaultSegments, DefaultSegmentsNext};
 
-pub struct DefaultSequence<S, B, R>
+pub struct DefaultSequence<S, B>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
-    R: SequenceLoaderRuntime<B::Loader>,
 {
-    inner: Box<DefaultSequenceInner<S, B, R>>,
+    inner: Box<DefaultSequenceInner<S, B>>,
 }
 
-impl<S, B, R> DefaultSequence<S, B, R>
+impl<S, B> DefaultSequence<S, B>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
-    R: SequenceLoaderRuntime<B::Loader>,
 {
-    pub fn new(buffer: B::Buffer, session: R::Session) -> Self {
+    pub fn new(buffer: B::Buffer, loader: B::Loader) -> Self {
         Self {
-            inner: Box::new(DefaultSequenceInner { buffer, session }),
+            inner: Box::new(DefaultSequenceInner {
+                buffer,
+                loader,
+                append_signal: Arc::new(Notify::new()),
+            }),
         }
     }
 }
 
-struct DefaultSequenceInner<S, B, R>
+struct DefaultSequenceInner<S, B>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
-    R: SequenceLoaderRuntime<B::Loader>,
 {
     buffer: B::Buffer,
-    session: R::Session,
+    loader: B::Loader,
+    append_signal: Arc<Notify>,
 }
 
-impl<S, B, R> Sequence for DefaultSequence<S, B, R>
+impl<S, B> Sequence for DefaultSequence<S, B>
 where
     S: SequenceSource,
     B: SequenceBuilder<S>,
-    R: SequenceLoaderRuntime<B::Loader>,
     B::Length: Default + PartialEq,
 {
     type Length = <B::Buffer as SequenceBuffer>::Length;
     type Segment = <B::Buffer as SequenceBuffer>::Segment;
 
     type Segments<'a>
-        = DefaultSegments<'a, S, B, R>
+        = DefaultSegments<'a, S, B>
     where
         Self: 'a;
 
-    type Advance = DefaultSequenceAdvance<S, B, R>;
+    type Advance = DefaultSequenceAdvance<S, B>;
 
     fn segments<'a>(&'a mut self) -> Self::Segments<'a> {
         DefaultSegments::new(self)
