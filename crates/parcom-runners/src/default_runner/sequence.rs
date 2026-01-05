@@ -29,6 +29,7 @@ where
                 buffer,
                 loader,
                 append_signal: Arc::new(Notify::new()),
+                done_flag: Arc::new(AtomicBool::new(false)),
             }),
         }
     }
@@ -42,6 +43,7 @@ where
     buffer: B::Buffer,
     loader: B::Loader,
     append_signal: Arc<Notify>,
+    done_flag: Arc<AtomicBool>,
 }
 
 impl<S, B> Sequence for DefaultSequence<S, B>

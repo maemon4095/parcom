@@ -50,9 +50,7 @@ where
         let remain = std::mem::replace(this.remain, Default::default());
         let remain = sequence.buffer.advance(remain);
 
-        if &remain == this.remain
-        /*|| sequence.done_flag.load(Ordering::SeqCst)*/
-        {
+        if &remain == this.remain || sequence.done_flag.load(Ordering::SeqCst) {
             // `sequence`をtakeする前に`fut`がdropされることを保証する。
             this.fut.set(OptionFuture::none());
             // `this.remain == Default::default()`であるため、`remain == Default::default()`つまり`remain`が0になっている。

@@ -23,6 +23,7 @@ where
     B::Buffer: 'a,
 {
     append_signal: &'a Notify,
+    done_flag: &'a AtomicBool,
     iter: <B::Buffer as SequenceBuffer>::Iter<'a>,
 }
 
@@ -37,6 +38,7 @@ where
         Self {
             iter,
             append_signal: &sequence.inner.append_signal,
+            done_flag: &sequence.inner.done_flag,
         }
     }
 }
@@ -90,9 +92,9 @@ where
             return Poll::Ready(Some(seg));
         }
 
-        // if this.host.done_flag.load(Ordering::SeqCst) {
-        //     return Poll::Ready(None);
-        // }
+        if this.host.done_flag.load(Ordering::SeqCst) {
+            return Poll::Ready(None);
+        }
 
         let fut = this.host.append_signal.wait();
 
