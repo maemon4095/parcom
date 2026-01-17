@@ -9,6 +9,7 @@ pub use measured::MeasuredSequence;
 pub use segment::SequenceSegment;
 pub use segment_stream::SegmentStream;
 
+// lengthはsequencesegment必須とする。また、要素はCopyを要求する。
 pub trait Sequence: Sized {
     type Length;
     type Segment: ?Sized;

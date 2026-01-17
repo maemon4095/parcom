@@ -1,10 +1,10 @@
 use super::{DefaultSequence, DefaultSequenceInner};
 use parcom_internals::future::{notify::Wait, option_future::OptionFuture};
-use parcom_runner_core::{SequenceLoaderRuntime, SequenceLoaderRuntimeSession};
 use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use pin_project::pin_project;
 use std::sync::atomic::Ordering;
-use std::{future::Future, sync::Arc, task::Poll};
+use std::{future::Future, task::Poll};
+
 #[pin_project]
 pub struct DefaultSequenceAdvance<S: SequenceSource, B: SequenceBuilder<S>> {
     // DO NOT CHANGE THE FIELD ORDER

@@ -6,6 +6,8 @@ use std::future::Future;
 pub use buffer_writer::BufferWriter;
 pub use load_info::LoadInfo;
 
+// futureはasync runtimeに依存するため、loaderはfutureを返さないようにする。
+// 別threadを立ち上げてもらう形にする。
 pub trait SequenceBuilder<S> {
     type Length;
     type Segment: ?Sized;
@@ -23,8 +25,27 @@ pub trait SequenceLoader {
     where
         Self: 'a;
 
+    // 依存クレートのないchannelを作らないと。
+    // selfを引数にとるsetup関数のみメンバーにもつ。
+    // force_commitなど、loaderをラップして後から多少動作を変更できるようにしたい。
+    // メッセージを送ってリクエストしたりできるようにしないと。
+
+    // loader -- loadinfo -> sequence
+    // sequence -- consume -> loader
+
     fn force_commit(&mut self);
-    fn load(&mut self) -> Self::Load<'_>;
+    fn load(&mut self) -> Self::Load<'_>; // チャンネルベースに変更する。後からloaderを拡張できるように、channelにフィルターをかけたりできるようにする。
+                                          // チャンネルというよりrxベースとして、ロードの結果だけはnotifyに渡すようにしようか。
+}
+
+struct Channel {}
+enum MessageFromSequence<L> {
+    ForceCommit,
+    Consumed(L),
+}
+
+enum MessageFromLoader<L> {
+    Append(L),
 }
 
 pub trait SequenceBuffer: Sized {
@@ -66,7 +87,8 @@ pub trait SequenceControl {
     type Error;
     type Writer: BufferWriter<Item = Self::Item, Result = Self::Result, Error = Self::Error>;
 
-    fn request_writer(self, min_capacity: usize) -> Self::Writer;
+    // バイト数を要求する。バイト列ベースで行う。
+    fn request_writer(self, byte_length: usize) -> Self::Writer;
     fn cancel(self, err: Self::Error) -> Self::Result;
     fn finish(self) -> Self::Result;
 }

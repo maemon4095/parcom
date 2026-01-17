@@ -3,7 +3,7 @@ mod parse_iterative;
 mod sequence;
 
 use parcom_core::{IterativeParserOnce, ParserOnce};
-use parcom_runner_core::{ParseRunner, RunnerError, SequenceLoaderRuntime};
+use parcom_runner_core::{ParseRunner, RunnerError};
 use parcom_sequence_core::{SequenceBuilder, SequenceSource};
 use std::marker::PhantomData;
 

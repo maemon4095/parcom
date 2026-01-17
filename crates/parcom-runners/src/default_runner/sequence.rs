@@ -3,13 +3,14 @@ mod segments;
 
 use parcom_core::Sequence;
 use parcom_internals::future::notify::Notify;
-use parcom_runner_core::SequenceLoaderRuntime;
 use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub use advance::DefaultSequenceAdvance;
 pub use segments::{DefaultSegments, DefaultSegmentsNext};
 
+// 過度な抽象化かも。sequenceを抽象単位としてよさそうだが、sequenceへの型の変換はsequenceを辿るしかない。どうしようか、、、どうせstrかsliceしか使わないので、二つを用意するだけでもいいかもしれないが。
+// segmentはstreamsegment必須に戻してもいいかも。
 pub struct DefaultSequence<S, B>
 where
     S: SequenceSource,

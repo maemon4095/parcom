@@ -1,18 +1,14 @@
 use super::DefaultSequence;
 use parcom_core::SegmentStream;
 use parcom_internals::future::{
-    notify::{self, Notify, Wait},
+    notify::{Notify, Wait},
     option_future::OptionFuture,
 };
-use parcom_runner_core::{SequenceLoaderRuntime, SequenceLoaderRuntimeSession};
 use parcom_sequence_core::{SequenceBuffer, SequenceBuilder, SequenceSource};
 use pin_project::pin_project;
 use std::{
     future::Future,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicBool, Ordering},
     task::Poll,
 };
 
@@ -92,15 +88,17 @@ where
             return Poll::Ready(Some(seg));
         }
 
-        if this.host.done_flag.load(Ordering::SeqCst) {
-            return Poll::Ready(None);
-        }
-
         let fut = this.host.append_signal.wait();
+        // `this.host.iter.next()`が`None`を返したあと、`this.host.append_signal.wait()`を呼ぶ前に次のセグメントが追加されたか終了した場合のため、(1)・(2)のチェックをする。
 
-        // `this.host.iter.next()`が`None`を返したあと、`this.host.append_signal.wait()`を呼ぶ前に次のセグメントが追加された場合のため、セグメントをチェックする。
+        // (1): セグメントが末尾に追加されたか。
         if let Some(seg) = this.host.iter.next() {
             return Poll::Ready(Some(seg));
+        }
+
+        // (2): シーケンスが終了したか。
+        if this.host.done_flag.load(Ordering::SeqCst) {
+            return Poll::Ready(None);
         }
 
         this.fut.set(OptionFuture::some(fut));

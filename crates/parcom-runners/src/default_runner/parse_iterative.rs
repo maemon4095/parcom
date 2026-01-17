@@ -1,6 +1,6 @@
 use super::DefaultSequence;
 use parcom_core::IterativeParserOnce;
-use parcom_runner_core::{IterativeParseSession, RunnerError, SequenceLoaderRuntime};
+use parcom_runner_core::{IterativeParseSession, RunnerError};
 use parcom_sequence_core::{SequenceBuilder, SequenceSource};
 use std::{marker::PhantomData, task::Poll};
 
